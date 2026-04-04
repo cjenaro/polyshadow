@@ -1,5 +1,6 @@
-import { normalize2D, distance2D } from '../utils/math.js';
+import { normalize2D, distance2D, clamp } from '../utils/math.js';
 import { generateIslandShape } from '../utils/procedural.js';
+import { fbm2D } from '../utils/noise.js';
 
 const RESOLUTION_MULTIPLIER = 2;
 
@@ -103,5 +104,126 @@ export function createArenaIsland(colossusType) {
     generated: false,
     safeZone: false,
     colossusType: colossusType
+  };
+}
+
+function seededRandom(seed) {
+  let s = (seed | 0) || 1;
+  return function () {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+export function generateArenaTerrain(arena, resolution = 128) {
+  const res = resolution;
+  const heights = new Float32Array(res * res);
+  const offsetX = arena.seed * 0.137 + 10;
+  const offsetZ = arena.seed * 0.259 + 10;
+
+  for (let z = 0; z < res; z++) {
+    for (let x = 0; x < res; x++) {
+      const nx = x / res;
+      const nz = z / res;
+      const dx = nx - 0.5;
+      const dz = nz - 0.5;
+      const dist = Math.sqrt(dx * dx + dz * dz) * 2;
+
+      let falloff = 1 - dist;
+      falloff = falloff * falloff;
+      if (dist > 1) falloff = 0;
+
+      const noiseVal = fbm2D(
+        x * 0.05 + offsetX,
+        z * 0.05 + offsetZ,
+        5, 2, 0.5
+      );
+
+      const h = (noiseVal * 0.5 + 0.5) * falloff * arena.maxHeight;
+      heights[z * res + x] = h;
+    }
+  }
+
+  return { arena, heights, resolution: res };
+}
+
+export function generateRuinPositions(arena, count) {
+  const ruins = [];
+  const rng = seededRandom(arena.seed + 1000);
+  const minDist = 8;
+  const innerRadius = arena.radius * 0.15;
+  const outerRadius = arena.radius * 0.85;
+  const types = ['pillar', 'wall', 'arch', 'rubble'];
+
+  for (let i = 0; i < count; i++) {
+    let placed = false;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const angle = rng() * Math.PI * 2;
+      const r = innerRadius + rng() * (outerRadius - innerRadius);
+      const x = arena.center.x + Math.cos(angle) * r;
+      const z = arena.center.z + Math.sin(angle) * r;
+
+      let valid = true;
+      for (const existing of ruins) {
+        const dx = x - existing.x;
+        const dz = z - existing.z;
+        const d = Math.sqrt(dx * dx + dz * dz);
+        if (d < minDist) {
+          valid = false;
+          break;
+        }
+      }
+
+      if (valid) {
+        ruins.push({
+          x,
+          z,
+          scale: 0.5 + rng() * 2,
+          type: types[Math.floor(rng() * types.length)],
+        });
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      const angle = rng() * Math.PI * 2;
+      const r = innerRadius + rng() * (outerRadius - innerRadius);
+      ruins.push({
+        x: arena.center.x + Math.cos(angle) * r,
+        z: arena.center.z + Math.sin(angle) * r,
+        scale: 0.5 + rng() * 2,
+        type: types[Math.floor(rng() * types.length)],
+      });
+    }
+  }
+
+  return ruins;
+}
+
+export function getArenaSpawnPoint(arena) {
+  const angle = -Math.PI / 2;
+  const r = arena.radius * 0.9;
+  return {
+    x: arena.center.x + Math.cos(angle) * r,
+    y: 0,
+    z: arena.center.z + Math.sin(angle) * r,
+  };
+}
+
+export function getColossusSpawnPoint(arena) {
+  const angle = Math.PI / 2;
+  const r = arena.radius * 0.2;
+  return {
+    x: arena.center.x + Math.cos(angle) * r,
+    y: 0,
+    z: arena.center.z + Math.sin(angle) * r,
+  };
+}
+
+export function getArenaBounds(arena) {
+  return {
+    min: { x: arena.center.x - arena.radius, y: 0, z: arena.center.z - arena.radius },
+    max: { x: arena.center.x + arena.radius, y: arena.maxHeight * 2, z: arena.center.z + arena.radius },
   };
 }

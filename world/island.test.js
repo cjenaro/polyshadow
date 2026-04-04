@@ -7,7 +7,12 @@ import {
   isOnIsland,
   findSpawnPoint,
   createHubIsland,
-  createArenaIsland
+  createArenaIsland,
+  generateArenaTerrain,
+  generateRuinPositions,
+  getArenaSpawnPoint,
+  getColossusSpawnPoint,
+  getArenaBounds,
 } from './island.js';
 
 describe('createIsland', () => {
@@ -298,5 +303,153 @@ describe('createArenaIsland', () => {
     const dz = spawn.z - arena.center.z;
     const dist = Math.sqrt(dx * dx + dz * dz);
     assert.ok(dist > 5, `arena spawn should be away from center, got dist=${dist}`);
+  });
+});
+
+describe('generateArenaTerrain', () => {
+  it('returns heightmap with correct size', () => {
+    const arena = createArenaIsland('sentinel');
+    const terrain = generateArenaTerrain(arena);
+    assert.strictEqual(terrain.resolution, 128);
+    assert.strictEqual(terrain.heights.length, 128 * 128);
+  });
+
+  it('heights are zero at island edges', () => {
+    const arena = createArenaIsland('sentinel');
+    const terrain = generateArenaTerrain(arena);
+    const cornerH = terrain.heights[0];
+    assert.ok(cornerH < 0.01, `corner height should be near zero, got ${cornerH}`);
+  });
+
+  it('heights are positive near center', () => {
+    const arena = createArenaIsland('sentinel');
+    const terrain = generateArenaTerrain(arena);
+    const res = terrain.resolution;
+    const center = Math.floor(res / 2);
+    const centerH = terrain.heights[center * res + center];
+    assert.ok(centerH > 0, `center height should be positive, got ${centerH}`);
+  });
+
+  it('stores reference to arena', () => {
+    const arena = createArenaIsland('sentinel');
+    const terrain = generateArenaTerrain(arena);
+    assert.strictEqual(terrain.arena, arena);
+  });
+});
+
+describe('generateRuinPositions', () => {
+  it('returns requested number of ruins', () => {
+    const arena = createArenaIsland('sentinel');
+    const ruins = generateRuinPositions(arena, 5);
+    assert.strictEqual(ruins.length, 5);
+  });
+
+  it('each ruin has x, z, scale and type', () => {
+    const arena = createArenaIsland('sentinel');
+    const ruins = generateRuinPositions(arena, 3);
+    for (const ruin of ruins) {
+      assert.ok(typeof ruin.x === 'number', 'ruin.x should be a number');
+      assert.ok(typeof ruin.z === 'number', 'ruin.z should be a number');
+      assert.ok(typeof ruin.scale === 'number', 'ruin.scale should be a number');
+      assert.ok(typeof ruin.type === 'string', 'ruin.type should be a string');
+      assert.ok(ruin.scale > 0, 'ruin.scale should be positive');
+    }
+  });
+
+  it('ruins are within arena radius', () => {
+    const arena = createArenaIsland('sentinel');
+    const ruins = generateRuinPositions(arena, 10);
+    for (const ruin of ruins) {
+      const dist = Math.sqrt(ruin.x ** 2 + ruin.z ** 2);
+      assert.ok(dist < arena.radius, `ruin at dist ${dist} exceeds radius ${arena.radius}`);
+    }
+  });
+
+  it('ruins do not overlap (minimum distance)', () => {
+    const arena = createArenaIsland('sentinel');
+    const ruins = generateRuinPositions(arena, 8);
+    for (let i = 0; i < ruins.length; i++) {
+      for (let j = i + 1; j < ruins.length; j++) {
+        const dx = ruins[i].x - ruins[j].x;
+        const dz = ruins[i].z - ruins[j].z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        assert.ok(dist >= 5, `ruins ${i} and ${j} are too close: ${dist}`);
+      }
+    }
+  });
+
+  it('is deterministic with same seed', () => {
+    const arena1 = createArenaIsland('sentinel');
+    const arena2 = createArenaIsland('sentinel');
+    const r1 = generateRuinPositions(arena1, 5);
+    const r2 = generateRuinPositions(arena2, 5);
+    assert.strictEqual(r1.length, r2.length);
+    for (let i = 0; i < r1.length; i++) {
+      assert.strictEqual(r1[i].x, r2[i].x);
+      assert.strictEqual(r1[i].z, r2[i].z);
+    }
+  });
+});
+
+describe('getArenaSpawnPoint', () => {
+  it('returns a point on arena edge', () => {
+    const arena = createArenaIsland('sentinel');
+    const spawn = getArenaSpawnPoint(arena);
+    const dist = Math.sqrt(spawn.x ** 2 + spawn.z ** 2);
+    assert.ok(dist > arena.radius * 0.8, `spawn dist ${dist} too close to center`);
+    assert.ok(dist < arena.radius, `spawn dist ${dist} outside arena`);
+    assert.ok(typeof spawn.y === 'number');
+  });
+
+  it('spawns far from colossus spawn', () => {
+    const arena = createArenaIsland('sentinel');
+    const playerSpawn = getArenaSpawnPoint(arena);
+    const colSpawn = getColossusSpawnPoint(arena);
+    const dx = playerSpawn.x - colSpawn.x;
+    const dz = playerSpawn.z - colSpawn.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    assert.ok(dist > 20, `player and colossus spawns too close: ${dist}`);
+  });
+
+  it('includes y position', () => {
+    const arena = createArenaIsland('sentinel');
+    const spawn = getArenaSpawnPoint(arena);
+    assert.ok(typeof spawn.y === 'number');
+  });
+});
+
+describe('getColossusSpawnPoint', () => {
+  it('returns a point near arena center', () => {
+    const arena = createArenaIsland('sentinel');
+    const spawn = getColossusSpawnPoint(arena);
+    const dist = Math.sqrt(spawn.x ** 2 + spawn.z ** 2);
+    assert.ok(dist < arena.radius * 0.5, `colossus spawn too far from center: ${dist}`);
+    assert.ok(typeof spawn.y === 'number');
+  });
+});
+
+describe('getArenaBounds', () => {
+  it('returns min and max bounds based on arena', () => {
+    const arena = createArenaIsland('sentinel');
+    const bounds = getArenaBounds(arena);
+    assert.ok(bounds.min.x <= 0 - arena.radius, `min.x too high: ${bounds.min.x}`);
+    assert.ok(bounds.max.x >= 0 + arena.radius, `max.x too low: ${bounds.max.x}`);
+    assert.ok(bounds.min.z <= 0 - arena.radius, `min.z too high: ${bounds.min.z}`);
+    assert.ok(bounds.max.z >= 0 + arena.radius, `max.z too low: ${bounds.max.z}`);
+  });
+
+  it('bounds are square for circular arena', () => {
+    const arena = createArenaIsland('sentinel');
+    const bounds = getArenaBounds(arena);
+    const width = bounds.max.x - bounds.min.x;
+    const depth = bounds.max.z - bounds.min.z;
+    assert.strictEqual(width, depth);
+  });
+
+  it('y bounds are 0 at bottom', () => {
+    const arena = createArenaIsland('sentinel');
+    const bounds = getArenaBounds(arena);
+    assert.strictEqual(bounds.min.y, 0);
+    assert.ok(bounds.max.y > 0);
   });
 });
