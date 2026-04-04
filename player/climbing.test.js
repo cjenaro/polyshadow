@@ -1,0 +1,527 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
+import {
+  findNearestClimbableSurface,
+  tryGrab,
+  applyClimbingMovement,
+  tryJumpClimb,
+  releaseGrab,
+  isGrabPressed,
+} from './climbing.js';
+
+function makeState(overrides = {}) {
+  return {
+    position: { x: 0, y: 0, z: 0 },
+    velocity: { x: 0, y: 0, z: 0 },
+    isGrounded: true,
+    isSprinting: false,
+    isJumping: false,
+    isClimbing: false,
+    climbSurface: null,
+    climbNormal: null,
+    ...overrides,
+  };
+}
+
+function makeSurface(overrides = {}) {
+  return {
+    position: { x: 0, y: 0, z: 0 },
+    normal: { x: 0, y: 0, z: -1 },
+    climbable: true,
+    ...overrides,
+  };
+}
+
+function makeInput(overrides = {}) {
+  return {
+    move: { x: 0, y: 0 },
+    action: false,
+    jump: false,
+    sprint: false,
+    ...overrides,
+  };
+}
+
+describe('isGrabPressed', () => {
+  it('returns true when input.action is true', () => {
+    const input = makeInput({ action: true });
+    assert.strictEqual(isGrabPressed(input), true);
+  });
+
+  it('returns false when input.action is false', () => {
+    const input = makeInput({ action: false });
+    assert.strictEqual(isGrabPressed(input), false);
+  });
+});
+
+describe('findNearestClimbableSurface', () => {
+  it('returns null when surfaces array is empty', () => {
+    const result = findNearestClimbableSurface({ x: 0, y: 0, z: 0 }, [], 5);
+    assert.strictEqual(result, null);
+  });
+
+  it('returns null when no surfaces are within range', () => {
+    const surfaces = [
+      makeSurface({ position: { x: 0, y: 0, z: -100 } }),
+    ];
+    const result = findNearestClimbableSurface({ x: 0, y: 0, z: 0 }, surfaces, 5);
+    assert.strictEqual(result, null);
+  });
+
+  it('returns null when surface is not climbable', () => {
+    const surfaces = [
+      makeSurface({ position: { x: 0, y: 0, z: -2 }, climbable: false }),
+    ];
+    const result = findNearestClimbableSurface({ x: 0, y: 0, z: 0 }, surfaces, 5);
+    assert.strictEqual(result, null);
+  });
+
+  it('returns the nearest climbable surface within range', () => {
+    const surfaces = [
+      makeSurface({ position: { x: 0, y: 0, z: -3 } }),
+    ];
+    const result = findNearestClimbableSurface({ x: 0, y: 0, z: 0 }, surfaces, 5);
+    assert.ok(result !== null);
+    assert.strictEqual(result.position.z, -3);
+  });
+
+  it('picks the closest surface when multiple are in range', () => {
+    const surfaces = [
+      makeSurface({ position: { x: 0, y: 0, z: -4 } }),
+      makeSurface({ position: { x: 0, y: 0, z: -1 } }),
+      makeSurface({ position: { x: 0, y: 0, z: -3 } }),
+    ];
+    const result = findNearestClimbableSurface({ x: 0, y: 0, z: 0 }, surfaces, 5);
+    assert.ok(result !== null);
+    assert.strictEqual(result.position.z, -1);
+  });
+
+  it('skips non-climbable surfaces and returns nearest climbable one', () => {
+    const surfaces = [
+      makeSurface({ position: { x: 0, y: 0, z: -1 }, climbable: false }),
+      makeSurface({ position: { x: 0, y: 0, z: -2 } }),
+    ];
+    const result = findNearestClimbableSurface({ x: 0, y: 0, z: 0 }, surfaces, 5);
+    assert.ok(result !== null);
+    assert.strictEqual(result.position.z, -2);
+  });
+
+  it('does not return surface exactly at maxGrabDistance', () => {
+    const surfaces = [
+      makeSurface({ position: { x: 5, y: 0, z: 0 } }),
+    ];
+    const result = findNearestClimbableSurface({ x: 0, y: 0, z: 0 }, surfaces, 5);
+    assert.strictEqual(result, null);
+  });
+
+  it('returns surface when just inside maxGrabDistance', () => {
+    const surfaces = [
+      makeSurface({ position: { x: 4.9, y: 0, z: 0 } }),
+    ];
+    const result = findNearestClimbableSurface({ x: 0, y: 0, z: 0 }, surfaces, 5);
+    assert.ok(result !== null);
+  });
+});
+
+describe('tryGrab', () => {
+  it('does nothing when input.action is false', () => {
+    const state = makeState();
+    const input = makeInput({ action: false });
+    const surfaces = [makeSurface({ position: { x: 0, y: 0, z: -2 } })];
+    const newState = tryGrab(state, input, surfaces, 5);
+    assert.strictEqual(newState.isClimbing, false);
+    assert.strictEqual(newState.climbSurface, null);
+  });
+
+  it('does nothing when already climbing', () => {
+    const state = makeState({ isClimbing: true, climbSurface: makeSurface() });
+    const input = makeInput({ action: true });
+    const surfaces = [makeSurface({ position: { x: 0, y: 0, z: -2 } })];
+    const newState = tryGrab(state, input, surfaces, 5);
+    assert.strictEqual(newState.isClimbing, true);
+    assert.strictEqual(newState.climbSurface, state.climbSurface);
+  });
+
+  it('does nothing when no surfaces in range', () => {
+    const state = makeState();
+    const input = makeInput({ action: true });
+    const surfaces = [makeSurface({ position: { x: 0, y: 0, z: -100 } })];
+    const newState = tryGrab(state, input, surfaces, 5);
+    assert.strictEqual(newState.isClimbing, false);
+  });
+
+  it('attaches to nearest surface when action pressed and surface in range', () => {
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 } });
+    const state = makeState();
+    const input = makeInput({ action: true });
+    const newState = tryGrab(state, input, [surface], 5);
+    assert.strictEqual(newState.isClimbing, true);
+    assert.strictEqual(newState.climbSurface, surface);
+  });
+
+  it('sets climbNormal to surface normal', () => {
+    const surface = makeSurface({ normal: { x: 0.5, y: 0, z: -0.866 } });
+    const state = makeState();
+    const input = makeInput({ action: true });
+    const newState = tryGrab(state, input, [surface], 5);
+    assert.ok(newState.climbNormal !== null);
+    assert.strictEqual(newState.climbNormal.x, surface.normal.x);
+    assert.strictEqual(newState.climbNormal.y, surface.normal.y);
+    assert.strictEqual(newState.climbNormal.z, surface.normal.z);
+  });
+
+  it('snaps player position to surface position', () => {
+    const surface = makeSurface({ position: { x: 5, y: 10, z: 3 } });
+    const state = makeState({ position: { x: 4.5, y: 9.5, z: 3.5 } });
+    const input = makeInput({ action: true });
+    const newState = tryGrab(state, input, [surface], 5);
+    assert.strictEqual(newState.position.x, surface.position.x);
+    assert.strictEqual(newState.position.y, surface.position.y);
+    assert.strictEqual(newState.position.z, surface.position.z);
+  });
+
+  it('resets velocity when grabbing', () => {
+    const state = makeState({ velocity: { x: 5, y: 10, z: -3 } });
+    const input = makeInput({ action: true });
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 } });
+    const newState = tryGrab(state, input, [surface], 5);
+    assert.strictEqual(newState.velocity.x, 0);
+    assert.strictEqual(newState.velocity.y, 0);
+    assert.strictEqual(newState.velocity.z, 0);
+  });
+
+  it('sets isGrounded to false when grabbing', () => {
+    const state = makeState({ isGrounded: true });
+    const input = makeInput({ action: true });
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 } });
+    const newState = tryGrab(state, input, [surface], 5);
+    assert.strictEqual(newState.isGrounded, false);
+  });
+
+  it('returns same state reference when nothing changes', () => {
+    const state = makeState();
+    const input = makeInput({ action: false });
+    const surfaces = [];
+    const newState = tryGrab(state, input, surfaces, 5);
+    assert.strictEqual(newState, state);
+  });
+});
+
+describe('applyClimbingMovement', () => {
+  const constants = { CLIMB_SPEED: 2 };
+
+  it('does nothing if not climbing', () => {
+    const state = makeState({ isClimbing: false });
+    const input = makeInput({ move: { x: 0, y: 1 } });
+    const newState = applyClimbingMovement(state, input, 0.1, constants);
+    assert.strictEqual(newState.position.x, state.position.x);
+    assert.strictEqual(newState.position.y, state.position.y);
+    assert.strictEqual(newState.position.z, state.position.z);
+  });
+
+  it('returns same state reference if not climbing', () => {
+    const state = makeState({ isClimbing: false });
+    const input = makeInput({ move: { x: 0, y: 1 } });
+    const newState = applyClimbingMovement(state, input, 0.1, constants);
+    assert.strictEqual(newState, state);
+  });
+
+  it('moves upward along vertical surface when input is up', () => {
+    const surface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: surface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ move: { x: 0, y: 1 } });
+    const newState = applyClimbingMovement(state, input, 1, constants);
+    assert.ok(newState.position.y > 0, 'should move upward');
+  });
+
+  it('moves downward along vertical surface when input is down', () => {
+    const surface = makeSurface({
+      position: { x: 0, y: 5, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: surface.normal,
+      position: { x: 0, y: 5, z: -2 },
+    });
+    const input = makeInput({ move: { x: 0, y: -1 } });
+    const newState = applyClimbingMovement(state, input, 1, constants);
+    assert.ok(newState.position.y < 5, 'should move downward');
+  });
+
+  it('moves sideways along surface when input is left/right', () => {
+    const surface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: surface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ move: { x: 1, y: 0 } });
+    const newState = applyClimbingMovement(state, input, 1, constants);
+    assert.ok(newState.position.x > 0, 'should move right');
+    assert.strictEqual(newState.position.y, 0, 'should not change height');
+  });
+
+  it('does not move when input is zero', () => {
+    const surface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: surface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ move: { x: 0, y: 0 } });
+    const newState = applyClimbingMovement(state, input, 1, constants);
+    assert.strictEqual(newState.position.x, 0);
+    assert.strictEqual(newState.position.y, 0);
+    assert.strictEqual(newState.position.z, -2);
+  });
+
+  it('respects climb speed constant', () => {
+    const surface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: surface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ move: { x: 0, y: 1 } });
+    const newState = applyClimbingMovement(state, input, 1, constants);
+    assert.ok(
+      Math.abs(newState.position.y - constants.CLIMB_SPEED) < 1e-6,
+      'should move exactly CLIMB_SPEED units'
+    );
+  });
+
+  it('does not move in the normal direction', () => {
+    const surface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: surface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ move: { x: 1, y: 1 } });
+    const newState = applyClimbingMovement(state, input, 1, constants);
+    assert.strictEqual(newState.position.z, -2, 'should not move in normal direction');
+  });
+
+  it('diagonal input is normalized', () => {
+    const surface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: surface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ move: { x: 1, y: 1 } });
+    const newState = applyClimbingMovement(state, input, 1, constants);
+    const dx = newState.position.x - state.position.x;
+    const dy = newState.position.y - state.position.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    assert.ok(
+      Math.abs(dist - constants.CLIMB_SPEED) < 1e-6,
+      'diagonal movement should be normalized to CLIMB_SPEED'
+    );
+  });
+
+  it('multiplies movement by delta time', () => {
+    const surface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: surface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ move: { x: 0, y: 1 } });
+    const newState = applyClimbingMovement(state, input, 0.5, constants);
+    assert.ok(
+      Math.abs(newState.position.y - constants.CLIMB_SPEED * 0.5) < 1e-6,
+      'should move CLIMB_SPEED * dt'
+    );
+  });
+});
+
+describe('tryJumpClimb', () => {
+  it('does nothing if not climbing', () => {
+    const state = makeState({ isClimbing: false });
+    const input = makeInput({ jump: true });
+    const surfaces = [makeSurface({ position: { x: 0, y: 3, z: -2 } })];
+    const newState = tryJumpClimb(state, input, surfaces, 5);
+    assert.strictEqual(newState.isClimbing, false);
+    assert.strictEqual(newState, state);
+  });
+
+  it('does nothing if input.jump is false', () => {
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: makeSurface(),
+      climbNormal: { x: 0, y: 0, z: 1 },
+    });
+    const input = makeInput({ jump: false });
+    const surfaces = [makeSurface({ position: { x: 0, y: 3, z: -2 } })];
+    const newState = tryJumpClimb(state, input, surfaces, 5);
+    assert.strictEqual(newState, state);
+  });
+
+  it('does nothing if no surfaces in jump range', () => {
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: makeSurface(),
+      climbNormal: { x: 0, y: 0, z: 1 },
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ jump: true });
+    const surfaces = [makeSurface({ position: { x: 0, y: 100, z: -2 } })];
+    const newState = tryJumpClimb(state, input, surfaces, 5);
+    assert.strictEqual(newState.climbSurface, state.climbSurface);
+  });
+
+  it('jumps to nearest surface within jump range', () => {
+    const oldSurface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const newSurface = makeSurface({
+      position: { x: 0, y: 3, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: oldSurface,
+      climbNormal: oldSurface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ jump: true });
+    const newState = tryJumpClimb(state, input, [newSurface], 5);
+    assert.strictEqual(newState.isClimbing, true);
+    assert.strictEqual(newState.climbSurface, newSurface);
+    assert.strictEqual(newState.climbNormal.x, newSurface.normal.x);
+    assert.strictEqual(newState.climbNormal.y, newSurface.normal.y);
+    assert.strictEqual(newState.climbNormal.z, newSurface.normal.z);
+  });
+
+  it('snaps position to new surface after jump-climb', () => {
+    const oldSurface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const newSurface = makeSurface({
+      position: { x: 5, y: 7, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: oldSurface,
+      climbNormal: oldSurface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ jump: true });
+    const newState = tryJumpClimb(state, input, [newSurface], 10);
+    assert.strictEqual(newState.position.x, 5);
+    assert.strictEqual(newState.position.y, 7);
+    assert.strictEqual(newState.position.z, -2);
+  });
+
+  it('ignores current climb surface when finding jump target', () => {
+    const currentSurface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const targetSurface = makeSurface({
+      position: { x: 0, y: 3, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: currentSurface,
+      climbNormal: currentSurface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ jump: true });
+    const newState = tryJumpClimb(state, input, [currentSurface, targetSurface], 5);
+    assert.strictEqual(newState.climbSurface, targetSurface);
+  });
+});
+
+describe('releaseGrab', () => {
+  it('sets isClimbing to false', () => {
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: makeSurface(),
+      climbNormal: { x: 0, y: 0, z: 1 },
+    });
+    const newState = releaseGrab(state);
+    assert.strictEqual(newState.isClimbing, false);
+  });
+
+  it('clears climbSurface', () => {
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: makeSurface(),
+      climbNormal: { x: 0, y: 0, z: 1 },
+    });
+    const newState = releaseGrab(state);
+    assert.strictEqual(newState.climbSurface, null);
+  });
+
+  it('clears climbNormal', () => {
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: makeSurface(),
+      climbNormal: { x: 0, y: 0, z: 1 },
+    });
+    const newState = releaseGrab(state);
+    assert.strictEqual(newState.climbNormal, null);
+  });
+
+  it('does nothing if not already climbing', () => {
+    const state = makeState({ isClimbing: false });
+    const newState = releaseGrab(state);
+    assert.strictEqual(newState, state);
+  });
+
+  it('preserves other state fields', () => {
+    const state = makeState({
+      position: { x: 1, y: 2, z: 3 },
+      velocity: { x: 0, y: 0, z: 0 },
+      isGrounded: false,
+      isClimbing: true,
+      climbSurface: makeSurface(),
+      climbNormal: { x: 0, y: 0, z: 1 },
+    });
+    const newState = releaseGrab(state);
+    assert.strictEqual(newState.position.x, 1);
+    assert.strictEqual(newState.position.y, 2);
+    assert.strictEqual(newState.position.z, 3);
+    assert.strictEqual(newState.isGrounded, false);
+  });
+});
