@@ -9,6 +9,8 @@ import {
   getBodyBounds,
   getBodyHeight,
   getBodyPartWorldPosition,
+  findNearestWeakPoint,
+  isNearWeakPoint,
 } from './base.js';
 
 const SIMPLE_BODY = {
@@ -182,5 +184,128 @@ describe('getBodyPartWorldPosition', () => {
     assert.ok(Math.abs(pos.x - (-3)) < 0.001);
     assert.equal(pos.y, 6);
     assert.ok(Math.abs(pos.z) < 0.001);
+  });
+});
+
+describe('findNearestWeakPoint', () => {
+  function makeWP(overrides = {}) {
+    return {
+      id: 'wp1',
+      position: { x: 0, y: 10, z: -3 },
+      isDestroyed: false,
+      isActive: true,
+      ...overrides,
+    };
+  }
+
+  it('returns null when weak points array is empty', () => {
+    const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, [], 5);
+    assert.strictEqual(result, null);
+  });
+
+  it('returns nearest active weak point within range', () => {
+    const weakPoints = [
+      makeWP({ id: 'far', position: { x: 0, y: 10, z: -10 } }),
+      makeWP({ id: 'near', position: { x: 0, y: 10, z: -2 } }),
+    ];
+    const result = findNearestWeakPoint({ x: 0, y: 10, z: 0 }, weakPoints, 5);
+    assert.ok(result !== null);
+    assert.strictEqual(result.id, 'near');
+  });
+
+  it('returns null when no weak points within range', () => {
+    const weakPoints = [makeWP({ position: { x: 100, y: 100, z: 100 } })];
+    const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
+    assert.strictEqual(result, null);
+  });
+
+  it('skips destroyed weak points', () => {
+    const weakPoints = [
+      makeWP({ id: 'destroyed', position: { x: 0, y: 0, z: -1 }, isDestroyed: true, isActive: false }),
+    ];
+    const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
+    assert.strictEqual(result, null);
+  });
+
+  it('skips inactive weak points', () => {
+    const weakPoints = [
+      makeWP({ id: 'inactive', position: { x: 0, y: 0, z: -1 }, isActive: false }),
+    ];
+    const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
+    assert.strictEqual(result, null);
+  });
+
+  it('does not return weak point exactly at maxDistance', () => {
+    const weakPoints = [makeWP({ position: { x: 5, y: 0, z: 0 } })];
+    const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
+    assert.strictEqual(result, null);
+  });
+
+  it('returns weak point just inside maxDistance', () => {
+    const weakPoints = [makeWP({ position: { x: 4.9, y: 0, z: 0 } })];
+    const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
+    assert.ok(result !== null);
+    assert.strictEqual(result.id, 'wp1');
+  });
+
+  it('considers all three axes for distance', () => {
+    const weakPoints = [
+      makeWP({ position: { x: 1, y: 1, z: 1 } }),
+    ];
+    const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 2);
+    const expectedDist = Math.sqrt(3);
+    assert.ok(result !== null);
+    assert.ok(expectedDist < 2);
+  });
+});
+
+describe('isNearWeakPoint', () => {
+  function makeWP(overrides = {}) {
+    return {
+      id: 'wp1',
+      position: { x: 0, y: 10, z: -3 },
+      isDestroyed: false,
+      isActive: true,
+      ...overrides,
+    };
+  }
+
+  it('returns false when no weak points', () => {
+    const result = isNearWeakPoint({ x: 0, y: 0, z: 0 }, [], 5);
+    assert.strictEqual(result.near, false);
+    assert.strictEqual(result.weakPointId, null);
+  });
+
+  it('returns true and weak point id when within radius', () => {
+    const weakPoints = [makeWP({ id: 'head', position: { x: 0, y: 0, z: -2 } })];
+    const result = isNearWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 3);
+    assert.strictEqual(result.near, true);
+    assert.strictEqual(result.weakPointId, 'head');
+  });
+
+  it('returns false when outside radius', () => {
+    const weakPoints = [makeWP({ id: 'head', position: { x: 0, y: 0, z: -10 } })];
+    const result = isNearWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 3);
+    assert.strictEqual(result.near, false);
+    assert.strictEqual(result.weakPointId, null);
+  });
+
+  it('returns false for destroyed weak points', () => {
+    const weakPoints = [
+      makeWP({ id: 'head', position: { x: 0, y: 0, z: -2 }, isDestroyed: true, isActive: false }),
+    ];
+    const result = isNearWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 3);
+    assert.strictEqual(result.near, false);
+    assert.strictEqual(result.weakPointId, null);
+  });
+
+  it('returns nearest when multiple within radius', () => {
+    const weakPoints = [
+      makeWP({ id: 'back_1', position: { x: 0, y: 0, z: -4 } }),
+      makeWP({ id: 'back_2', position: { x: 0, y: 0, z: -1 } }),
+    ];
+    const result = isNearWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
+    assert.strictEqual(result.near, true);
+    assert.strictEqual(result.weakPointId, 'back_2');
   });
 });

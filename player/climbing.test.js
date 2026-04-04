@@ -8,6 +8,7 @@ import {
   releaseGrab,
   isGrabPressed,
 } from './climbing.js';
+import { createSentinelDefinition, generateSentinelSurfacePatches } from '../colossus/sentinel.js';
 
 function makeState(overrides = {}) {
   return {
@@ -523,5 +524,89 @@ describe('releaseGrab', () => {
     assert.strictEqual(newState.position.y, 2);
     assert.strictEqual(newState.position.z, 3);
     assert.strictEqual(newState.isGrounded, false);
+  });
+});
+
+describe('climbing + sentinel surface patches integration', () => {
+  it('sentinel patches are valid input for findNearestClimbableSurface', () => {
+    const def = createSentinelDefinition();
+    const patches = generateSentinelSurfacePatches(def);
+    const firstPatch = patches[0];
+    const playerPos = {
+      x: firstPatch.position.x,
+      y: firstPatch.position.y,
+      z: firstPatch.position.z + 3,
+    };
+    const result = findNearestClimbableSurface(playerPos, patches, 5);
+    assert.ok(result !== null, 'should find a patch');
+    assert.strictEqual(result.bodyPartId, firstPatch.bodyPartId);
+  });
+
+  it('tryGrab works with sentinel patches', () => {
+    const def = createSentinelDefinition();
+    const patches = generateSentinelSurfacePatches(def);
+    const firstPatch = patches[0];
+    const state = makeState({
+      position: {
+        x: firstPatch.position.x,
+        y: firstPatch.position.y,
+        z: firstPatch.position.z + 2,
+      },
+    });
+    const input = makeInput({ action: true });
+    const newState = tryGrab(state, input, patches, 5);
+    assert.strictEqual(newState.isClimbing, true);
+    assert.ok(newState.climbSurface !== null);
+    assert.ok(newState.climbNormal !== null);
+    assert.strictEqual(newState.climbNormal.x, newState.climbSurface.normal.x);
+    assert.strictEqual(newState.climbNormal.y, newState.climbSurface.normal.y);
+    assert.strictEqual(newState.climbNormal.z, newState.climbSurface.normal.z);
+  });
+
+  it('tryJumpClimb works between sentinel patches', () => {
+    const def = createSentinelDefinition();
+    const patches = generateSentinelSurfacePatches(def);
+    const torsoPatches = patches.filter(p => p.bodyPartId === 'torso');
+    assert.ok(torsoPatches.length >= 2);
+    const bottom = torsoPatches[0];
+    const top = torsoPatches.find(p => p.position.y > bottom.position.y + 3);
+    if (!top) return;
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: bottom,
+      climbNormal: bottom.normal,
+      position: { x: bottom.position.x, y: bottom.position.y, z: bottom.position.z },
+    });
+    const input = makeInput({ jump: true });
+    const newState = tryJumpClimb(state, input, patches, 5);
+    assert.strictEqual(newState.isClimbing, true);
+    assert.ok(newState.climbSurface !== bottom);
+  });
+
+  it('all sentinel patches are climbable (findNearestClimbableSurface compatible)', () => {
+    const def = createSentinelDefinition();
+    const patches = generateSentinelSurfacePatches(def);
+    for (const patch of patches) {
+      assert.strictEqual(patch.climbable, true, `patch on ${patch.bodyPartId} not climbable`);
+      assert.ok(typeof patch.position.x === 'number');
+      assert.ok(typeof patch.normal.x === 'number');
+    }
+  });
+
+  it('climbing movement works with sentinel patch normals', () => {
+    const def = createSentinelDefinition();
+    const patches = generateSentinelSurfacePatches(def);
+    const frontPatch = patches.find(p => p.normal.z === 1);
+    if (!frontPatch) return;
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: frontPatch,
+      climbNormal: frontPatch.normal,
+      position: { x: frontPatch.position.x, y: frontPatch.position.y, z: frontPatch.position.z },
+    });
+    const input = makeInput({ move: { x: 0, y: 1 } });
+    const constants = { CLIMB_SPEED: 2 };
+    const newState = applyClimbingMovement(state, input, 1, constants);
+    assert.ok(newState.position.y > state.position.y, 'should move upward on front face');
   });
 });

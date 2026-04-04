@@ -103,3 +103,30 @@ export function getBodyPartWorldPosition(body, partId, colossusPosition, colossu
     z: colossusPosition.z + rz,
   };
 }
+
+export function findNearestWeakPoint(playerPosition, weakPoints, maxDistance) {
+  let nearest = null;
+  let nearestDist = maxDistance;
+
+  for (const wp of weakPoints) {
+    if (!wp.isActive || wp.isDestroyed) continue;
+    const dx = playerPosition.x - wp.position.x;
+    const dy = playerPosition.y - wp.position.y;
+    const dz = playerPosition.z - wp.position.z;
+    const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (d < nearestDist) {
+      nearestDist = d;
+      nearest = wp;
+    }
+  }
+
+  return nearest;
+}
+
+export function isNearWeakPoint(playerPosition, weakPoints, radius) {
+  const nearest = findNearestWeakPoint(playerPosition, weakPoints, radius);
+  if (!nearest) {
+    return { near: false, weakPointId: null };
+  }
+  return { near: true, weakPointId: nearest.id };
+}

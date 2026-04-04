@@ -5,6 +5,7 @@ import {
   createSentinelDefinition,
   generateSentinelSurfacePatches,
   getSentinelWeakPointPositions,
+  buildCombatWeakPoints,
 } from './sentinel.js';
 import { getBodyHeight, getAllClimbableParts, getWeakPoints } from './base.js';
 
@@ -142,5 +143,142 @@ describe('getSentinelWeakPointPositions', () => {
     const headWP = positions.find(p => p.bodyPartId === 'head');
     assert.ok(headWP !== undefined);
     assert.ok(Math.abs(headWP.y - headPart.position.y) < 2, `head y was ${headWP.y}`);
+  });
+
+  it('weak point positions rotate with the colossus', () => {
+    const def = createSentinelDefinition();
+    const at0 = getSentinelWeakPointPositions(def, { x: 0, y: 0, z: 0 }, 0);
+    const atPI = getSentinelWeakPointPositions(def, { x: 0, y: 0, z: 0 }, Math.PI);
+    const backRuneLeft0 = at0.find(p => p.bodyPartId === 'back_rune_left');
+    const backRuneLeftPI = atPI.find(p => p.bodyPartId === 'back_rune_left');
+    assert.ok(backRuneLeft0 !== undefined);
+    assert.ok(backRuneLeftPI !== undefined);
+    assert.ok(Math.abs(backRuneLeft0.x + backRuneLeftPI.x) < 0.01);
+    assert.ok(Math.abs(backRuneLeft0.z + backRuneLeftPI.z) < 0.01);
+  });
+});
+
+describe('generateSentinelSurfacePatches coverage', () => {
+  it('every climbable body part has patches', () => {
+    const def = createSentinelDefinition();
+    const patches = generateSentinelSurfacePatches(def);
+    const climbableParts = def.parts.filter(p => p.isClimbable);
+    const patchPartIds = new Set(patches.map(p => p.bodyPartId));
+    for (const part of climbableParts) {
+      assert.ok(patchPartIds.has(part.id), `climbable part ${part.id} has no patches`);
+    }
+  });
+
+  it('no patches on non-climbable parts', () => {
+    const def = createSentinelDefinition();
+    const patches = generateSentinelSurfacePatches(def);
+    const nonClimbableIds = def.parts.filter(p => !p.isClimbable).map(p => p.id);
+    for (const patch of patches) {
+      assert.ok(!nonClimbableIds.includes(patch.bodyPartId), `patch on non-climbable ${patch.bodyPartId}`);
+    }
+  });
+
+  it('torso has significantly more patches than a single leg', () => {
+    const def = createSentinelDefinition();
+    const patches = generateSentinelSurfacePatches(def);
+    const torsoCount = patches.filter(p => p.bodyPartId === 'torso').length;
+    const legCount = patches.filter(p => p.bodyPartId === 'front_left_lower').length;
+    assert.ok(torsoCount > legCount * 2, `torso ${torsoCount} should be much more than leg ${legCount}`);
+  });
+
+  it('patches cover all 6 faces of the torso', () => {
+    const def = createSentinelDefinition();
+    const patches = generateSentinelSurfacePatches(def);
+    const torsoPatches = patches.filter(p => p.bodyPartId === 'torso');
+    const normals = new Set(torsoPatches.map(p => `${p.normal.x},${p.normal.y},${p.normal.z}`));
+    assert.ok(normals.has('0,1,0'), 'missing top face');
+    assert.ok(normals.has('0,0,1') || normals.has('0,0,-1'), 'missing front/back face');
+    assert.ok(normals.has('-1,0,0') || normals.has('1,0,0'), 'missing left/right face');
+  });
+
+  it('upper and lower leg parts both have patches', () => {
+    const def = createSentinelDefinition();
+    const patches = generateSentinelSurfacePatches(def);
+    const partIds = new Set(patches.map(p => p.bodyPartId));
+    assert.ok(partIds.has('front_left_upper'));
+    assert.ok(partIds.has('front_left_lower'));
+    assert.ok(partIds.has('back_right_upper'));
+    assert.ok(partIds.has('back_right_lower'));
+  });
+
+  it('total patch count is reasonable for the sentinel size', () => {
+    const def = createSentinelDefinition();
+    const patches = generateSentinelSurfacePatches(def);
+    assert.ok(patches.length > 100, `only ${patches.length} patches, expected more for colossus-sized body`);
+    assert.ok(patches.length < 2000, `${patches.length} patches, too many`);
+  });
+});
+
+describe('buildCombatWeakPoints', () => {
+  it('returns 3 combat-ready weak points', () => {
+    const def = createSentinelDefinition();
+    const weakPoints = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0);
+    assert.equal(weakPoints.length, 3);
+  });
+
+  it('each weak point has id, position, health, maxHealth, isDestroyed, isActive', () => {
+    const def = createSentinelDefinition();
+    const weakPoints = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0);
+    for (const wp of weakPoints) {
+      assert.ok(typeof wp.id === 'string');
+      assert.ok(typeof wp.position.x === 'number');
+      assert.ok(typeof wp.position.y === 'number');
+      assert.ok(typeof wp.position.z === 'number');
+      assert.ok(typeof wp.health === 'number');
+      assert.ok(typeof wp.maxHealth === 'number');
+      assert.strictEqual(wp.isDestroyed, false);
+      assert.strictEqual(wp.isActive, true);
+    }
+  });
+
+  it('health equals maxHealth', () => {
+    const def = createSentinelDefinition();
+    const weakPoints = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0);
+    for (const wp of weakPoints) {
+      assert.strictEqual(wp.health, wp.maxHealth);
+    }
+  });
+
+  it('head weak point has higher health (healthMultiplier 3.0)', () => {
+    const def = createSentinelDefinition();
+    const weakPoints = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0);
+    const head = weakPoints.find(wp => wp.id === 'head');
+    const back = weakPoints.find(wp => wp.id === 'back_rune_left');
+    assert.ok(head !== undefined);
+    assert.ok(back !== undefined);
+    assert.ok(head.maxHealth > back.maxHealth, `head ${head.maxHealth} should be > back ${back.maxHealth}`);
+  });
+
+  it('positions account for colossus world position', () => {
+    const def = createSentinelDefinition();
+    const at0 = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0);
+    const at10 = buildCombatWeakPoints(def, { x: 10, y: 0, z: 0 }, 0);
+    for (let i = 0; i < at0.length; i++) {
+      assert.ok(Math.abs(at10[i].position.x - at0[i].position.x - 10) < 0.01);
+    }
+  });
+
+  it('positions account for colossus rotation', () => {
+    const def = createSentinelDefinition();
+    const at0 = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0);
+    const atPI = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, Math.PI);
+    const backRune0 = at0.find(wp => wp.id === 'back_rune_left');
+    const backRunePI = atPI.find(wp => wp.id === 'back_rune_left');
+    assert.ok(Math.abs(backRune0.position.x + backRunePI.position.x) < 0.01);
+    assert.ok(Math.abs(backRune0.position.z + backRunePI.position.z) < 0.01);
+  });
+
+  it('back weak points exist (back_rune_left and back_rune_right)', () => {
+    const def = createSentinelDefinition();
+    const weakPoints = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0);
+    const ids = weakPoints.map(wp => wp.id);
+    assert.ok(ids.includes('back_rune_left'));
+    assert.ok(ids.includes('back_rune_right'));
+    assert.ok(ids.includes('head'));
   });
 });

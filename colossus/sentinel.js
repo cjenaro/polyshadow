@@ -231,3 +231,28 @@ export function getSentinelWeakPointPositions(definition, colossusPosition, colo
 
   return positions;
 }
+
+export const WEAK_POINT_BASE_HEALTH = 50;
+
+export function buildCombatWeakPoints(definition, colossusPosition, colossusRotation) {
+  const body = definition.parts instanceof Map ? definition : createColossusBody(definition);
+  const weak = getWeakPoints(body);
+  const combatWeakPoints = [];
+
+  for (const part of weak) {
+    const pos = getBodyPartWorldPosition(body, part.id, colossusPosition, colossusRotation);
+    if (pos) {
+      const maxHealth = Math.round(WEAK_POINT_BASE_HEALTH * part.healthMultiplier);
+      combatWeakPoints.push({
+        id: part.id,
+        position: { ...pos },
+        health: maxHealth,
+        maxHealth,
+        isDestroyed: false,
+        isActive: true,
+      });
+    }
+  }
+
+  return combatWeakPoints;
+}
