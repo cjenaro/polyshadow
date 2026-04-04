@@ -47,6 +47,10 @@ export function createPerspectiveCamera(fov, aspect, near, far) {
     lookAt(x, y, z) { impl.lookAt(x, y, z); },
     getPosition() { return { x: impl.position.x, y: impl.position.y, z: impl.position.z }; },
     updateProjectionMatrix() { impl.updateProjectionMatrix(); },
+    syncFromOrbit(orbitResult) {
+      impl.position.set(orbitResult.position.x, orbitResult.position.y, orbitResult.position.z);
+      impl.lookAt(orbitResult.target.x, orbitResult.target.y, orbitResult.target.z);
+    },
   };
 }
 
