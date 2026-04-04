@@ -85,6 +85,20 @@ export function createHemisphereLight(skyColor, groundColor, intensity) {
   return { impl };
 }
 
+export function createBoxMesh(opts = {}) {
+  const geo = new THREE.BoxGeometry(opts.width || 1, opts.height || 1, opts.depth || 1);
+  const mat = new THREE.MeshStandardMaterial({ color: opts.color || 0x888888 });
+  const impl = new THREE.Mesh(geo, mat);
+  impl.castShadow = opts.castShadow !== false;
+  impl.receiveShadow = opts.receiveShadow !== false;
+  return {
+    impl,
+    setPosition(x, y, z) { impl.position.set(x, y, z); },
+    setRotationY(rad) { impl.rotation.y = rad; },
+    setScale(x, y, z) { impl.scale.set(x, y, z); },
+  };
+}
+
 export function createMesh(opts) {
   const geo = new THREE.SphereGeometry(opts.radius, opts.widthSegments, opts.heightSegments);
   const mat = new THREE.MeshBasicMaterial({
