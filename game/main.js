@@ -2,7 +2,8 @@ import { createRenderer, initScene, resize, createBoxMesh } from '../engine/rend
 import { createSky } from '../world/sky.js';
 import { InputManager } from '../engine/input.js';
 import { OrbitCamera } from '../engine/camera.js';
-import { updatePlayer, PlayerCharacter } from '../player/movement.js';
+import { updatePlayer } from '../player/movement.js';
+import { PlayerCharacter } from '../player/character.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = createRenderer(canvas);
