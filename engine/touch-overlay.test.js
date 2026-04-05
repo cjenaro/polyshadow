@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { createTouchLayout } from './touch-overlay.js';
+import { createTouchLayout, createTouchOverlay } from './touch-overlay.js';
 
 describe('createTouchLayout', () => {
   it('returns joystick on left side of screen', () => {
@@ -17,10 +17,10 @@ describe('createTouchLayout', () => {
     assert.ok(layout.joystickRadius < 400, 'joystick radius should be reasonable');
   });
 
-  it('returns three buttons with correct IDs', () => {
+  it('returns four buttons with correct IDs', () => {
     const layout = createTouchLayout(800, 600);
     const ids = layout.buttons.map(b => b.id);
-    assert.deepEqual(ids.sort(), ['attack', 'grab', 'jump']);
+    assert.deepEqual(ids.sort(), ['attack', 'grab', 'jump', 'sprint']);
   });
 
   it('places all buttons on right half of screen', () => {
@@ -75,5 +75,51 @@ describe('createTouchLayout', () => {
   it('joystick stays in lower-left region', () => {
     const layout = createTouchLayout(800, 600);
     assert.ok(layout.joystickCenter.y > 600 * 0.4, 'joystick should be in lower area');
+  });
+
+  it('sprint button is smaller than action buttons', () => {
+    const layout = createTouchLayout(800, 600);
+    const sprint = layout.buttons.find(b => b.id === 'sprint');
+    const jump = layout.buttons.find(b => b.id === 'jump');
+    assert.ok(sprint, 'sprint button exists');
+    assert.ok(jump, 'jump button exists');
+    assert.ok(sprint.radius < jump.radius, 'sprint should be smaller than action buttons');
+  });
+
+  it('sprint button is below other buttons', () => {
+    const layout = createTouchLayout(800, 600);
+    const sprint = layout.buttons.find(b => b.id === 'sprint');
+    const others = layout.buttons.filter(b => b.id !== 'sprint');
+    assert.ok(sprint, 'sprint button exists');
+    for (const btn of others) {
+      assert.ok(sprint.y > btn.y, `sprint (y=${sprint.y}) should be below ${btn.id} (y=${btn.y})`);
+    }
+  });
+});
+
+describe('createTouchOverlay', () => {
+  it('returns null when document is not available', () => {
+    const origDoc = global.document;
+    global.document = undefined;
+    try {
+      const overlay = createTouchOverlay();
+      assert.equal(overlay, null);
+    } finally {
+      global.document = origDoc;
+    }
+  });
+
+  it('returns null when touch is not supported', () => {
+    const origDoc = global.document;
+    const origWindow = global.window;
+    global.document = { createElement: () => ({}) };
+    global.window = { addEventListener: () => {}, removeEventListener: () => {} };
+    try {
+      const overlay = createTouchOverlay();
+      assert.equal(overlay, null);
+    } finally {
+      global.document = origDoc;
+      global.window = origWindow;
+    }
   });
 });

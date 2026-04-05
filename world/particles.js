@@ -43,18 +43,17 @@ export function createParticleSystem(count, bounds = DEFAULT_BOUNDS) {
 }
 
 function respawnParticle(bounds) {
-  const p = createParticle(bounds);
-  return { ...p, maxLifetime: p.lifetime };
+  return createParticle(bounds);
 }
 
-export function updateParticleSystem(system, wind, dt) {
+export function updateParticleSystem(system, wind, dt, elapsed) {
   const { particles, bounds } = system;
   const windInfluence = PARTICLE_DEFAULTS.windInfluence;
   const gravity = PARTICLE_DEFAULTS.gravity;
   const drag = PARTICLE_DEFAULTS.drag;
   const thermalStrength = PARTICLE_DEFAULTS.thermalStrength;
   const turbScale = PARTICLE_DEFAULTS.turbulenceScale;
-  const time = performance.now() * 0.001;
+  const time = elapsed;
 
   const updated = particles.map(p => {
     const dead = p.lifetime <= 0;
@@ -67,14 +66,14 @@ export function updateParticleSystem(system, wind, dt) {
     const tx = noise3D(current.x * turbScale, current.y * turbScale, time * 0.5) * 0.5;
     const tz = noise3D(current.x * turbScale + 50, current.y * turbScale + 50, time * 0.5) * 0.5;
 
-    const nvx = current.vx * drag + (wfx + tx) * dt;
-    const nvy = current.vy * drag + (gravity + thermal) * dt;
-    const nvz = current.vz * drag + (wfz + tz) * dt;
+    const nvx = current.vx * Math.pow(drag, dt * 60) + (wfx + tx) * dt;
+    const nvy = current.vy * Math.pow(drag, dt * 60) + (gravity + thermal) * dt;
+    const nvz = current.vz * Math.pow(drag, dt * 60) + (wfz + tz) * dt;
 
     return {
-      x: current.x + nvx * dt * 60,
-      y: current.y + nvy * dt * 60,
-      z: current.z + nvz * dt * 60,
+      x: current.x + nvx * dt,
+      y: current.y + nvy * dt,
+      z: current.z + nvz * dt,
       vx: nvx,
       vy: nvy,
       vz: nvz,
@@ -87,10 +86,10 @@ export function updateParticleSystem(system, wind, dt) {
   return { particles: updated, bounds };
 }
 
-export function calculateWindForce(x, y, z, strength) {
+export function calculateWindForce(x, y, z, strength, elapsed) {
   if (strength === 0) return { x: 0, y: 0, z: 0 };
 
-  const time = performance.now() * 0.001;
+  const time = elapsed;
   const turbScale = PARTICLE_DEFAULTS.turbulenceScale;
 
   const tx = noise3D(x * turbScale, y * turbScale, time * 0.5);

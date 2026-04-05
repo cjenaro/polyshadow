@@ -99,6 +99,7 @@ export function respawn(state, respawnPoints, physicsCtx) {
     isFalling: false,
     isGrounded: true,
     fallTime: 0,
+    justRespawned: true,
   };
 }
 

@@ -69,7 +69,7 @@ describe('createParticleSystem', () => {
 describe('updateParticleSystem', () => {
   it('decreases particle lifetime', () => {
     const sys = createParticleSystem(10);
-    const updated = updateParticleSystem(sys, { x: 0, z: 0, strength: 0 }, 0.1);
+    const updated = updateParticleSystem(sys, { x: 0, z: 0, strength: 0 }, 0.1, 1.0);
     for (let i = 0; i < sys.particles.length; i++) {
       assert.ok(updated.particles[i].lifetime <= sys.particles[i].lifetime);
     }
@@ -78,7 +78,7 @@ describe('updateParticleSystem', () => {
   it('does not modify original system', () => {
     const sys = createParticleSystem(10);
     const origLifetime = sys.particles[0].lifetime;
-    updateParticleSystem(sys, { x: 0, z: 0, strength: 0 }, 0.1);
+    updateParticleSystem(sys, { x: 0, z: 0, strength: 0 }, 0.1, 1.0);
     assert.strictEqual(sys.particles[0].lifetime, origLifetime);
   });
 
@@ -88,7 +88,7 @@ describe('updateParticleSystem', () => {
       particles: sys.particles.map(p => ({ ...p, lifetime: -1, maxLifetime: p.maxLifetime })),
       bounds: sys.bounds,
     };
-    const updated = updateParticleSystem(deadSys, { x: 0, z: 0, strength: 0 }, 0.1);
+    const updated = updateParticleSystem(deadSys, { x: 0, z: 0, strength: 0 }, 0.1, 1.0);
     const alive = updated.particles.filter(p => p.lifetime > 0);
     assert.ok(alive.length > 0, 'some particles should be respawned');
   });
@@ -97,8 +97,10 @@ describe('updateParticleSystem', () => {
     const sys = createParticleSystem(10);
     const wind = { x: 10, z: 0, strength: 5 };
     let updated = sys;
+    let elapsed = 1.0;
     for (let i = 0; i < 30; i++) {
-      updated = updateParticleSystem(updated, wind, 0.016);
+      updated = updateParticleSystem(updated, wind, 0.016, elapsed);
+      elapsed += 0.016;
     }
     const moved = updated.particles.some(p => Math.abs(p.x) > 0.1);
     assert.ok(moved, 'wind should displace particles over time');
@@ -107,8 +109,10 @@ describe('updateParticleSystem', () => {
   it('particles have gravity effect on y', () => {
     const sys = createParticleSystem(10);
     let updated = sys;
+    let elapsed = 1.0;
     for (let i = 0; i < 60; i++) {
-      updated = updateParticleSystem(updated, { x: 0, z: 0, strength: 0 }, 0.016);
+      updated = updateParticleSystem(updated, { x: 0, z: 0, strength: 0 }, 0.016, elapsed);
+      elapsed += 0.016;
     }
     const avgY = updated.particles.reduce((s, p) => s + p.y, 0) / updated.particles.length;
     const origAvgY = sys.particles.reduce((s, p) => s + p.y, 0) / sys.particles.length;
@@ -118,40 +122,40 @@ describe('updateParticleSystem', () => {
 
 describe('calculateWindForce', () => {
   it('returns vector with x, y, z', () => {
-    const f = calculateWindForce(0, 0, 0, 0);
+    const f = calculateWindForce(0, 0, 0, 0, 1.0);
     assert.ok('x' in f);
     assert.ok('y' in f);
     assert.ok('z' in f);
   });
 
   it('zero wind strength gives zero force', () => {
-    const f = calculateWindForce(0, 0, 0, 0);
+    const f = calculateWindForce(0, 0, 0, 0, 1.0);
     assert.strictEqual(f.x, 0);
     assert.strictEqual(f.z, 0);
   });
 
   it('non-zero wind gives non-zero horizontal force', () => {
-    const f = calculateWindForce(0, 0, 0, 5);
+    const f = calculateWindForce(0, 0, 0, 5, 1.0);
     assert.ok(Math.abs(f.x) > 0 || Math.abs(f.z) > 0, 'should have horizontal force');
   });
 
   it('different positions give different turbulence', () => {
-    const f1 = calculateWindForce(0, 0, 0, 5);
-    const f2 = calculateWindForce(50, 0, 50, 5);
+    const f1 = calculateWindForce(0, 0, 0, 5, 1.0);
+    const f2 = calculateWindForce(50, 0, 50, 5, 1.0);
     const diff = Math.abs(f1.x - f2.x) + Math.abs(f1.z - f2.z);
     assert.ok(diff > 0.001, 'turbulence should vary by position');
   });
 
   it('higher wind strength gives stronger force', () => {
-    const f1 = calculateWindForce(0, 0, 0, 2);
-    const f2 = calculateWindForce(0, 0, 0, 10);
+    const f1 = calculateWindForce(0, 0, 0, 2, 1.0);
+    const f2 = calculateWindForce(0, 0, 0, 10, 1.0);
     const mag1 = Math.abs(f1.x) + Math.abs(f1.z);
     const mag2 = Math.abs(f2.x) + Math.abs(f2.z);
     assert.ok(mag2 >= mag1, 'stronger wind should produce stronger force');
   });
 
   it('force includes upward component for thermal effect', () => {
-    const f = calculateWindForce(0, 10, 0, 3);
+    const f = calculateWindForce(0, 10, 0, 3, 1.0);
     assert.ok(f.y >= 0, 'should have non-negative y component (thermal lift)');
   });
 });

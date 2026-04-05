@@ -241,7 +241,7 @@ describe('buildCombatWeakPoints', () => {
 
   it('each weak point has id, position, health, maxHealth, isDestroyed, isActive', () => {
     const def = createTitanDefinition();
-    const weakPoints = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0);
+    const weakPoints = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0, true);
     for (const wp of weakPoints) {
       assert.ok(typeof wp.id === 'string');
       assert.ok(typeof wp.position.x === 'number');
@@ -299,6 +299,34 @@ describe('buildCombatWeakPoints', () => {
     const runePI = atPI.find(wp => wp.id === 'shell_rune_left');
     assert.ok(Math.abs(rune0.position.x + runePI.position.x) < 0.01);
     assert.ok(Math.abs(rune0.position.z + runePI.position.z) < 0.01);
+  });
+
+  it('head weak point is inactive when not stunned', () => {
+    const def = createTitanDefinition();
+    const weakPoints = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0, false);
+    const head = weakPoints.find(wp => wp.id === 'head');
+    assert.strictEqual(head.isActive, false);
+  });
+
+  it('head weak point is active when stunned', () => {
+    const def = createTitanDefinition();
+    const weakPoints = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0, true);
+    const head = weakPoints.find(wp => wp.id === 'head');
+    assert.strictEqual(head.isActive, true);
+  });
+
+  it('non-head weak points are always active regardless of stun', () => {
+    const def = createTitanDefinition();
+    const notStunned = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0, false);
+    const stunned = buildCombatWeakPoints(def, { x: 0, y: 0, z: 0 }, 0, true);
+    for (const wp of notStunned) {
+      if (wp.id === 'head') continue;
+      assert.strictEqual(wp.isActive, true, `${wp.id} should be active when not stunned`);
+    }
+    for (const wp of stunned) {
+      if (wp.id === 'head') continue;
+      assert.strictEqual(wp.isActive, true, `${wp.id} should be active when stunned`);
+    }
   });
 });
 
@@ -828,5 +856,31 @@ describe('animateTitan', () => {
     const mesh = createTitanMesh(def);
     const aiState = createTitanBehaviorState();
     assert.doesNotThrow(() => animateTitan(mesh, 0, aiState));
+  });
+
+  it('leg positions do not drift after many animation frames', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    const aiState = createTitanBehaviorState();
+
+    animateTitan(mesh, 0, aiState);
+    const legIds = ['left_leg_front', 'left_leg_rear', 'right_leg_front', 'right_leg_rear'];
+    const positionsAfterFirst = new Map();
+    for (const id of legIds) {
+      positionsAfterFirst.set(id, { ...mesh.meshByPart.get(id).position });
+    }
+
+    for (let frame = 1; frame <= 1000; frame++) {
+      animateTitan(mesh, frame * 0.016, aiState);
+    }
+
+    for (const id of legIds) {
+      const leg = mesh.meshByPart.get(id);
+      const first = positionsAfterFirst.get(id);
+      const drift = Math.abs(leg.position.y - first.y);
+      const maxDrift = Math.abs(Math.sin(1.5 * 0.016) * 0.3 - Math.sin(1.5 * 1000 * 0.016) * 0.3);
+      assert.ok(drift <= maxDrift + 0.001,
+        `${id} Y drifted by ${drift} after 1000 frames (expected max ${maxDrift})`);
+    }
   });
 });

@@ -1,0 +1,5 @@
+- generic [active] [ref=e1]:
+  - generic:
+    - heading "Polyshadow" [level=1]
+    - paragraph: Press any key to begin
+  - generic [ref=e3]: Gamepad connected

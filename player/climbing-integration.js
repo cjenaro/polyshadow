@@ -29,7 +29,10 @@ export function updateClimbing(playerState, climbingState, input, staminaState, 
   } else {
     cState = { ...cState, climbGrabTime: cState.climbGrabTime + dt };
     pState = applyClimbingMovement(pState, input, dt, CLIMB_CONFIG);
-    pState = tryJumpClimb(pState, input, surfaces, CLIMB_CONFIG.MAX_JUMP_DISTANCE);
+    pState = tryJumpClimb(pState, input, surfaces, CLIMB_CONFIG.MAX_JUMP_DISTANCE, null, {
+      now: cState.climbGrabTime,
+      stamina: staminaState.current,
+    });
 
     if (shouldTriggerFall(staminaState)) {
       pState = releaseGrab(pState);

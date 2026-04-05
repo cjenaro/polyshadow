@@ -26,7 +26,7 @@ function createEmptyState() {
   };
 }
 
-function mapKeysToInput(pressedKeys, mouseDelta = { x: 0, y: 0 }, mouseButton = 0) {
+function mapKeysToInput(pressedKeys, mouseDelta = { x: 0, y: 0 }, pressedMouseButtons = new Set()) {
   const state = createEmptyState();
 
   let mx = 0;
@@ -54,8 +54,8 @@ function mapKeysToInput(pressedKeys, mouseDelta = { x: 0, y: 0 }, mouseButton = 
   state.look.x = mouseDelta.x;
   state.look.y = mouseDelta.y;
 
-  if (mouseButton === 1) state.attack = true;
-  if (mouseButton === 2) state.action = true;
+  if (pressedMouseButtons.has(0)) state.attack = true;
+  if (pressedMouseButtons.has(2)) state.action = true;
 
   return state;
 }
@@ -90,11 +90,19 @@ class InputManager {
     };
 
     this._onMouseDown = (e) => {
-      this.mouseButton = e.button;
+      if (!this.pressedMouseButtons.has(e.button)) {
+        this.justPressed.add('Mouse' + e.button);
+      }
+      this.pressedMouseButtons.add(e.button);
+    };
+
+    this._onMouseUp = (e) => {
+      this.pressedMouseButtons.delete(e.button);
+      this.justPressed.delete('Mouse' + e.button);
     };
 
     this._onMouseUp = () => {
-      this.mouseButton = 0;
+    this.pressedMouseButtons = new Set();
     };
 
     document.addEventListener('keydown', this._onKeyDown);
@@ -105,7 +113,7 @@ class InputManager {
   }
 
   update() {
-    this.state = mapKeysToInput(this.pressedKeys, this.mouseDelta, this.mouseButton);
+    this.state = mapKeysToInput(this.pressedKeys, this.mouseDelta, this.pressedMouseButtons);
     this.prevPressed = new Set(this.justPressed);
     this.justPressed.clear();
     this.mouseDelta = { x: 0, y: 0 };

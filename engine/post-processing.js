@@ -1,3 +1,8 @@
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
 const BLOOM_ENABLE_THRESHOLD = 0.05;
 const LERP_SPEED = 3.0;
 
@@ -52,4 +57,33 @@ export function getActiveColorGrading(state) {
 
 export function shouldEnableBloom(state) {
   return state.bloomIntensity > BLOOM_ENABLE_THRESHOLD;
+}
+
+export function createBloomPipeline(rendererImpl, sceneImpl, cameraImpl) {
+  const composer = new EffectComposer(rendererImpl);
+  const renderPass = new RenderPass(sceneImpl, cameraImpl);
+  composer.addPass(renderPass);
+
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.5,
+    0.4,
+    0.85
+  );
+  composer.addPass(bloomPass);
+
+  return {
+    composer,
+    bloomPass,
+    resize(w, h) {
+      composer.setSize(w, h);
+    },
+    update(state) {
+      bloomPass.strength = state.bloomIntensity;
+      bloomPass.threshold = state.bloomThreshold;
+    },
+    render() {
+      composer.render();
+    },
+  };
 }

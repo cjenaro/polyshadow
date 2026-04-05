@@ -16,6 +16,7 @@ export function createWeakPointVisuals(scene) {
   const T = _THREE;
   const weakPoints = new Map();
   let time = 0;
+  let positionProvider = null;
 
   function createMesh(position) {
     const geo = new T.SphereGeometry(0.3, 16, 12);
@@ -29,7 +30,7 @@ export function createWeakPointVisuals(scene) {
   function addWeakPoint(position, id) {
     if (weakPoints.has(id)) return weakPoints.get(id);
     const impl = createMesh(position);
-    const handle = { id, mesh: impl };
+    const handle = { id, mesh: impl, bodyPartId: id };
     weakPoints.set(id, handle);
     return handle;
   }
@@ -47,14 +48,14 @@ export function createWeakPointVisuals(scene) {
     const wp = weakPoints.get(id);
     if (!wp || wp.destroyed) return;
     wp.flashTimer = FLASH_DURATION;
-    wp.mesh.material.color = FLASH_COLOR;
+    wp.mesh.material.color.set(FLASH_COLOR);
   }
 
   function destroyWeakPoint(id) {
     const wp = weakPoints.get(id);
     if (!wp || wp.destroyed) return;
     wp.destroyed = true;
-    wp.mesh.material.color = DESTROYED_COLOR;
+    wp.mesh.material.color.set(DESTROYED_COLOR);
     wp.mesh.scale.set(DESTROYED_SCALE, DESTROYED_SCALE, DESTROYED_SCALE);
   }
 
@@ -62,17 +63,23 @@ export function createWeakPointVisuals(scene) {
     time += dt;
     for (const [id, wp] of weakPoints) {
       if (wp.destroyed) continue;
+      if (positionProvider) {
+        const worldPos = positionProvider(wp.bodyPartId);
+        if (worldPos) {
+          wp.mesh.position.set(worldPos.x, worldPos.y, worldPos.z);
+        }
+      }
       if (wp.flashTimer > 0) {
         wp.flashTimer -= dt;
         if (wp.flashTimer <= 0) {
           wp.flashTimer = 0;
-          wp.mesh.material.color = BASE_COLOR;
+          wp.mesh.material.color.set(BASE_COLOR);
         } else {
           const t = 1 - wp.flashTimer / FLASH_DURATION;
           const r = ((FLASH_COLOR >> 16) & 0xff) * (1 - t) + ((BASE_COLOR >> 16) & 0xff) * t;
           const g = ((FLASH_COLOR >> 8) & 0xff) * (1 - t) + ((BASE_COLOR >> 8) & 0xff) * t;
           const b = (FLASH_COLOR & 0xff) * (1 - t) + (BASE_COLOR & 0xff) * t;
-          wp.mesh.material.color = { r: r / 255, g: g / 255, b: b / 255 };
+          wp.mesh.material.color.setRGB(r / 255, g / 255, b / 255);
         }
         continue;
       }
@@ -94,5 +101,6 @@ export function createWeakPointVisuals(scene) {
     destroyWeakPoint,
     update,
     clearAll,
+    setPositionProvider(fn) { positionProvider = fn; },
   };
 }

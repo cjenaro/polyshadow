@@ -122,6 +122,55 @@ describe('findNearestClimbableSurface', () => {
     const result = findNearestClimbableSurface({ x: 0, y: 0, z: 0 }, surfaces, 5);
     assert.ok(result !== null);
   });
+
+  it('prefers surface in facing direction over equidistant surface behind', () => {
+    const surfaces = [
+      makeSurface({ position: { x: 0, y: 0, z: 3 } }),
+      makeSurface({ position: { x: 0, y: 0, z: -3 } }),
+    ];
+    const result = findNearestClimbableSurface(
+      { x: 0, y: 0, z: 0 }, surfaces, 5,
+      { facingDir: { x: 0, y: 0, z: 1 } }
+    );
+    assert.ok(result !== null);
+    assert.strictEqual(result.position.z, 3);
+  });
+
+  it('penalizes behind surface so closer-behind loses to farther-front', () => {
+    const surfaces = [
+      makeSurface({ position: { x: 0, y: 0, z: -2 } }),
+      makeSurface({ position: { x: 0, y: 0, z: 3 } }),
+    ];
+    const result = findNearestClimbableSurface(
+      { x: 0, y: 0, z: 0 }, surfaces, 5,
+      { facingDir: { x: 0, y: 0, z: 1 } }
+    );
+    assert.ok(result !== null);
+    assert.strictEqual(result.position.z, 3);
+  });
+
+  it('still returns behind surface when no front surface exists', () => {
+    const surfaces = [
+      makeSurface({ position: { x: 0, y: 0, z: -1.5 } }),
+    ];
+    const result = findNearestClimbableSurface(
+      { x: 0, y: 0, z: 0 }, surfaces, 5,
+      { facingDir: { x: 0, y: 0, z: 1 } }
+    );
+    assert.ok(result !== null);
+    assert.strictEqual(result.position.z, -1.5);
+  });
+
+  it('ignores skipSurface', () => {
+    const skip = makeSurface({ position: { x: 0, y: 0, z: -1 } });
+    const other = makeSurface({ position: { x: 0, y: 0, z: -3 } });
+    const result = findNearestClimbableSurface(
+      { x: 0, y: 0, z: 0 }, [skip, other], 5,
+      { skipSurface: skip }
+    );
+    assert.ok(result !== null);
+    assert.strictEqual(result, other);
+  });
 });
 
 describe('tryGrab', () => {
@@ -470,6 +519,89 @@ describe('tryJumpClimb', () => {
     const input = makeInput({ jump: true });
     const newState = tryJumpClimb(state, input, [currentSurface, targetSurface], 5);
     assert.strictEqual(newState.climbSurface, targetSurface);
+  });
+
+  it('blocks jump-climb when within cooldown period', () => {
+    const oldSurface = makeSurface({ position: { x: 0, y: 0, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const newSurface = makeSurface({ position: { x: 0, y: 3, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const anotherSurface = makeSurface({ position: { x: 0, y: 6, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: oldSurface,
+      climbNormal: oldSurface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ jump: true });
+
+    const afterFirst = tryJumpClimb(state, input, [newSurface], 5, null, { now: 0 });
+    assert.strictEqual(afterFirst.climbSurface, newSurface);
+
+    const afterSecond = tryJumpClimb(afterFirst, input, [anotherSurface], 10, null, { now: 0.1 });
+    assert.strictEqual(afterSecond, afterFirst);
+  });
+
+  it('allows jump-climb after cooldown period expires', () => {
+    const oldSurface = makeSurface({ position: { x: 0, y: 0, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const newSurface = makeSurface({ position: { x: 0, y: 3, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const anotherSurface = makeSurface({ position: { x: 0, y: 6, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: oldSurface,
+      climbNormal: oldSurface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ jump: true });
+
+    const afterFirst = tryJumpClimb(state, input, [newSurface], 5, null, { now: 0 });
+    assert.strictEqual(afterFirst.climbSurface, newSurface);
+
+    const afterSecond = tryJumpClimb(afterFirst, input, [anotherSurface], 10, null, { now: 0.4 });
+    assert.strictEqual(afterSecond.climbSurface, anotherSurface);
+  });
+
+  it('sets lastJumpClimbTime on successful jump-climb', () => {
+    const oldSurface = makeSurface({ position: { x: 0, y: 0, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const newSurface = makeSurface({ position: { x: 0, y: 3, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: oldSurface,
+      climbNormal: oldSurface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ jump: true });
+
+    const result = tryJumpClimb(state, input, [newSurface], 5, null, { now: 1.5 });
+    assert.strictEqual(result.lastJumpClimbTime, 1.5);
+  });
+
+  it('blocks jump-climb when stamina is 0', () => {
+    const oldSurface = makeSurface({ position: { x: 0, y: 0, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const newSurface = makeSurface({ position: { x: 0, y: 3, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: oldSurface,
+      climbNormal: oldSurface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ jump: true });
+
+    const result = tryJumpClimb(state, input, [newSurface], 5, null, { now: 0, stamina: 0 });
+    assert.strictEqual(result, state);
+  });
+
+  it('allows jump-climb when stamina is above 0', () => {
+    const oldSurface = makeSurface({ position: { x: 0, y: 0, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const newSurface = makeSurface({ position: { x: 0, y: 3, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: oldSurface,
+      climbNormal: oldSurface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ jump: true });
+
+    const result = tryJumpClimb(state, input, [newSurface], 5, null, { now: 0, stamina: 50 });
+    assert.strictEqual(result.climbSurface, newSurface);
   });
 });
 

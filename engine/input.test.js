@@ -116,13 +116,13 @@ describe('mapKeysToInput', () => {
   });
 
   it('mouse buttons activate action and attack', () => {
-    const state = mapKeysToInput(keys(), { x: 0, y: 0 }, 1);
+    const state = mapKeysToInput(keys(), { x: 0, y: 0 }, new Set([0]));
     assert.equal(state.attack, true);
     assert.equal(state.action, false);
   });
 
   it('mouse button 2 activates action', () => {
-    const state = mapKeysToInput(keys(), { x: 0, y: 0 }, 2);
+    const state = mapKeysToInput(keys(), { x: 0, y: 0 }, new Set([2]));
     assert.equal(state.action, true);
     assert.equal(state.attack, false);
   });

@@ -201,6 +201,41 @@ describe('getColossusSurfaces', () => {
   it('returns empty for empty colossi', () => {
     assert.equal(getColossusSurfaces([]).length, 0);
   });
+
+  it('rotates surface patches by colossus rotation', () => {
+    const c = createColossus('sentinel', { x: 0, y: 0, z: 0 });
+    c.rotation = Math.PI / 2;
+    const surfaces = getColossusSurfaces([c]);
+    const torsoSurfs = surfaces.filter(s => s.bodyPartId === 'torso');
+    const frontFace = torsoSurfs.find(s => s.normal.y === 0 && Math.abs(s.normal.z - 1) < 1e-10);
+    assert.ok(frontFace, 'should have a torso patch now facing +z (was right face before rotation)');
+    assert.ok(Math.abs(frontFace.position.x) > 0.1, 'patch x should be non-zero after 90-degree rotation');
+    const backFace = torsoSurfs.find(s => s.normal.y === 0 && Math.abs(s.normal.z + 1) < 1e-10);
+    assert.ok(backFace, 'should have a torso patch now facing -z (was left face before rotation)');
+    assert.ok(Math.abs(backFace.position.x) > 0.1, 'patch x should be non-zero after 90-degree rotation');
+  });
+
+  it('rotates normals correctly for colossus rotation', () => {
+    const c = createColossus('sentinel', { x: 0, y: 0, z: 0 });
+    c.rotation = Math.PI / 2;
+    const surfaces = getColossusSurfaces([c]);
+    const wasRightFace = surfaces.find(s =>
+      s.bodyPartId === 'torso' && s.normal.y === 0 &&
+      Math.abs(s.normal.z - 1) < 1e-10 && Math.abs(s.normal.x) < 1e-10
+    );
+    assert.ok(wasRightFace, 'a patch originally on the right face (normal x=1) should now face +z after 90-degree rotation');
+  });
+
+  it('does not modify y position or y normal when rotating', () => {
+    const c = createColossus('sentinel', { x: 0, y: 0, z: 0 });
+    c.rotation = Math.PI / 2;
+    const surfaces = getColossusSurfaces([c]);
+    const topPatch = surfaces.find(s => s.bodyPartId === 'torso' && Math.abs(s.normal.y - 1) < 1e-10);
+    assert.ok(topPatch, 'should have a top-facing torso patch');
+    assert.ok(Math.abs(topPatch.normal.x) < 1e-10);
+    assert.ok(Math.abs(topPatch.normal.y - 1) < 1e-10);
+    assert.ok(Math.abs(topPatch.normal.z) < 1e-10);
+  });
 });
 
 describe('getColossusWeakPoints', () => {

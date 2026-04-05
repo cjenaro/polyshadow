@@ -3,6 +3,8 @@ import * as sentinel from './sentinel.js';
 import * as wraith from './wraith.js';
 import * as titan from './titan.js';
 
+const isStunned = (aiState) => aiState.state === behavior.ColossusState.STUNNED;
+
 const COLossus_TYPES = {
   sentinel: {
     createDefinition: sentinel.createSentinelDefinition,
@@ -43,7 +45,7 @@ export function createColossus(type, position) {
   const definition = factory.createDefinition();
   const aiState = factory.createAIState(position);
   const surfacePatches = factory.generateSurfacePatches(definition);
-  const weakPoints = factory.buildWeakPoints(definition, position, 0);
+  const weakPoints = factory.buildWeakPoints(definition, position, 0, isStunned(aiState));
   const mesh = factory.createMesh(definition);
   mesh.impl.position.x = position.x;
   mesh.impl.position.y = position.y;
@@ -70,6 +72,7 @@ export function updateColossi(colossi, playerPosition, dt) {
     if (!factory) continue;
 
     const currentPos = c.aiState.position || c.position;
+    const wasStunned = isStunned(c.aiState);
     const newState = factory.updateAI(c.aiState, c.behaviorConfig, dt, playerPosition, currentPos);
     c.aiState = newState;
 
@@ -79,13 +82,17 @@ export function updateColossi(colossi, playerPosition, dt) {
     }
 
     const newPos = newState.position || currentPos;
-    if (newPos !== currentPos && (newPos.x !== c.position.x || newPos.y !== c.position.y || newPos.z !== c.position.z)) {
+    const nowStunned = isStunned(newState);
+    const posChanged = newPos !== currentPos && (newPos.x !== c.position.x || newPos.y !== c.position.y || newPos.z !== c.position.z);
+    if (posChanged) {
       c.position = { x: newPos.x, y: newPos.y, z: newPos.z };
       c.mesh.impl.position.x = newPos.x;
       c.mesh.impl.position.y = newPos.y;
       c.mesh.impl.position.z = newPos.z;
       c.rotation = newState.rotation || 0;
-      c.weakPoints = factory.buildWeakPoints(c.definition, c.position, c.rotation);
+    }
+    if (wasStunned !== nowStunned || posChanged) {
+      c.weakPoints = factory.buildWeakPoints(c.definition, c.position, c.rotation, nowStunned);
     }
   }
 
@@ -97,14 +104,32 @@ export function getColossusSurfaces(colossi) {
 
   for (const c of colossi) {
     const pos = c.aiState.position || c.position;
+    const rot = c.rotation || 0;
+    const cosR = Math.cos(rot);
+    const sinR = Math.sin(rot);
+
     for (const patch of c.surfacePatches) {
+      const lx = patch.position.x;
+      const lz = patch.position.z;
+      const rx = lx * cosR - lz * sinR;
+      const rz = lx * sinR + lz * cosR;
+
+      const nx = patch.normal.x;
+      const nz = patch.normal.z;
+      const rnx = nx * cosR - nz * sinR;
+      const rnz = nx * sinR + nz * cosR;
+
       allSurfaces.push({
         position: {
-          x: patch.position.x + pos.x,
+          x: rx + pos.x,
           y: patch.position.y + pos.y,
-          z: patch.position.z + pos.z,
+          z: rz + pos.z,
         },
-        normal: patch.normal,
+        normal: {
+          x: rnx,
+          y: patch.normal.y,
+          z: rnz,
+        },
         climbable: patch.climbable,
         bodyPartId: patch.bodyPartId,
         parentPartId: patch.parentPartId,

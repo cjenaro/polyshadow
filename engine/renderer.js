@@ -7,6 +7,8 @@ export function createRenderer(canvas) {
   impl.setSize(window.innerWidth, window.innerHeight);
   impl.shadowMap.enabled = true;
   impl.shadowMap.type = THREE.PCFSoftShadowMap;
+  impl.toneMapping = THREE.ACESFilmicToneMapping;
+  impl.toneMappingExposure = 1.2;
 
   return {
     impl,

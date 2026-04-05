@@ -232,6 +232,12 @@ describe('respawn', () => {
     const result = respawn(state, []);
     assert.strictEqual(result, state);
   });
+
+  it('sets justRespawned flag to prevent movement on respawn frame', () => {
+    const state = makeState({ position: { x: 8, y: -100, z: 0 } });
+    const result = respawn(state, respawnPoints);
+    assert.strictEqual(result.justRespawned, true);
+  });
 });
 
 describe('getFreefallCameraData', () => {

@@ -7,6 +7,12 @@ export const DEATH_PHASES = {
   FALLEN: 'fallen',
 };
 
+export const COLOSSUS_TYPES = {
+  SENTINEL: 'sentinel',
+  WRAITH: 'wraith',
+  TITAN: 'titan',
+};
+
 const KNEEL_DURATION = 2;
 const COLLAPSE_DURATION = 2;
 const DISSOLVE_DURATION = 3;
@@ -14,14 +20,35 @@ const COLLAPSE_START = KNEEL_DURATION;
 const DISSOLVE_START = COLLAPSE_START + COLLAPSE_DURATION;
 const FALLEN_START = DISSOLVE_START + DISSOLVE_DURATION;
 
-const LEG_PARTS = new Set([
-  'front_left_upper', 'front_left_lower',
-  'front_right_upper', 'front_right_lower',
-  'back_left_upper', 'back_left_lower',
-  'back_right_upper', 'back_right_lower',
-]);
+const LIMB_PARTS = {
+  sentinel: new Set([
+    'front_left_upper', 'front_left_lower',
+    'front_right_upper', 'front_right_lower',
+    'back_left_upper', 'back_left_lower',
+    'back_right_upper', 'back_right_lower',
+  ]),
+  wraith: new Set([
+    'left_wing', 'right_wing',
+  ]),
+  titan: new Set([
+    'left_leg_front', 'left_leg_rear',
+    'right_leg_front', 'right_leg_rear',
+    'left_claw_upper', 'left_claw_lower',
+    'right_claw_upper', 'right_claw_lower',
+  ]),
+};
 
 const HEAD_PARTS = new Set(['head']);
+
+const DEFAULT_COLLOSSUS_TYPE = COLOSSUS_TYPES.SENTINEL;
+
+const COLLAPSE_TARGET_FRACTION = {
+  body: 0.2,
+  limb: 0.1,
+  head: 0.3,
+};
+
+const HEAD_COLLAPSE_ROT_X = 1.2;
 
 export function createDeathState(overrides = {}) {
   return {
@@ -81,7 +108,9 @@ export function getPartTransform(partId, basePosition, baseRotation, state) {
   let rotZ = baseRotation.z;
   let opacity = 1;
 
-  const isLeg = LEG_PARTS.has(partId);
+  const colossusType = state.colossusType || DEFAULT_COLLOSSUS_TYPE;
+  const limbSet = LIMB_PARTS[colossusType];
+  const isLimb = limbSet && limbSet.has(partId);
   const isHead = HEAD_PARTS.has(partId);
 
   if (state.timer > 0) {
@@ -89,7 +118,7 @@ export function getPartTransform(partId, basePosition, baseRotation, state) {
       const t = clamp(state.timer / KNEEL_DURATION, 0, 1);
       const eased = smoothstep(0, 1, t);
 
-      if (isLeg) {
+      if (isLimb) {
         posY -= eased * basePosition.y * 0.4;
         rotX = eased * 0.3;
       }
@@ -99,7 +128,7 @@ export function getPartTransform(partId, basePosition, baseRotation, state) {
         posY -= eased * 0.5;
       }
 
-      if (!isLeg && !isHead) {
+      if (!isLimb && !isHead) {
         posY -= eased * basePosition.y * 0.15;
       }
     }
@@ -108,13 +137,16 @@ export function getPartTransform(partId, basePosition, baseRotation, state) {
       const collapseT = clamp((state.timer - COLLAPSE_START) / COLLAPSE_DURATION, 0, 1);
       const collapseEased = smoothstep(0, 1, collapseT);
 
-      if (!isLeg && !isHead) {
-        posY = lerp(posY, 1.0, collapseEased);
-      } else if (isLeg) {
-        posY = lerp(posY, 0.5, collapseEased);
+      if (!isLimb && !isHead) {
+        const target = basePosition.y * COLLAPSE_TARGET_FRACTION.body;
+        posY = lerp(posY, target, collapseEased);
+      } else if (isLimb) {
+        const target = basePosition.y * COLLAPSE_TARGET_FRACTION.limb;
+        posY = lerp(posY, target, collapseEased);
       } else if (isHead) {
-        posY = lerp(posY, 1.5, collapseEased);
-        rotX = lerp(rotX, 1.2, collapseEased);
+        const target = basePosition.y * COLLAPSE_TARGET_FRACTION.head;
+        posY = lerp(posY, target, collapseEased);
+        rotX = lerp(rotX, HEAD_COLLAPSE_ROT_X, collapseEased);
       }
     }
   }

@@ -8,10 +8,20 @@ function makeVec3(initX = 0, initY = 0, initZ = 0) {
   return v;
 }
 
+function makeMockColor(hex) {
+  return {
+    _hex: hex,
+    set(h) { this._hex = h; },
+    setRGB(r, g, b) {
+      this._hex = ((Math.round(r * 255) & 0xff) << 16) | ((Math.round(g * 255) & 0xff) << 8) | (Math.round(b * 255) & 0xff);
+    },
+  };
+}
+
 function createMockTHREE() {
   return {
     SphereGeometry: function(radius, ws, hs) { return { radius, widthSegments: ws, heightSegments: hs }; },
-    MeshBasicMaterial: function(opts) { return { color: opts.color }; },
+    MeshBasicMaterial: function(opts) { return { color: makeMockColor(opts.color) }; },
     Mesh: function(geo, mat) {
       return {
         geometry: geo,
@@ -48,6 +58,7 @@ describe('createWeakPointVisuals', () => {
     assert.equal(typeof ctrl.destroyWeakPoint, 'function');
     assert.equal(typeof ctrl.update, 'function');
     assert.equal(typeof ctrl.clearAll, 'function');
+    assert.equal(typeof ctrl.setPositionProvider, 'function');
   });
 });
 
@@ -83,7 +94,7 @@ describe('addWeakPoint', () => {
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
     const mesh = scene._children[0];
-    assert.equal(mesh.material.color, 0xff4444);
+    assert.equal(mesh.material.color._hex, 0xff4444);
   });
 });
 
@@ -129,7 +140,7 @@ describe('flashWeakPoint', () => {
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
     ctrl.flashWeakPoint('wp_1');
     const mesh = scene._children[0];
-    assert.equal(mesh.material.color, 0xffffff);
+    assert.equal(mesh.material.color._hex, 0xffffff);
   });
 
   it('fades color back toward base after update', () => {
@@ -139,7 +150,7 @@ describe('flashWeakPoint', () => {
     ctrl.flashWeakPoint('wp_1');
     ctrl.update(0.2);
     const mesh = scene._children[0];
-    assert.ok(mesh.material.color !== 0xffffff);
+    assert.ok(mesh.material.color._hex !== 0xffffff);
   });
 
   it('color returns to base after flash duration', () => {
@@ -149,7 +160,7 @@ describe('flashWeakPoint', () => {
     ctrl.flashWeakPoint('wp_1');
     ctrl.update(0.5);
     const mesh = scene._children[0];
-    assert.equal(mesh.material.color, 0xff4444);
+    assert.equal(mesh.material.color._hex, 0xff4444);
   });
 
   it('does not throw when flashing non-existent id', () => {
@@ -175,7 +186,7 @@ describe('destroyWeakPoint', () => {
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
     ctrl.destroyWeakPoint('wp_1');
     const mesh = scene._children[0];
-    assert.equal(mesh.material.color, 0x333333);
+    assert.equal(mesh.material.color._hex, 0x333333);
   });
 
   it('stops pulsing (update does not change scale)', () => {
@@ -225,6 +236,77 @@ describe('update', () => {
     ctrl.update(0.5);
     const s2 = mesh.scale.x;
     assert.notEqual(s1, s2);
+  });
+});
+
+describe('setPositionProvider', () => {
+  beforeEach(() => { setTHREE(createMockTHREE()); });
+
+  it('does not throw', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    assert.doesNotThrow(() => ctrl.setPositionProvider(() => null));
+  });
+
+  it('updates mesh position each frame from provider', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'head');
+    ctrl.setPositionProvider((bodyPartId) => ({ x: 10, y: 20, z: 30 }));
+    ctrl.update(0.016);
+    const mesh = scene._children[0];
+    assert.equal(mesh.position.x, 10);
+    assert.equal(mesh.position.y, 20);
+    assert.equal(mesh.position.z, 30);
+  });
+
+  it('tracks position changes across frames', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'head');
+    let pos = { x: 1, y: 2, z: 3 };
+    ctrl.setPositionProvider(() => pos);
+    ctrl.update(0.016);
+    assert.equal(scene._children[0].position.x, 1);
+    pos = { x: 100, y: 200, z: 300 };
+    ctrl.update(0.016);
+    assert.equal(scene._children[0].position.x, 100);
+  });
+
+  it('ignores null return from provider', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 5, y: 10, z: 15 }, 'head');
+    ctrl.setPositionProvider(() => null);
+    ctrl.update(0.016);
+    const mesh = scene._children[0];
+    assert.equal(mesh.position.x, 5);
+  });
+
+  it('without provider, positions remain at initial values', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 5, y: 10, z: 15 }, 'head');
+    ctrl.update(0.016);
+    const mesh = scene._children[0];
+    assert.equal(mesh.position.x, 5);
+    assert.equal(mesh.position.y, 10);
+    assert.equal(mesh.position.z, 15);
+  });
+});
+
+describe('color lerp', () => {
+  beforeEach(() => { setTHREE(createMockTHREE()); });
+
+  it('uses setRGB to interpolate flash color', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
+    ctrl.flashWeakPoint('wp_1');
+    ctrl.update(0.15);
+    const mesh = scene._children[0];
+    assert.ok(mesh.material.color._hex > 0xff4444, `expected > 0xff4444, got 0x${mesh.material.color._hex.toString(16)}`);
+    assert.ok(mesh.material.color._hex < 0xffffff, `expected < 0xffffff, got 0x${mesh.material.color._hex.toString(16)}`);
   });
 });
 

@@ -292,7 +292,7 @@ export function getTitanWeakPointPositions(definition, colossusPosition, colossu
 
 export const WEAK_POINT_BASE_HEALTH = 50;
 
-export function buildCombatWeakPoints(definition, colossusPosition, colossusRotation) {
+export function buildCombatWeakPoints(definition, colossusPosition, colossusRotation, isStunned = false) {
   const body = definition.parts instanceof Map ? definition : createColossusBody(definition);
   const weak = getWeakPoints(body);
   const combatWeakPoints = [];
@@ -301,13 +301,14 @@ export function buildCombatWeakPoints(definition, colossusPosition, colossusRota
     const pos = getBodyPartWorldPosition(body, part.id, colossusPosition, colossusRotation);
     if (pos) {
       const maxHealth = Math.round(WEAK_POINT_BASE_HEALTH * part.healthMultiplier);
+      const isActive = part.type === 'head' ? isStunned : true;
       combatWeakPoints.push({
         id: part.id,
         position: { ...pos },
         health: maxHealth,
         maxHealth,
         isDestroyed: false,
-        isActive: true,
+        isActive,
       });
     }
   }
@@ -654,6 +655,7 @@ export function createTitanMesh(definition) {
   const group = new T.Group();
   const children = [];
   const meshByPart = new Map();
+  const originalPositions = new Map();
 
   for (const part of definition.parts) {
     const { mesh, geoType } = createPartMesh(part);
@@ -664,6 +666,7 @@ export function createTitanMesh(definition) {
       group.add(mesh);
     }
     meshByPart.set(part.id, mesh);
+    originalPositions.set(part.id, { x: part.position.x, y: part.position.y, z: part.position.z });
     children.push({
       partId: part.id,
       geometryType: geoType,
@@ -677,11 +680,11 @@ export function createTitanMesh(definition) {
     });
   }
 
-  return { impl: group, children, meshByPart };
+  return { impl: group, children, meshByPart, originalPositions };
 }
 
 export function animateTitan(mesh, time, aiState) {
-  const { meshByPart } = mesh;
+  const { meshByPart, originalPositions } = mesh;
   const shell = meshByPart.get('shell_main');
   if (!shell) return;
 
@@ -692,10 +695,11 @@ export function animateTitan(mesh, time, aiState) {
   const legs = ['left_leg_front', 'left_leg_rear', 'right_leg_front', 'right_leg_rear'];
   for (let i = 0; i < legs.length; i++) {
     const leg = meshByPart.get(legs[i]);
+    const orig = originalPositions ? originalPositions.get(legs[i]) : null;
     if (!leg) continue;
     const phase = time * 1.5 + i * Math.PI * 0.5;
     leg.rotation.x = Math.sin(phase) * 0.15;
-    leg.position.y = leg.position.y + Math.sin(phase) * 0.3;
+    leg.position.y = (orig ? orig.y : leg.position.y) + Math.sin(phase) * 0.3;
   }
 
   const claws = ['left_claw_lower', 'right_claw_lower'];

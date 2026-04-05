@@ -1,4 +1,5 @@
-import { createRenderer, initScene, resize, createBoxMesh, createIslandMesh } from '../engine/renderer.js';
+import { createRenderer, initScene, resize, createIslandMesh } from '../engine/renderer.js';
+import { createCharacterMesh } from '../player/character-mesh.js';
 import { createSky } from '../world/sky.js';
 import { createIntegratedInput, updateIntegratedInput, getActiveInputType, destroyIntegratedInput } from '../engine/input-integration.js';
 import { OrbitCamera } from '../engine/camera.js';
@@ -25,7 +26,9 @@ import {
 import { createSteppingStonesPath, generatePathPoints, isOnPath } from '../world/paths.js';
 import { createDirectionIndicator, updateIndicators, isIndicatorVisible } from '../world/indicators.js';
 import { MusicSystem } from '../engine/music.js';
-import { createPostProcessState, updatePostProcessState, getActiveColorGrading, shouldEnableBloom } from '../engine/post-processing.js';
+import { createPostProcessState, updatePostProcessState, getActiveColorGrading, shouldEnableBloom, createBloomPipeline } from '../engine/post-processing.js';
+import { createHUD } from '../engine/hud.js';
+import { createTouchOverlay } from '../engine/touch-overlay.js';
 import {
   createArenaTransitionManager, updateArenaTransition, getTransitionProgress,
   isTransitioning, startTransitionToArena, startTransitionToHub,
@@ -53,10 +56,16 @@ const { scene, camera } = initScene();
 const handleResize = resize(renderer, camera);
 const sky = createSky(scene);
 const input = createIntegratedInput(canvas);
+const touchOverlay = createTouchOverlay();
+if (touchOverlay) {
+  document.body.appendChild(touchOverlay.container);
+}
 const orbit = new OrbitCamera({ distance: 8, pitch: 0.4 });
+let preFallCameraDistance = null;
+let wasFalling = false;
 
 const player = new PlayerCharacter();
-const playerMesh = createBoxMesh({ width: 0.6, height: 1.2, depth: 0.6, color: 0xccaa77 });
+const playerMesh = createCharacterMesh();
 scene.add(playerMesh);
 
 const gameState = new GameState();
@@ -73,6 +82,14 @@ let prevClimbing = false;
 let ambientWindNode = null;
 let ambientWindGain = null;
 let postProcess = createPostProcessState();
+let bloomPipeline = null;
+const hudCanvas = document.getElementById('hud-canvas');
+const hud = createHUD(hudCanvas);
+hud.resize(window.innerWidth, window.innerHeight);
+window.addEventListener('resize', () => {
+  hud.resize(window.innerWidth, window.innerHeight);
+  if (bloomPipeline) bloomPipeline.resize(window.innerWidth, window.innerHeight);
+});
 let endingState = null;
 let arenaTransition = createArenaTransitionManager();
 let hasTeleported = false;
@@ -564,6 +581,72 @@ canvas.addEventListener('click', () => {
   }
 });
 
+canvas.addEventListener('touchstart', (e) => {
+  ensureAudio();
+  if (gameState.getState() === 'title') {
+    gameState.transition('playing');
+    return;
+  }
+});
+
+if (touchOverlay && input.touch) {
+  canvas.addEventListener('touchstart', (e) => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    for (const touch of e.changedTouches) {
+      if (touch.clientX >= w * 0.4) {
+        const layout = input._touchLayout || touchOverlay.getLayout();
+        for (const btn of layout.buttons) {
+          const dx = touch.clientX - btn.x;
+          const dy = touch.clientY - btn.y;
+          if (dx * dx + dy * dy <= btn.radius * btn.radius * 1.5) {
+            touchOverlay.highlightButton(btn.id);
+          }
+        }
+      }
+    }
+  }, { passive: true });
+  canvas.addEventListener('touchend', (e) => {
+    for (const touch of e.changedTouches) {
+      const layout = input._touchLayout || touchOverlay.getLayout();
+      for (const btn of layout.buttons) {
+        touchOverlay.unhighlightButton(btn.id);
+      }
+    }
+  }, { passive: true });
+  canvas.addEventListener('touchmove', (e) => {
+    for (const touch of e.changedTouches) {
+      if (input.touch.joystickTouch !== null && touch.identifier === input.touch.joystickTouch) {
+        const dx = touch.clientX - input.touch.joystickStart.x;
+        const dy = touch.clientY - input.touch.joystickStart.y;
+        const maxR = input.touch.maxJoystickRadius;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 0) {
+          const clampDist = Math.min(dist, maxR);
+          touchOverlay.updateJoystickThumb(
+            (dx / dist) * clampDist,
+            (dy / dist) * clampDist
+          );
+        }
+      }
+    }
+  }, { passive: true });
+  canvas.addEventListener('touchend', (e) => {
+    for (const touch of e.changedTouches) {
+      if (input.touch.joystickTouch !== null && touch.identifier === input.touch.joystickTouch) {
+        touchOverlay.resetJoystickThumb();
+      }
+    }
+  }, { passive: true });
+  canvas.addEventListener('touchcancel', (e) => {
+    for (const touch of e.changedTouches) {
+      if (input.touch.joystickTouch !== null && touch.identifier === input.touch.joystickTouch) {
+        touchOverlay.resetJoystickThumb();
+      }
+    }
+  }, { passive: true });
+}
+
 let prevAttack = false;
 let prevGamepadConnected = false;
 let lastTime = performance.now();
@@ -619,6 +702,7 @@ function animate(now) {
 
     const fallCheck = checkFall(player.state, stamina);
     if (fallCheck.shouldFall && !player.state.isFalling) {
+      preFallCameraDistance = orbit.distance;
       player.state = enterFall(player.state);
     }
     if (player.state.isFalling) {
@@ -628,9 +712,12 @@ function animate(now) {
       player.state = respawn(player.state, respawnPoints);
     }
 
-    if (!isPlayerClimbing(climbing) && !player.state.isFalling) {
+    if (!isPlayerClimbing(climbing) && !player.state.isFalling && !player.state.justRespawned) {
       const moveInput = { x: inputState.move.x, y: inputState.move.y, jump: inputState.jump, sprint: inputState.sprint && !staminaResult.shouldPreventSprint };
       player.state = updatePlayer(player.state, moveInput, orbit.yaw, dt, player);
+    }
+    if (player.state.justRespawned) {
+      player.state = { ...player.state, justRespawned: false };
     }
 
     const wv = getWindVector(windSystem, player.state.position.x, player.state.position.y, player.state.position.z);
@@ -768,6 +855,14 @@ function animate(now) {
 
     const ppConfig = ui.getPostProcessConfig(colossusDist < 50 ? 'combat' : 'exploration', colossusDist);
     postProcess = updatePostProcessState(postProcess, ppConfig, dt);
+    if (shouldEnableBloom(postProcess)) {
+      if (!bloomPipeline) {
+        bloomPipeline = createBloomPipeline(renderer.impl, scene.impl, camera.impl);
+      }
+      bloomPipeline.update(postProcess);
+    } else if (bloomPipeline) {
+      bloomPipeline.update(postProcess);
+    }
     const grading = getActiveColorGrading(postProcess);
 
     const baseFogDensity = 0.02;
@@ -790,10 +885,10 @@ function animate(now) {
     }
 
     const pos = player.state.position;
-    playerMesh.setPosition(pos.x, pos.y + 0.6, pos.z);
+    playerMesh.setPosition(pos.x, pos.y, pos.z);
 
     const wind = { x: 0, z: 0, strength: 1 };
-    particleSystem.particles = updateParticleSystem(particleSystem, wind, dt).particles;
+    particleSystem.particles = updateParticleSystem(particleSystem, wind, dt, now * 0.001).particles;
     const posAttr = particleGeometry.attributes.position;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const p = particleSystem.particles[i];
@@ -806,9 +901,18 @@ function animate(now) {
 
     const target = { x: pos.x, y: pos.y + 1, z: pos.z };
     const fallCamData = getFreefallCameraData(player.state, FALL_CONSTANTS);
+    const justExitedFall = wasFalling && !player.state.isFalling;
     if (fallCamData.lookUp) {
       orbit.setDistance(orbit.distance * fallCamData.zoom);
+    } else if (justExitedFall && preFallCameraDistance !== null) {
+      const lerpT = 1 - Math.exp(-5 * dt);
+      orbit.setDistance(orbit.distance + (preFallCameraDistance - orbit.distance) * lerpT);
+      if (Math.abs(orbit.distance - preFallCameraDistance) < 0.01) {
+        orbit.setDistance(preFallCameraDistance);
+        preFallCameraDistance = null;
+      }
     }
+    wasFalling = player.state.isFalling;
     const adjustedTarget = { x: pos.x, y: pos.y + 1 + fallCamData.offsetY, z: pos.z };
     const orbitResult = orbit.update(dt, inputState.look, adjustedTarget);
     camera.syncFromOrbit(orbitResult);
@@ -850,7 +954,7 @@ function animate(now) {
 
     if (currentState !== 'playing') {
       const pos = player.state.position;
-      playerMesh.setPosition(pos.x, pos.y + 0.6, pos.z);
+      playerMesh.setPosition(pos.x, pos.y, pos.z);
       const adjustedTarget = { x: pos.x, y: pos.y + 1, z: pos.z };
       const orbitResult = orbit.update(dt, inputState.look, adjustedTarget);
       camera.syncFromOrbit(orbitResult);
@@ -865,6 +969,38 @@ function animate(now) {
 
   gameState.update(dt);
   ui.update(dt);
+  hud.update(dt);
+
+  if (gameState.isPlaying()) {
+    const staminaForUI = getStaminaForUI(stamina);
+    const isClimbingNow = isPlayerClimbing(climbing);
+    const showStamina = isClimbingNow || staminaForUI.percent < 1;
+
+    let colossusHealth = null;
+    let colossusName = null;
+    const nearestColossus = colossi.find(c => {
+      const dx = player.state.position.x - c.aiState.position.x;
+      const dz = player.state.position.z - c.aiState.position.z;
+      return Math.sqrt(dx * dx + dz * dz) < 60 && !c.aiState.isDead;
+    });
+    if (nearestColossus) {
+      colossusHealth = nearestColossus.aiState.health / nearestColossus.behaviorConfig.maxHealth;
+      colossusName = nearestColossus.type.charAt(0).toUpperCase() + nearestColossus.type.slice(1);
+    }
+
+    const hudState = {
+      stamina: showStamina ? staminaForUI.percent : 1,
+      colossusHealth,
+      colossusName,
+      hints: [],
+    };
+    hud.draw(hudState);
+  } else if (gameState.getState() === 'paused') {
+    hud.draw({ stamina: 1, colossusHealth: null, colossusName: null, hints: [] });
+  } else {
+    hud.draw({ stamina: 1, colossusHealth: null, colossusName: null, hints: [] });
+  }
+
   sky.update(now * 0.001);
 
   const transitionOverlay = document.getElementById('transition-overlay');
@@ -886,7 +1022,11 @@ function animate(now) {
     }
   }
 
-  renderer.render(scene, camera);
+  if (bloomPipeline) {
+    bloomPipeline.render();
+  } else {
+    renderer.render(scene, camera);
+  }
 }
 
 function sentinelAnimate(mesh, time) {

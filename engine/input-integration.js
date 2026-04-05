@@ -23,6 +23,7 @@ export function createIntegratedInput(canvas) {
       maxJoystickRadius: layout.joystickRadius,
       actionButtons: layout.buttons,
     });
+    integration._touchLayout = layout;
   }
 
   if (GamepadInputManager.isAvailable()) {
@@ -68,7 +69,7 @@ export function updateIntegratedInput(integration) {
     merged.attack = actions.attack || false;
     merged.jump = actions.jump || false;
 
-    merged.sprint = kbState.sprint;
+    merged.sprint = actions.sprint || kbState.sprint;
     merged.start = kbState.start;
   } else {
     integration.activeType = 'keyboard';
