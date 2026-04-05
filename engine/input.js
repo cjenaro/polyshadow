@@ -93,6 +93,7 @@ class InputManager {
     };
 
     this._onMouseDown = (e) => {
+      if (document.pointerLockElement !== this.canvas) return;
       if (!this.pressedMouseButtons.has(e.button)) {
         this.justPressed.add('Mouse' + e.button);
       }
@@ -100,6 +101,7 @@ class InputManager {
     };
 
     this._onMouseUp = (e) => {
+      if (document.pointerLockElement !== this.canvas) return;
       this.pressedMouseButtons.delete(e.button);
       this.justPressed.delete('Mouse' + e.button);
     };

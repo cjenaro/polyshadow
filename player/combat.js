@@ -57,80 +57,112 @@ export function findHitWeakPoint(playerPosition, weakPoints, range) {
   return nearest;
 }
 
-export function trySlash(combatState, playerPosition, playerRotation, weakPoints, colossusPosition) {
-  if (combatState.slashCooldown > 0) return { attacked: false };
+function applyDamageToWeakPointObj(weakPoint, damage) {
+  const newHealth = Math.max(0, weakPoint.health - damage);
+  const isDestroyed = newHealth <= 0;
+  return {
+    ...weakPoint,
+    health: newHealth,
+    isDestroyed,
+  };
+}
+
+export function trySlash(combatState, playerPosition, playerRotation, weakPoints) {
+  if (combatState.slashCooldown > 0) return { attacked: false, combatState };
 
   const slashOrigin = getSlashAttackOrigin(playerPosition, playerRotation);
-  const hit = findHitWeakPoint(slashOrigin, weakPoints, COMBAT_CONFIG.SLASH_RANGE);
+  const hitIndex = weakPoints.findIndex(wp => wp === findHitWeakPoint(slashOrigin, weakPoints, COMBAT_CONFIG.SLASH_RANGE));
 
-  if (!hit) return { attacked: false };
+  if (hitIndex === -1) return { attacked: false, combatState };
 
   const damage = COMBAT_CONFIG.SLASH_DAMAGE;
-  hit.health = Math.max(0, hit.health - damage);
-  hit.isDestroyed = hit.health <= 0;
-
-  combatState.slashCooldown = COMBAT_CONFIG.SLASH_COOLDOWN;
-  combatState.totalDamageDealt += damage;
-  combatState.hitsLanded += 1;
+  const updatedWeakPoints = weakPoints.map((wp, i) =>
+    i === hitIndex ? applyDamageToWeakPointObj(wp, damage) : wp
+  );
 
   return {
     attacked: true,
     hitWeakPoint: true,
     damage,
-    weakPointId: hit.id,
+    weakPointId: weakPoints[hitIndex].id,
+    weakPoints: updatedWeakPoints,
+    combatState: {
+      ...combatState,
+      slashCooldown: COMBAT_CONFIG.SLASH_COOLDOWN,
+      totalDamageDealt: combatState.totalDamageDealt + damage,
+      hitsLanded: combatState.hitsLanded + 1,
+    },
   };
 }
 
 export function startStabCharge(combatState) {
-  combatState.isChargingStab = true;
-  combatState.stabChargeProgress = 0;
+  return {
+    ...combatState,
+    isChargingStab: true,
+    stabChargeProgress: 0,
+  };
 }
 
 export function updateStabCharge(combatState, dt) {
-  if (!combatState.isChargingStab) return;
-  combatState.stabChargeProgress = clamp(
-    combatState.stabChargeProgress + dt / COMBAT_CONFIG.STAB_CHARGE_TIME,
-    0,
-    1
-  );
+  if (!combatState.isChargingStab) return combatState;
+  return {
+    ...combatState,
+    stabChargeProgress: clamp(
+      combatState.stabChargeProgress + dt / COMBAT_CONFIG.STAB_CHARGE_TIME,
+      0,
+      1
+    ),
+  };
 }
 
 export function cancelStabCharge(combatState) {
-  combatState.isChargingStab = false;
-  combatState.stabChargeProgress = 0;
+  return {
+    ...combatState,
+    isChargingStab: false,
+    stabChargeProgress: 0,
+  };
 }
 
 export function tryStab(combatState, chargeProgress, playerPosition, weakPoints) {
-  if (chargeProgress < 0.8) return { attacked: false };
+  if (chargeProgress < 0.8) return { attacked: false, combatState };
 
-  const hit = findHitWeakPoint(playerPosition, weakPoints, COMBAT_CONFIG.STAB_RANGE);
+  const hitIndex = weakPoints.findIndex(wp => wp === findHitWeakPoint(playerPosition, weakPoints, COMBAT_CONFIG.STAB_RANGE));
 
-  if (!hit) return { attacked: false };
+  if (hitIndex === -1) return { attacked: false, combatState };
 
   const damage = chargeProgress * COMBAT_CONFIG.STAB_DAMAGE;
-  hit.health = Math.max(0, hit.health - damage);
-  hit.isDestroyed = hit.health <= 0;
-
-  combatState.isChargingStab = false;
-  combatState.stabChargeProgress = 0;
-  combatState.totalDamageDealt += damage;
-  combatState.hitsLanded += 1;
+  const updatedWeakPoints = weakPoints.map((wp, i) =>
+    i === hitIndex ? applyDamageToWeakPointObj(wp, damage) : wp
+  );
 
   return {
     attacked: true,
     hitWeakPoint: true,
     damage,
-    weakPointId: hit.id,
+    weakPointId: weakPoints[hitIndex].id,
+    weakPoints: updatedWeakPoints,
+    combatState: {
+      ...combatState,
+      isChargingStab: false,
+      stabChargeProgress: 0,
+      totalDamageDealt: combatState.totalDamageDealt + damage,
+      hitsLanded: combatState.hitsLanded + 1,
+    },
   };
 }
 
 export function applyDamageToWeakPoint(weakPoint, damage) {
-  weakPoint.health = Math.max(0, weakPoint.health - damage);
-  weakPoint.isDestroyed = weakPoint.health <= 0;
+  const newHealth = Math.max(0, weakPoint.health - damage);
+  const isDestroyed = newHealth <= 0;
   return {
+    weakPoint: {
+      ...weakPoint,
+      health: newHealth,
+      isDestroyed,
+    },
     damaged: true,
-    remainingHealth: weakPoint.health,
-    isDestroyed: weakPoint.isDestroyed,
+    remainingHealth: newHealth,
+    isDestroyed,
   };
 }
 
@@ -150,17 +182,23 @@ export function applyShakeOff(staminaState, dt, isHoldingOn, combatConfig) {
 }
 
 export function updateCombat(combatState, dt) {
-  combatState.slashCooldown = Math.max(0, combatState.slashCooldown - dt);
+  let next = { ...combatState };
+  next.slashCooldown = Math.max(0, next.slashCooldown - dt);
 
-  if (combatState.isShakingOff) {
-    combatState.shakeOffTimer -= dt;
-    if (combatState.shakeOffTimer <= 0) {
-      combatState.isShakingOff = false;
-      combatState.shakeOffTimer = 0;
+  if (next.isShakingOff) {
+    next.shakeOffTimer -= dt;
+    if (next.shakeOffTimer <= 0) {
+      next = {
+        ...next,
+        isShakingOff: false,
+        shakeOffTimer: 0,
+      };
     }
   }
 
-  if (combatState.isChargingStab) {
-    updateStabCharge(combatState, dt);
+  if (next.isChargingStab) {
+    next = updateStabCharge(next, dt);
   }
+
+  return next;
 }

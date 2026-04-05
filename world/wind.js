@@ -9,6 +9,8 @@ import {
   updateCurrents,
   getForceAt,
   isInAnyCurrent,
+  fadeOutCurrent,
+  isCurrentFaded,
 } from './wind_currents.js';
 
 export {
@@ -22,4 +24,6 @@ export {
   updateCurrents,
   isInAnyCurrent,
   getForceAt as getWindForce,
+  fadeOutCurrent,
+  isCurrentFaded,
 };

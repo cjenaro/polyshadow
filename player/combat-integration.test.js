@@ -58,8 +58,8 @@ describe('updateIntegratedCombat', () => {
   it('calls updateCombat to tick cooldowns', () => {
     const combat = createIntegratedCombat({ slashCooldown: 0.5 });
     const input = makeInput();
-    updateIntegratedCombat(combat, input, makePlayerPos(), 0, [], false, 0.3);
-    assert.ok(Math.abs(combat.slashCooldown - 0.2) < 1e-6);
+    const result = updateIntegratedCombat(combat, input, makePlayerPos(), 0, [], false, 0.3);
+    assert.ok(Math.abs(result.combatState.slashCooldown - 0.2) < 1e-6);
   });
 
   it('does not allow combat when climbing', () => {
@@ -101,15 +101,15 @@ describe('updateIntegratedCombat', () => {
     const combat = createIntegratedCombat();
     const input = makeInput({ attack: true, attackJustPressed: false });
     const weakPoints = [makeWeakPoint()];
-    updateIntegratedCombat(combat, input, makePlayerPos(), 0, weakPoints, false, 0.016);
-    assert.strictEqual(combat.isChargingStab, true);
+    const result = updateIntegratedCombat(combat, input, makePlayerPos(), 0, weakPoints, false, 0.016);
+    assert.strictEqual(result.combatState.isChargingStab, true);
   });
 
   it('does not start stab charge while already charging', () => {
     const combat = createIntegratedCombat({ isChargingStab: true, stabChargeProgress: 0.5 });
     const input = makeInput({ attack: true });
-    updateIntegratedCombat(combat, input, makePlayerPos(), 0, [], false, 0.016);
-    assert.strictEqual(combat.isChargingStab, true);
+    const result = updateIntegratedCombat(combat, input, makePlayerPos(), 0, [], false, 0.016);
+    assert.strictEqual(result.combatState.isChargingStab, true);
   });
 
   it('releases stab when attack released with sufficient charge and hits', () => {
@@ -135,9 +135,9 @@ describe('updateIntegratedCombat', () => {
     const combat = createIntegratedCombat({ isChargingStab: true, stabChargeProgress: 0.5 });
     const input = makeInput({ attack: false });
     const weakPoints = [];
-    updateIntegratedCombat(combat, input, makePlayerPos(), 0, weakPoints, false, 0.016);
-    assert.strictEqual(combat.isChargingStab, false);
-    assert.strictEqual(combat.stabChargeProgress, 0);
+    const result = updateIntegratedCombat(combat, input, makePlayerPos(), 0, weakPoints, false, 0.016);
+    assert.strictEqual(result.combatState.isChargingStab, false);
+    assert.strictEqual(result.combatState.stabChargeProgress, 0);
   });
 
   it('does not slash when attack held but not just pressed', () => {
@@ -191,6 +191,13 @@ describe('handleShakeOff', () => {
     const result = handleShakeOff(combat, stamina, 0.016, false);
     assert.ok(result.combatState);
     assert.ok(result.staminaState);
+  });
+
+  it('does not mutate original combat state', () => {
+    const combat = createCombatState();
+    const stamina = { current: 100, isDepleted: false, depletedTimer: 0, isClimbing: true };
+    handleShakeOff(combat, stamina, 0.016, true);
+    assert.strictEqual(combat.isShakingOff, false);
   });
 });
 

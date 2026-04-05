@@ -53,9 +53,8 @@ describe('trySlash', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const playerRot = 0;
-    const colossusPos = { x: 0, y: 0, z: -3 };
     const weakPoints = [makeWeakPoint({ position: { x: 0, y: 0, z: -3 } })];
-    const result = trySlash(combat, playerPos, playerRot, weakPoints, colossusPos);
+    const result = trySlash(combat, playerPos, playerRot, weakPoints);
     assert.strictEqual(result.attacked, true);
     assert.strictEqual(result.hitWeakPoint, true);
     assert.strictEqual(result.weakPointId, 'head');
@@ -65,9 +64,8 @@ describe('trySlash', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const playerRot = 0;
-    const colossusPos = { x: 0, y: 0, z: -50 };
     const weakPoints = [makeWeakPoint({ position: { x: 0, y: 0, z: -50 } })];
-    const result = trySlash(combat, playerPos, playerRot, weakPoints, colossusPos);
+    const result = trySlash(combat, playerPos, playerRot, weakPoints);
     assert.strictEqual(result.attacked, false);
   });
 
@@ -75,9 +73,8 @@ describe('trySlash', () => {
     const combat = createCombatState({ slashCooldown: 1 });
     const playerPos = { x: 0, y: 0, z: 0 };
     const playerRot = 0;
-    const colossusPos = { x: 0, y: 0, z: -3 };
     const weakPoints = [makeWeakPoint({ position: { x: 0, y: 0, z: -3 } })];
-    const result = trySlash(combat, playerPos, playerRot, weakPoints, colossusPos);
+    const result = trySlash(combat, playerPos, playerRot, weakPoints);
     assert.strictEqual(result.attacked, false);
   });
 
@@ -85,31 +82,37 @@ describe('trySlash', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const playerRot = 0;
-    const colossusPos = { x: 0, y: 0, z: -3 };
     const weakPoints = [makeWeakPoint({ health: 50 })];
-    trySlash(combat, playerPos, playerRot, weakPoints, colossusPos);
-    assert.strictEqual(weakPoints[0].health, 50 - COMBAT_CONFIG.SLASH_DAMAGE);
+    const result = trySlash(combat, playerPos, playerRot, weakPoints);
+    assert.strictEqual(result.weakPoints[0].health, 50 - COMBAT_CONFIG.SLASH_DAMAGE);
+  });
+
+  it('does not mutate original weak points', () => {
+    const combat = createCombatState();
+    const playerPos = { x: 0, y: 0, z: 0 };
+    const playerRot = 0;
+    const weakPoints = [makeWeakPoint({ health: 50 })];
+    trySlash(combat, playerPos, playerRot, weakPoints);
+    assert.strictEqual(weakPoints[0].health, 50);
   });
 
   it('destroys weak point when health reaches 0', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const playerRot = 0;
-    const colossusPos = { x: 0, y: 0, z: -3 };
     const weakPoints = [makeWeakPoint({ health: COMBAT_CONFIG.SLASH_DAMAGE })];
-    const result = trySlash(combat, playerPos, playerRot, weakPoints, colossusPos);
+    const result = trySlash(combat, playerPos, playerRot, weakPoints);
     assert.strictEqual(result.attacked, true);
-    assert.strictEqual(weakPoints[0].health, 0);
-    assert.strictEqual(weakPoints[0].isDestroyed, true);
+    assert.strictEqual(result.weakPoints[0].health, 0);
+    assert.strictEqual(result.weakPoints[0].isDestroyed, true);
   });
 
   it('fails on destroyed weak points', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const playerRot = 0;
-    const colossusPos = { x: 0, y: 0, z: -3 };
     const weakPoints = [makeWeakPoint({ isDestroyed: true, isActive: false })];
-    const result = trySlash(combat, playerPos, playerRot, weakPoints, colossusPos);
+    const result = trySlash(combat, playerPos, playerRot, weakPoints);
     assert.strictEqual(result.attacked, false);
   });
 
@@ -117,9 +120,8 @@ describe('trySlash', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const playerRot = 0;
-    const colossusPos = { x: 0, y: 0, z: -3 };
     const weakPoints = [makeWeakPoint({ isActive: false })];
-    const result = trySlash(combat, playerPos, playerRot, weakPoints, colossusPos);
+    const result = trySlash(combat, playerPos, playerRot, weakPoints);
     assert.strictEqual(result.attacked, false);
   });
 
@@ -127,12 +129,11 @@ describe('trySlash', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const playerRot = 0;
-    const colossusPos = { x: 0, y: 0, z: -3 };
     const weakPoints = [
       makeWeakPoint({ id: 'far', position: { x: 0, y: 0, z: -4 } }),
       makeWeakPoint({ id: 'near', position: { x: 0, y: 0, z: -2 } }),
     ];
-    const result = trySlash(combat, playerPos, playerRot, weakPoints, colossusPos);
+    const result = trySlash(combat, playerPos, playerRot, weakPoints);
     assert.strictEqual(result.weakPointId, 'near');
     assert.strictEqual(result.attacked, true);
   });
@@ -141,9 +142,8 @@ describe('trySlash', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const playerRot = 0;
-    const colossusPos = { x: 0, y: 0, z: -3 };
     const weakPoints = [makeWeakPoint()];
-    const result = trySlash(combat, playerPos, playerRot, weakPoints, colossusPos);
+    const result = trySlash(combat, playerPos, playerRot, weakPoints);
     assert.strictEqual(result.damage, COMBAT_CONFIG.SLASH_DAMAGE);
   });
 
@@ -151,10 +151,9 @@ describe('trySlash', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const playerRot = 0;
-    const colossusPos = { x: 0, y: 0, z: -3 };
     const weakPoints = [makeWeakPoint()];
-    trySlash(combat, playerPos, playerRot, weakPoints, colossusPos);
-    assert.strictEqual(combat.slashCooldown, COMBAT_CONFIG.SLASH_COOLDOWN);
+    const result = trySlash(combat, playerPos, playerRot, weakPoints);
+    assert.strictEqual(result.combatState.slashCooldown, COMBAT_CONFIG.SLASH_COOLDOWN);
   });
 });
 
@@ -201,7 +200,7 @@ describe('tryStab', () => {
     const result = tryStab(combat, 0.9, playerPos, weakPoints);
     assert.strictEqual(result.attacked, true);
     assert.ok(Math.abs(result.damage - COMBAT_CONFIG.STAB_DAMAGE * 0.9) < 1e-6);
-    assert.ok(Math.abs(weakPoints[0].health - (100 - COMBAT_CONFIG.STAB_DAMAGE * 0.9)) < 1e-6);
+    assert.ok(Math.abs(result.weakPoints[0].health - (100 - COMBAT_CONFIG.STAB_DAMAGE * 0.9)) < 1e-6);
   });
 
   it('fails when no weak point in range', () => {
@@ -218,57 +217,71 @@ describe('tryStab', () => {
     const weakPoints = [makeWeakPoint({ position: { x: 0, y: 0, z: -2 }, health: 100 })];
     const result = tryStab(combat, 1.0, playerPos, weakPoints);
     assert.strictEqual(result.damage, COMBAT_CONFIG.STAB_DAMAGE);
-    assert.strictEqual(weakPoints[0].health, 100 - COMBAT_CONFIG.STAB_DAMAGE);
+    assert.strictEqual(result.weakPoints[0].health, 100 - COMBAT_CONFIG.STAB_DAMAGE);
+  });
+
+  it('does not mutate original weak points', () => {
+    const combat = createCombatState();
+    const playerPos = { x: 0, y: 0, z: 0 };
+    const weakPoints = [makeWeakPoint({ position: { x: 0, y: 0, z: -2 }, health: 100 })];
+    tryStab(combat, 1.0, playerPos, weakPoints);
+    assert.strictEqual(weakPoints[0].health, 100);
   });
 
   it('resets stab charge after successful attack', () => {
     const combat = createCombatState({ isChargingStab: true, stabChargeProgress: 1.0 });
     const playerPos = { x: 0, y: 0, z: 0 };
     const weakPoints = [makeWeakPoint({ position: { x: 0, y: 0, z: -2 } })];
-    tryStab(combat, 1.0, playerPos, weakPoints);
-    assert.strictEqual(combat.isChargingStab, false);
-    assert.strictEqual(combat.stabChargeProgress, 0);
+    const result = tryStab(combat, 1.0, playerPos, weakPoints);
+    assert.strictEqual(result.combatState.isChargingStab, false);
+    assert.strictEqual(result.combatState.stabChargeProgress, 0);
   });
 });
 
 describe('stab charge lifecycle', () => {
   it('startStabCharge begins charging', () => {
     const combat = createCombatState();
+    const result = startStabCharge(combat);
+    assert.strictEqual(result.isChargingStab, true);
+    assert.strictEqual(result.stabChargeProgress, 0);
+  });
+
+  it('does not mutate original state', () => {
+    const combat = createCombatState();
     startStabCharge(combat);
-    assert.strictEqual(combat.isChargingStab, true);
-    assert.strictEqual(combat.stabChargeProgress, 0);
+    assert.strictEqual(combat.isChargingStab, false);
   });
 
   it('updateStabCharge increases progress', () => {
     const combat = createCombatState({ isChargingStab: true, stabChargeProgress: 0 });
-    updateStabCharge(combat, 0.5);
-    assert.ok(combat.stabChargeProgress > 0);
-    assert.strictEqual(combat.isChargingStab, true);
+    const result = updateStabCharge(combat, 0.5);
+    assert.ok(result.stabChargeProgress > 0);
+    assert.strictEqual(result.isChargingStab, true);
   });
 
   it('cancelStabCharge resets charge', () => {
     const combat = createCombatState({ isChargingStab: true, stabChargeProgress: 0.5 });
-    cancelStabCharge(combat);
-    assert.strictEqual(combat.isChargingStab, false);
-    assert.strictEqual(combat.stabChargeProgress, 0);
+    const result = cancelStabCharge(combat);
+    assert.strictEqual(result.isChargingStab, false);
+    assert.strictEqual(result.stabChargeProgress, 0);
   });
 
   it('charge reaches 1.0 after STAB_CHARGE_TIME seconds', () => {
     const combat = createCombatState({ isChargingStab: true, stabChargeProgress: 0 });
-    updateStabCharge(combat, COMBAT_CONFIG.STAB_CHARGE_TIME);
-    assert.strictEqual(combat.stabChargeProgress, 1);
+    const result = updateStabCharge(combat, COMBAT_CONFIG.STAB_CHARGE_TIME);
+    assert.strictEqual(result.stabChargeProgress, 1);
   });
 
   it('charge does not exceed 1.0', () => {
     const combat = createCombatState({ isChargingStab: true, stabChargeProgress: 0.9 });
-    updateStabCharge(combat, 10);
-    assert.strictEqual(combat.stabChargeProgress, 1);
+    const result = updateStabCharge(combat, 10);
+    assert.strictEqual(result.stabChargeProgress, 1);
   });
 
   it('updateStabCharge does nothing when not charging', () => {
     const combat = createCombatState({ isChargingStab: false, stabChargeProgress: 0 });
-    updateStabCharge(combat, 1);
-    assert.strictEqual(combat.stabChargeProgress, 0);
+    const result = updateStabCharge(combat, 1);
+    assert.strictEqual(result.stabChargeProgress, 0);
   });
 });
 
@@ -295,15 +308,10 @@ describe('applyShakeOff', () => {
     let dt = 0.1;
     let totalTime = 0;
     while (totalTime < COMBAT_CONFIG.SHAKE_OFF_DURATION) {
-      const prevTimer = current.shakeOffTimer;
-      current = { ...current };
-      current.shakeOffTimer = Math.max(0, prevTimer - dt);
+      current = updateCombat(current, dt);
       applyShakeOff(stamina, dt, false, COMBAT_CONFIG);
       totalTime += dt;
-      if (current.shakeOffTimer <= 0) {
-        current.isShakingOff = false;
-        break;
-      }
+      if (!current.isShakingOff) break;
     }
     assert.strictEqual(current.isShakingOff, false);
     assert.strictEqual(current.shakeOffTimer, 0);
@@ -373,50 +381,57 @@ describe('applyDamageToWeakPoint', () => {
     assert.strictEqual(result.isDestroyed, true);
   });
 
-  it('mutates the weak point health and isDestroyed', () => {
+  it('returns new weak point without mutating original', () => {
     const wp = makeWeakPoint({ health: 50 });
-    applyDamageToWeakPoint(wp, 10);
-    assert.strictEqual(wp.health, 40);
-    assert.strictEqual(wp.isDestroyed, false);
+    const result = applyDamageToWeakPoint(wp, 10);
+    assert.strictEqual(result.weakPoint.health, 40);
+    assert.strictEqual(result.weakPoint.isDestroyed, false);
+    assert.strictEqual(wp.health, 50);
   });
 });
 
 describe('updateCombat', () => {
   it('reduces slash cooldown', () => {
     const combat = createCombatState({ slashCooldown: 1 });
-    updateCombat(combat, 0.3);
-    assert.ok(Math.abs(combat.slashCooldown - 0.7) < 1e-6);
+    const result = updateCombat(combat, 0.3);
+    assert.ok(Math.abs(result.slashCooldown - 0.7) < 1e-6);
   });
 
   it('does not let cooldown go below 0', () => {
     const combat = createCombatState({ slashCooldown: 0.5 });
-    updateCombat(combat, 1.0);
-    assert.strictEqual(combat.slashCooldown, 0);
+    const result = updateCombat(combat, 1.0);
+    assert.strictEqual(result.slashCooldown, 0);
+  });
+
+  it('does not mutate original state', () => {
+    const combat = createCombatState({ slashCooldown: 1 });
+    updateCombat(combat, 0.3);
+    assert.strictEqual(combat.slashCooldown, 1);
   });
 
   it('reduces shake-off timer', () => {
     const combat = createCombatState({ isShakingOff: true, shakeOffTimer: 2.0 });
-    updateCombat(combat, 0.5);
-    assert.ok(Math.abs(combat.shakeOffTimer - 1.5) < 1e-6);
+    const result = updateCombat(combat, 0.5);
+    assert.ok(Math.abs(result.shakeOffTimer - 1.5) < 1e-6);
   });
 
   it('ends shake-off when timer reaches 0', () => {
     const combat = createCombatState({ isShakingOff: true, shakeOffTimer: 0.3 });
-    updateCombat(combat, 0.5);
-    assert.strictEqual(combat.isShakingOff, false);
-    assert.strictEqual(combat.shakeOffTimer, 0);
+    const result = updateCombat(combat, 0.5);
+    assert.strictEqual(result.isShakingOff, false);
+    assert.strictEqual(result.shakeOffTimer, 0);
   });
 
   it('updates stab charge progress when charging', () => {
     const combat = createCombatState({ isChargingStab: true, stabChargeProgress: 0 });
-    updateCombat(combat, 0.5);
-    assert.ok(combat.stabChargeProgress > 0);
+    const result = updateCombat(combat, 0.5);
+    assert.ok(result.stabChargeProgress > 0);
   });
 
   it('does not update stab charge when not charging', () => {
     const combat = createCombatState({ isChargingStab: false, stabChargeProgress: 0 });
-    updateCombat(combat, 1.0);
-    assert.strictEqual(combat.stabChargeProgress, 0);
+    const result = updateCombat(combat, 1.0);
+    assert.strictEqual(result.stabChargeProgress, 0);
   });
 });
 
@@ -425,37 +440,39 @@ describe('combat stats', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const weakPoints = [makeWeakPoint()];
-    trySlash(combat, playerPos, 0, weakPoints, { x: 0, y: 0, z: -3 });
-    assert.strictEqual(combat.totalDamageDealt, COMBAT_CONFIG.SLASH_DAMAGE);
-    assert.strictEqual(combat.hitsLanded, 1);
+    const result = trySlash(combat, playerPos, 0, weakPoints);
+    assert.strictEqual(result.combatState.totalDamageDealt, COMBAT_CONFIG.SLASH_DAMAGE);
+    assert.strictEqual(result.combatState.hitsLanded, 1);
   });
 
   it('tracks totalDamageDealt on stab hit', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const weakPoints = [makeWeakPoint({ position: { x: 0, y: 0, z: -2 } })];
-    tryStab(combat, 1.0, playerPos, weakPoints);
-    assert.strictEqual(combat.totalDamageDealt, COMBAT_CONFIG.STAB_DAMAGE);
-    assert.strictEqual(combat.hitsLanded, 1);
+    const result = tryStab(combat, 1.0, playerPos, weakPoints);
+    assert.strictEqual(result.combatState.totalDamageDealt, COMBAT_CONFIG.STAB_DAMAGE);
+    assert.strictEqual(result.combatState.hitsLanded, 1);
   });
 
   it('does not track stats on miss', () => {
     const combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
     const weakPoints = [makeWeakPoint({ position: { x: 0, y: 0, z: -100 } })];
-    trySlash(combat, playerPos, 0, weakPoints, { x: 0, y: 0, z: -50 });
-    assert.strictEqual(combat.totalDamageDealt, 0);
-    assert.strictEqual(combat.hitsLanded, 0);
+    const result = trySlash(combat, playerPos, 0, weakPoints);
+    assert.strictEqual(result.combatState.totalDamageDealt, 0);
+    assert.strictEqual(result.combatState.hitsLanded, 0);
   });
 
   it('accumulates across multiple hits', () => {
-    const combat = createCombatState();
+    let combat = createCombatState();
     const playerPos = { x: 0, y: 0, z: 0 };
-    const weakPoints = [makeWeakPoint({ health: 100 })];
-    trySlash(combat, playerPos, 0, weakPoints, { x: 0, y: 0, z: -3 });
-    updateCombat(combat, COMBAT_CONFIG.SLASH_COOLDOWN);
-    trySlash(combat, playerPos, 0, weakPoints, { x: 0, y: 0, z: -3 });
-    assert.strictEqual(combat.totalDamageDealt, COMBAT_CONFIG.SLASH_DAMAGE * 2);
-    assert.strictEqual(combat.hitsLanded, 2);
+    let weakPoints = [makeWeakPoint({ health: 100 })];
+    const result1 = trySlash(combat, playerPos, 0, weakPoints);
+    combat = result1.combatState;
+    weakPoints = result1.weakPoints;
+    combat = updateCombat(combat, COMBAT_CONFIG.SLASH_COOLDOWN);
+    const result2 = trySlash(combat, playerPos, 0, weakPoints);
+    assert.strictEqual(result2.combatState.totalDamageDealt, COMBAT_CONFIG.SLASH_DAMAGE * 2);
+    assert.strictEqual(result2.combatState.hitsLanded, 2);
   });
 });

@@ -174,11 +174,22 @@ describe('updateStamina', () => {
     assert.ok(next.current < STAMINA_CONSTANTS.MAX);
   });
 
-  it('uses climb drain rate when climbing', () => {
+  it('uses climb drain rate when actively climbing', () => {
     const state = createStaminaState();
-    const next = updateStamina(state, { isSprinting: false, isGrounded: false, isClimbing: true }, 1.0);
+    const next = updateStamina(state, { isSprinting: false, isGrounded: false, isClimbing: true, isActivelyClimbing: true }, 1.0);
     const expected = STAMINA_CONSTANTS.MAX - STAMINA_CONSTANTS.CLIMB_DRAIN_RATE;
     assert.ok(Math.abs(next.current - expected) < 0.01);
+  });
+
+  it('uses grip drain rate when climbing stationary', () => {
+    const state = createStaminaState();
+    const next = updateStamina(state, { isSprinting: false, isGrounded: false, isClimbing: true }, 1.0);
+    const expected = STAMINA_CONSTANTS.MAX - STAMINA_CONSTANTS.GRIP_DRAIN_RATE;
+    assert.ok(Math.abs(next.current - expected) < 0.01);
+  });
+
+  it('grip drain is slower than active climb drain', () => {
+    assert.ok(STAMINA_CONSTANTS.GRIP_DRAIN_RATE < STAMINA_CONSTANTS.CLIMB_DRAIN_RATE);
   });
 
   it('regens when grounded and not sprinting and not climbing', () => {
@@ -211,6 +222,16 @@ describe('updateStamina', () => {
     const state = createStaminaState();
     const next = updateStamina(state, { isSprinting: false, isGrounded: true, isClimbing: false }, 0.1);
     assert.strictEqual(next.current, STAMINA_CONSTANTS.MAX);
+  });
+
+  it('active climbing on rest spot still regens', () => {
+    const state = createStaminaState({ current: 50 });
+    const next = updateStamina(
+      state,
+      { isSprinting: false, isGrounded: false, isClimbing: true, isActivelyClimbing: true, isOnRestSpot: true },
+      0.5
+    );
+    assert.ok(next.current > 50);
   });
 });
 

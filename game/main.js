@@ -1075,6 +1075,8 @@ function animate(now) {
       audioState = registerSound(audioState, 'swordSlash', slashParams.duration, now * 0.001);
     }
     const combatResult = updateIntegratedCombat(combat, { ...inputState, attackJustPressed }, player.state.position, player.state.rotation, weakPoints, isPlayerClimbing(climbing), dt);
+    combat = combatResult.combatState;
+    weakPoints = combatResult.hitResult.weakPoints || weakPoints;
     prevAttack = inputState.attack;
 
     if (combatResult.hitResult.attacked && combatResult.hitResult.hitWeakPoint) {
@@ -1113,8 +1115,8 @@ function animate(now) {
     for (const event of colossusEvents) {
       if (event.type === 'shakeOff' && isPlayerClimbing(climbing)) {
         const shakeResult = handleShakeOff(combat, stamina, dt, inputState.action);
-        Object.assign(combat, shakeResult.combatState);
-        Object.assign(stamina, shakeResult.staminaState);
+        combat = shakeResult.combatState;
+        stamina = shakeResult.staminaState;
       }
     }
 

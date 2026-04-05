@@ -14,7 +14,7 @@ export function createIntegratedCombat(overrides = {}) {
 }
 
 export function updateIntegratedCombat(combatState, input, playerPosition, playerRotation, weakPoints, isClimbing, dt) {
-  updateCombat(combatState, dt);
+  combatState = updateCombat(combatState, dt);
 
   let hitResult = {
     attacked: false,
@@ -27,13 +27,13 @@ export function updateIntegratedCombat(combatState, input, playerPosition, playe
   }
 
   if (input.attackJustPressed && combatState.slashCooldown <= 0) {
-    const slashResult = trySlash(combatState, playerPosition, playerRotation, weakPoints, { x: 0, y: 0, z: 0 });
+    const slashResult = trySlash(combatState, playerPosition, playerRotation, weakPoints);
     hitResult = {
       ...slashResult,
       isSlash: true,
       isStab: false,
     };
-    return { combatState, hitResult };
+    return { combatState: slashResult.combatState, hitResult };
   }
 
   if (combatState.isChargingStab) {
@@ -45,8 +45,9 @@ export function updateIntegratedCombat(combatState, input, playerPosition, playe
           isSlash: false,
           isStab: true,
         };
+        return { combatState: stabResult.combatState, hitResult };
       } else {
-        cancelStabCharge(combatState);
+        combatState = cancelStabCharge(combatState);
         hitResult = {
           attacked: false,
           isSlash: false,
@@ -58,17 +59,21 @@ export function updateIntegratedCombat(combatState, input, playerPosition, playe
   }
 
   if (input.attack && !input.attackJustPressed) {
-    startStabCharge(combatState);
+    combatState = startStabCharge(combatState);
   }
 
   return { combatState, hitResult };
 }
 
 export function handleShakeOff(combatState, staminaState, dt, isHoldingOn) {
-  combatState.isShakingOff = true;
-  combatState.shakeOffTimer = COMBAT_CONFIG.SHAKE_OFF_DURATION;
-  const newStamina = applyShakeOff(staminaState, dt, isHoldingOn, COMBAT_CONFIG);
-  return { combatState, staminaState: newStamina };
+  return {
+    combatState: {
+      ...combatState,
+      isShakingOff: true,
+      shakeOffTimer: COMBAT_CONFIG.SHAKE_OFF_DURATION,
+    },
+    staminaState: applyShakeOff(staminaState, dt, isHoldingOn, COMBAT_CONFIG),
+  };
 }
 
 export function getCombatStats(combatState) {

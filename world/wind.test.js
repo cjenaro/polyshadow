@@ -59,6 +59,7 @@ describe('getWindForce', () => {
       strength: 10,
       width: 10,
       seed: 42,
+      fadeInDuration: 0,
     });
     const system = createWindCurrentSystem([c]);
     const force = getWindForce(system, { x: 50, y: 20, z: 0 });
@@ -72,6 +73,7 @@ describe('getWindForce', () => {
       strength: 10,
       width: 10,
       seed: 42,
+      fadeInDuration: 0,
     });
     const system = createWindCurrentSystem([c]);
     const force = getWindForce(system, { x: 50, y: 20, z: 0 });
@@ -99,6 +101,7 @@ describe('getWindForce', () => {
       strength: 5,
       width: 20,
       seed: 42,
+      fadeInDuration: 0,
     });
     const c2 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
@@ -106,6 +109,7 @@ describe('getWindForce', () => {
       strength: 5,
       width: 20,
       seed: 99,
+      fadeInDuration: 0,
     });
     const singleSystem = createWindCurrentSystem([c1]);
     const doubleSystem = createWindCurrentSystem([c1, c2]);

@@ -4,6 +4,7 @@ export const STAMINA_CONSTANTS = {
   MAX: 100,
   SPRINT_DRAIN_RATE: 15,
   CLIMB_DRAIN_RATE: 12,
+  GRIP_DRAIN_RATE: 3,
   REGEN_RATE: 20,
   REST_REGEN_RATE: 15,
   LOW_THRESHOLD: 25,
@@ -80,7 +81,10 @@ export function updateStamina(state, flags, dt) {
       );
       next.current = newCurrent;
     } else {
-      next = drainStamina(next, STAMINA_CONSTANTS.CLIMB_DRAIN_RATE * dt);
+      const rate = flags.isActivelyClimbing
+        ? STAMINA_CONSTANTS.CLIMB_DRAIN_RATE
+        : STAMINA_CONSTANTS.GRIP_DRAIN_RATE;
+      next = drainStamina(next, rate * dt);
     }
   } else if (flags.isSprinting) {
     next = drainStamina(next, STAMINA_CONSTANTS.SPRINT_DRAIN_RATE * dt);

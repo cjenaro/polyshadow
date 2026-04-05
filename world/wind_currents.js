@@ -1,4 +1,4 @@
-import { lerp } from '../utils/math.js';
+import { lerp, smoothstep } from '../utils/math.js';
 import { noise2D } from '../utils/noise.js';
 
 export function createWindCurrent({
@@ -10,6 +10,8 @@ export function createWindCurrent({
   id = null,
   pulseSpeed = 1.5,
   pulseAmplitude = 0.2,
+  fadeInDuration = 0.75,
+  fadeOutDuration = 0.75,
 } = {}) {
   const current = {
     id,
@@ -23,6 +25,8 @@ export function createWindCurrent({
     active: true,
     pulseSpeed,
     pulseAmplitude,
+    fadeInDuration,
+    fadeOutDuration,
   };
   current.points = generateWindCurrentPath(current);
   return current;
@@ -71,6 +75,7 @@ function findClosestPointOnPath(points, position) {
 
 export function isInWindCurrent(current, position) {
   if (!current.active) return false;
+  if (isCurrentFaded(current)) return false;
   const points = current.points;
   if (!points || points.length === 0) return false;
   const { distance } = findClosestPointOnPath(points, position);
@@ -91,8 +96,15 @@ export function getWindForce(current, position) {
   const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
   if (len === 0) return { x: 0, y: 0, z: 0 };
 
+  const fadeIn = current.fadeInDuration <= 0 ? 1 : smoothstep(0, current.fadeInDuration, current.time);
+  const fadeOut = 1;
+  let effectiveStrength = current.strength * fadeIn * fadeOut;
+  if (current.fadingOut) {
+    const outProgress = current.time - current.fadeOutStart;
+    effectiveStrength *= current.fadeOutDuration <= 0 ? 0 : 1 - smoothstep(0, current.fadeOutDuration, outProgress);
+  }
   const pulseFactor = 1 + Math.sin(current.phase) * current.pulseAmplitude;
-  const effectiveStrength = current.strength * pulseFactor;
+  effectiveStrength *= pulseFactor;
   const { distance } = findClosestPointOnPath(points, position);
   const halfWidth = current.width / 2;
   const centerFactor = 1 - (distance / halfWidth) * 0.3;
@@ -124,8 +136,17 @@ export function removeCurrent(system, id) {
   return { currents: system.currents.filter(c => c.id !== id) };
 }
 
+export function fadeOutCurrent(current) {
+  return { ...current, fadingOut: true, fadeOutStart: current.time };
+}
+
+export function isCurrentFaded(current) {
+  if (!current.fadingOut) return false;
+  return (current.time - current.fadeOutStart) >= current.fadeOutDuration;
+}
+
 export function updateCurrents(system, dt) {
-  return { currents: system.currents.map(c => updateWindCurrent(c, dt)) };
+  return { currents: system.currents.map(c => updateWindCurrent(c, dt)).filter(c => !isCurrentFaded(c)) };
 }
 
 export function getForceAt(system, position) {

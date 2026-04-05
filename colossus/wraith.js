@@ -432,10 +432,12 @@ export function getWraithWindForce(aiState, config, targetPosition) {
   }
 
   const strength = config.windPushForce * (1 - dist / config.windPushRadius);
+  const pushX = dx / dist;
+  const pushZ = dz / dist;
   return {
-    x: (dx / dist) * strength,
-    y: (dy / dist) * strength + strength * 0.3,
-    z: (dz / dist) * strength,
+    x: pushX * strength * 1.5,
+    y: -strength * 0.5,
+    z: pushZ * strength * 1.5,
   };
 }
 
