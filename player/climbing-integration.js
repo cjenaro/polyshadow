@@ -1,4 +1,4 @@
-import { isGrabPressed, tryGrab, applyClimbingMovement, tryJumpClimb, releaseGrab } from './climbing.js';
+import { isGrabPressed, tryGrab, applyClimbingMovement, tryJumpClimb, releaseGrab, updateClimbNormal } from './climbing.js';
 import { shouldTriggerFall } from './stamina.js';
 
 export const CLIMB_CONFIG = {
@@ -28,6 +28,7 @@ export function updateClimbing(playerState, climbingState, input, staminaState, 
     }
   } else {
     cState = { ...cState, climbGrabTime: cState.climbGrabTime + dt };
+    pState = updateClimbNormal(pState, surfaces);
     pState = applyClimbingMovement(pState, input, dt, CLIMB_CONFIG, physicsCtx);
     pState = tryJumpClimb(pState, input, surfaces, CLIMB_CONFIG.MAX_JUMP_DISTANCE, physicsCtx, {
       now: cState.climbGrabTime,

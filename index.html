@@ -125,6 +125,71 @@
       opacity: 0;
       transition: none;
     }
+    #tutorial-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 10;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      pointer-events: none;
+      transition: opacity 1.5s ease-out;
+    }
+    #tutorial-overlay.visible {
+      display: flex;
+    }
+    #tutorial-overlay.fading {
+      opacity: 0;
+    }
+    #tutorial-overlay h2 {
+      font-size: 1.6rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      font-weight: 300;
+      margin-bottom: 2rem;
+      opacity: 0.9;
+    }
+    .tutorial-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      margin-bottom: 2.5rem;
+    }
+    .tutorial-row {
+      display: flex;
+      align-items: center;
+      gap: 1.2rem;
+      opacity: 0.7;
+    }
+    .tutorial-key {
+      display: inline-block;
+      min-width: 3.5rem;
+      padding: 0.3rem 0.6rem;
+      text-align: center;
+      letter-spacing: 0.1em;
+      font-size: 0.9rem;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 3px;
+      font-weight: 300;
+    }
+    .tutorial-label {
+      font-size: 0.85rem;
+      letter-spacing: 0.15em;
+      opacity: 0.8;
+    }
+    #tutorial-prompt {
+      font-size: 0.9rem;
+      letter-spacing: 0.2em;
+      opacity: 0.35;
+      animation: pulse 2.5s ease-in-out infinite;
+    }
     #arena-name {
       position: fixed;
       top: 50%;
@@ -210,6 +275,28 @@
     <h1>Polyshadow</h1>
     <div class="spinner"></div>
     <p>Loading</p>
+  </div>
+  <div id="tutorial-overlay">
+    <h2>Defeat the Colossus</h2>
+    <div class="tutorial-controls">
+      <div class="tutorial-row">
+        <span class="tutorial-key">W A S D</span>
+        <span class="tutorial-label">Move</span>
+      </div>
+      <div class="tutorial-row">
+        <span class="tutorial-key">Space</span>
+        <span class="tutorial-label">Jump</span>
+      </div>
+      <div class="tutorial-row">
+        <span class="tutorial-key">E</span>
+        <span class="tutorial-label">Grab</span>
+      </div>
+      <div class="tutorial-row">
+        <span class="tutorial-key">Click</span>
+        <span class="tutorial-label">Attack</span>
+      </div>
+    </div>
+    <p id="tutorial-prompt">Press any key to begin</p>
   </div>
   <div id="transition-overlay"></div>
   <div id="arena-name"></div>

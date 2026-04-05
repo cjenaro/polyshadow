@@ -20,17 +20,28 @@ export function applyMovement(state, inputMove, cameraYaw, dt, isSprinting, cons
   const speed = isSprinting ? constants.RUN_SPEED : constants.WALK_SPEED;
   const factor = state.isGrounded ? 1 : constants.AIR_CONTROL_FACTOR;
 
+  const hasAdapter = adapter && world && playerBody;
+  const currentVel = hasAdapter ? adapter.getVelocity(world, playerBody) : null;
+
   let newVelX, newVelZ;
   if (state.isGrounded) {
     newVelX = dir.x * speed;
     newVelZ = dir.z * speed;
   } else {
-    newVelX = state.velocity.x + (dir.x * speed - state.velocity.x) * factor;
-    newVelZ = state.velocity.z + (dir.z * speed - state.velocity.z) * factor;
+    const hvx = currentVel ? currentVel.x : state.velocity.x;
+    const hvz = currentVel ? currentVel.z : state.velocity.z;
+    newVelX = hvx + (dir.x * speed - hvx) * factor;
+    newVelZ = hvz + (dir.z * speed - hvz) * factor;
+
+    if (hvx !== 0 && Math.sign(newVelX) !== Math.sign(hvx)) {
+      newVelX = 0;
+    }
+    if (hvz !== 0 && Math.sign(newVelZ) !== Math.sign(hvz)) {
+      newVelZ = 0;
+    }
   }
 
-  if (adapter && world && playerBody) {
-    const currentVel = adapter.getVelocity(world, playerBody);
+  if (hasAdapter) {
     adapter.setVelocity(world, playerBody, { x: newVelX, y: currentVel.y, z: newVelZ });
     return {
       ...state,

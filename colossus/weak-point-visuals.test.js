@@ -18,10 +18,35 @@ function makeMockColor(hex) {
   };
 }
 
+function makeMockMaterial(opts) {
+  const mat = {
+    color: makeMockColor(opts.color),
+    emissive: makeMockColor(opts.emissive || 0x000000),
+    emissiveIntensity: opts.emissiveIntensity || 0,
+    roughness: opts.roughness,
+    metalness: opts.metalness,
+    _disposed: false,
+    dispose() { this._disposed = true; },
+  };
+  return mat;
+}
+
+function makeMockLight(color, intensity, distance) {
+  return {
+    color,
+    intensity,
+    distance,
+    position: makeVec3(),
+    _disposed: false,
+    dispose() { this._disposed = true; },
+  };
+}
+
 function createMockTHREE() {
   return {
     SphereGeometry: function(radius, ws, hs) { return { radius, widthSegments: ws, heightSegments: hs }; },
-    MeshBasicMaterial: function(opts) { return { color: makeMockColor(opts.color) }; },
+    MeshStandardMaterial: function(opts) { return makeMockMaterial(opts); },
+    PointLight: function(color, intensity, distance) { return makeMockLight(color, intensity, distance); },
     Mesh: function(geo, mat) {
       return {
         geometry: geo,
@@ -76,25 +101,41 @@ describe('addWeakPoint', () => {
     const scene = createMockScene();
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 5, z: 0 }, 'wp_1');
-    assert.equal(scene._children.length, 1);
+    assert.ok(scene._children.length >= 1);
+  });
+
+  it('adds a point light to the scene', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 5, z: 0 }, 'wp_1');
+    const hasLight = scene._children.some(c => c.intensity !== undefined);
+    assert.ok(hasLight);
   });
 
   it('adds a mesh with position matching the weak point position', () => {
     const scene = createMockScene();
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 10, y: 20, z: 30 }, 'wp_1');
-    const mesh = scene._children[0];
+    const mesh = scene._children.find(c => c.geometry);
     assert.equal(mesh.position.x, 10);
     assert.equal(mesh.position.y, 20);
     assert.equal(mesh.position.z, 30);
   });
 
-  it('mesh uses MeshBasicMaterial with red color', () => {
+  it('uses MeshStandardMaterial with amber/gold color', () => {
     const scene = createMockScene();
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
-    const mesh = scene._children[0];
-    assert.equal(mesh.material.color._hex, 0xff4444);
+    const mesh = scene._children.find(c => c.geometry);
+    assert.equal(mesh.material.color._hex, 0xffaa00);
+  });
+
+  it('mesh has emissive glow set', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
+    const mesh = scene._children.find(c => c.geometry);
+    assert.ok(mesh.material.emissive._hex !== 0x000000);
   });
 });
 
@@ -112,9 +153,18 @@ describe('removeWeakPoint', () => {
     const scene = createMockScene();
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
-    assert.equal(scene._children.length, 1);
+    const countBefore = scene._children.length;
     ctrl.removeWeakPoint('wp_1');
-    assert.equal(scene._children.length, 0);
+    assert.ok(scene._children.length < countBefore);
+  });
+
+  it('removes the light from the scene', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
+    ctrl.removeWeakPoint('wp_1');
+    const hasLight = scene._children.some(c => c.intensity !== undefined);
+    assert.ok(!hasLight);
   });
 
   it('does not throw when removing non-existent id', () => {
@@ -134,33 +184,43 @@ describe('flashWeakPoint', () => {
     assert.doesNotThrow(() => ctrl.flashWeakPoint('wp_1'));
   });
 
-  it('changes material color to white (flash start)', () => {
+  it('boosts emissive color to white (flash start)', () => {
     const scene = createMockScene();
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
     ctrl.flashWeakPoint('wp_1');
-    const mesh = scene._children[0];
-    assert.equal(mesh.material.color._hex, 0xffffff);
+    const mesh = scene._children.find(c => c.geometry);
+    assert.equal(mesh.material.emissive._hex, 0xffffff);
   });
 
-  it('fades color back toward base after update', () => {
+  it('boosts light intensity on flash', () => {
     const scene = createMockScene();
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
     ctrl.flashWeakPoint('wp_1');
+    const light = scene._children.find(c => c.intensity !== undefined);
+    assert.ok(light.intensity > 2, `expected > 2, got ${light.intensity}`);
+  });
+
+  it('emissive intensity fades back after update', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
+    ctrl.flashWeakPoint('wp_1');
+    const mesh = scene._children.find(c => c.geometry);
+    const intensityAtFlash = mesh.material.emissiveIntensity;
     ctrl.update(0.2);
-    const mesh = scene._children[0];
-    assert.ok(mesh.material.color._hex !== 0xffffff);
+    assert.ok(mesh.material.emissiveIntensity < intensityAtFlash);
   });
 
-  it('color returns to base after flash duration', () => {
+  it('emissive returns to base after flash duration', () => {
     const scene = createMockScene();
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
     ctrl.flashWeakPoint('wp_1');
     ctrl.update(0.5);
-    const mesh = scene._children[0];
-    assert.equal(mesh.material.color._hex, 0xff4444);
+    const mesh = scene._children.find(c => c.geometry);
+    assert.equal(mesh.material.emissive._hex, 0xff8800);
   });
 
   it('does not throw when flashing non-existent id', () => {
@@ -185,8 +245,27 @@ describe('destroyWeakPoint', () => {
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
     ctrl.destroyWeakPoint('wp_1');
-    const mesh = scene._children[0];
+    const mesh = scene._children.find(c => c.geometry);
     assert.equal(mesh.material.color._hex, 0x333333);
+  });
+
+  it('removes emissive glow', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
+    ctrl.destroyWeakPoint('wp_1');
+    const mesh = scene._children.find(c => c.geometry);
+    assert.equal(mesh.material.emissive._hex, 0x000000);
+    assert.equal(mesh.material.emissiveIntensity, 0);
+  });
+
+  it('removes point light from scene', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
+    ctrl.destroyWeakPoint('wp_1');
+    const hasLight = scene._children.some(c => c.intensity !== undefined);
+    assert.ok(!hasLight);
   });
 
   it('stops pulsing (update does not change scale)', () => {
@@ -194,7 +273,7 @@ describe('destroyWeakPoint', () => {
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
     ctrl.destroyWeakPoint('wp_1');
-    const mesh = scene._children[0];
+    const mesh = scene._children.find(c => c.geometry);
     const scaleBefore = mesh.scale.x;
     ctrl.update(1.0);
     assert.equal(mesh.scale.x, scaleBefore);
@@ -205,7 +284,7 @@ describe('destroyWeakPoint', () => {
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
     ctrl.destroyWeakPoint('wp_1');
-    const mesh = scene._children[0];
+    const mesh = scene._children.find(c => c.geometry);
     assert.ok(mesh.scale.x < 1, `scale was ${mesh.scale.x}`);
   });
 });
@@ -231,11 +310,35 @@ describe('update', () => {
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
     ctrl.update(0.016);
-    const mesh = scene._children[0];
+    const mesh = scene._children.find(c => c.geometry);
     const s1 = mesh.scale.x;
     ctrl.update(0.5);
     const s2 = mesh.scale.x;
     assert.notEqual(s1, s2);
+  });
+
+  it('oscillates emissive intensity', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
+    ctrl.update(0.016);
+    const mesh = scene._children.find(c => c.geometry);
+    const e1 = mesh.material.emissiveIntensity;
+    ctrl.update(0.5);
+    const e2 = mesh.material.emissiveIntensity;
+    assert.notEqual(e1, e2);
+  });
+
+  it('oscillates light intensity', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
+    ctrl.update(0.016);
+    const light = scene._children.find(c => c.intensity !== undefined);
+    const i1 = light.intensity;
+    ctrl.update(0.5);
+    const i2 = light.intensity;
+    assert.notEqual(i1, i2);
   });
 });
 
@@ -254,10 +357,22 @@ describe('setPositionProvider', () => {
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'head');
     ctrl.setPositionProvider((bodyPartId) => ({ x: 10, y: 20, z: 30 }));
     ctrl.update(0.016);
-    const mesh = scene._children[0];
+    const mesh = scene._children.find(c => c.geometry);
     assert.equal(mesh.position.x, 10);
     assert.equal(mesh.position.y, 20);
     assert.equal(mesh.position.z, 30);
+  });
+
+  it('updates light position along with mesh', () => {
+    const scene = createMockScene();
+    const ctrl = createWeakPointVisuals(scene);
+    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'head');
+    ctrl.setPositionProvider((bodyPartId) => ({ x: 10, y: 20, z: 30 }));
+    ctrl.update(0.016);
+    const light = scene._children.find(c => c.intensity !== undefined);
+    assert.equal(light.position.x, 10);
+    assert.equal(light.position.y, 20);
+    assert.equal(light.position.z, 30);
   });
 
   it('tracks position changes across frames', () => {
@@ -267,10 +382,11 @@ describe('setPositionProvider', () => {
     let pos = { x: 1, y: 2, z: 3 };
     ctrl.setPositionProvider(() => pos);
     ctrl.update(0.016);
-    assert.equal(scene._children[0].position.x, 1);
+    const mesh = scene._children.find(c => c.geometry);
+    assert.equal(mesh.position.x, 1);
     pos = { x: 100, y: 200, z: 300 };
     ctrl.update(0.016);
-    assert.equal(scene._children[0].position.x, 100);
+    assert.equal(mesh.position.x, 100);
   });
 
   it('ignores null return from provider', () => {
@@ -279,7 +395,7 @@ describe('setPositionProvider', () => {
     ctrl.addWeakPoint({ x: 5, y: 10, z: 15 }, 'head');
     ctrl.setPositionProvider(() => null);
     ctrl.update(0.016);
-    const mesh = scene._children[0];
+    const mesh = scene._children.find(c => c.geometry);
     assert.equal(mesh.position.x, 5);
   });
 
@@ -288,25 +404,10 @@ describe('setPositionProvider', () => {
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 5, y: 10, z: 15 }, 'head');
     ctrl.update(0.016);
-    const mesh = scene._children[0];
+    const mesh = scene._children.find(c => c.geometry);
     assert.equal(mesh.position.x, 5);
     assert.equal(mesh.position.y, 10);
     assert.equal(mesh.position.z, 15);
-  });
-});
-
-describe('color lerp', () => {
-  beforeEach(() => { setTHREE(createMockTHREE()); });
-
-  it('uses setRGB to interpolate flash color', () => {
-    const scene = createMockScene();
-    const ctrl = createWeakPointVisuals(scene);
-    ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
-    ctrl.flashWeakPoint('wp_1');
-    ctrl.update(0.15);
-    const mesh = scene._children[0];
-    assert.ok(mesh.material.color._hex > 0xff4444, `expected > 0xff4444, got 0x${mesh.material.color._hex.toString(16)}`);
-    assert.ok(mesh.material.color._hex < 0xffffff, `expected < 0xffffff, got 0x${mesh.material.color._hex.toString(16)}`);
   });
 });
 
@@ -324,8 +425,8 @@ describe('clearAll', () => {
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, 'wp_1');
     ctrl.addWeakPoint({ x: 1, y: 2, z: 3 }, 'wp_2');
-    assert.equal(scene._children.length, 2);
+    const countBefore = scene._children.length;
     ctrl.clearAll();
-    assert.equal(scene._children.length, 0);
+    assert.ok(scene._children.length < countBefore);
   });
 });

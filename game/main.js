@@ -21,6 +21,7 @@ import { createIntegratedCombat, updateIntegratedCombat, handleShakeOff, getComb
 import { createDodgeState, tryStartDodge, updateDodge, applyDodgeMovement, getDodgeStaminaCost, isDodging as isPlayerDodging } from '../player/dodge.js';
 import { enterFall, updateFall, checkFall, respawn, getFreefallCameraData, FALL_CONSTANTS } from '../player/fall.js';
 import { createDeathIntegration, triggerDeathSequence, updateDeathIntegration, applyDeathToMesh } from '../colossus/death-integration.js';
+import { createWeakPointVisuals, setTHREE as setWeakPointTHREE } from '../colossus/weak-point-visuals.js';
 import {
   createEndingState, updateEndingState, getSkyConfig, getIslandPositions,
   getCreditsAlpha, shouldShowCredits, isEndingComplete,
@@ -31,6 +32,7 @@ import { MusicSystem } from '../engine/music.js';
 import { createPostProcessState, updatePostProcessState, getActiveColorGrading, shouldEnableBloom, createBloomPipeline } from '../engine/post-processing.js';
 import { createHUD } from '../engine/hud.js';
 import { applyHealthOpacity } from '../engine/health-visual.js';
+import { setTHREE as setFeedbackTHREE, createCombatFeedback } from '../engine/combat-feedback.js';
 import { createTouchOverlay } from '../engine/touch-overlay.js';
 import {
   createArenaTransitionManager, updateArenaTransition, getTransitionProgress,
@@ -88,7 +90,6 @@ const dodge = createDodgeState();
 const music = new MusicSystem();
 let audioCtx = null;
 let audioState = createAudioState();
-let prevClimbing = false;
 let ambientWindNode = null;
 let ambientWindGain = null;
 let postProcess = createPostProcessState();
@@ -340,6 +341,11 @@ gameState.onTransition((from, to) => {
   if (from === 'title') {
     ui.hideTitleScreen();
     music.setState('exploration');
+    if (shouldShowTutorial()) {
+      tutorialShown = true;
+      tutorialDismissTimer = 0;
+      showTutorialOverlay();
+    }
   }
   if (to === 'paused') {
     ui.showPauseOverlay();
@@ -365,6 +371,10 @@ gameState.onTransition((from, to) => {
 setSentinelTHREE(THREE);
 setWraithTHREE(THREE);
 setTitanTHREE(THREE);
+setWeakPointTHREE(THREE);
+setFeedbackTHREE(THREE);
+
+const combatFeedback = createCombatFeedback(scene);
 
 const hubIsland = generateIslandGeometry(createHubIsland());
 const hubMesh = createIslandMesh(hubIsland);
@@ -627,6 +637,49 @@ function getGroundHeight(x, z) {
   return maxH;
 }
 
+const TUTORIAL_KEY = 'polyshadow_tutorial_seen';
+const TUTORIAL_AUTO_DISMISS = 8;
+
+function shouldShowTutorial() {
+  try { return !localStorage.getItem(TUTORIAL_KEY); } catch { return true; }
+}
+
+function markTutorialSeen() {
+  try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch {}
+}
+
+function showTutorialOverlay() {
+  const el = document.getElementById('tutorial-overlay');
+  if (el) {
+    el.classList.add('visible');
+    el.classList.remove('fading');
+  }
+}
+
+let tutorialDismissTimer = 0;
+let tutorialShown = false;
+
+function dismissTutorial() {
+  if (!tutorialShown) return;
+  tutorialShown = false;
+  markTutorialSeen();
+  const el = document.getElementById('tutorial-overlay');
+  if (el) {
+    el.classList.add('fading');
+    setTimeout(() => {
+      el.classList.remove('visible', 'fading');
+    }, 1500);
+  }
+}
+
+function checkTutorialState(dt) {
+  if (!tutorialShown) return;
+  tutorialDismissTimer += dt;
+  if (tutorialDismissTimer >= TUTORIAL_AUTO_DISMISS) {
+    dismissTutorial();
+  }
+}
+
 ui.showTitleScreen();
 
 const loadingScreen = document.getElementById('loading-screen');
@@ -634,6 +687,10 @@ if (loadingScreen) loadingScreen.remove();
 
 document.addEventListener('keydown', (e) => {
   ensureAudio();
+  if (tutorialShown) {
+    dismissTutorial();
+    return;
+  }
   if (gameState.getState() === 'title') {
     gameState.transition('playing');
     return;
@@ -771,12 +828,11 @@ function animate(now) {
     climbing.climbGrabTime = climbResult.climbingState.climbGrabTime;
     const isClimbing = isPlayerClimbing(climbing);
 
-    if (isClimbing && !prevClimbing) {
+    if (isClimbing && !prevClimbingThisFrame) {
       const grabParams = getClimbingGrabParams();
       playProceduralSound(grabParams);
       audioState = registerSound(audioState, 'climbGrab', grabParams.duration, now * 0.001);
     }
-    prevClimbing = isClimbing;
 
     const staminaResult = updateIntegratedStamina(stamina, {
       isClimbing,
@@ -878,6 +934,10 @@ function animate(now) {
       for (const c of colossi) {
         const wp = c.weakPoints.find(w => w.id === hr.weakPointId);
         if (wp) {
+          combatFeedback.spawnDamageNumber(wp.position, hr.damage);
+          combatFeedback.spawnHitFlash(wp.position);
+          const shakeAmount = hr.isStab ? 0.6 : 0.25;
+          combatFeedback.triggerScreenShake(shakeAmount);
           const dmgResult = damageColossus(colossi, c.type, hr.weakPointId, hr.damage);
           if (dmgResult.allDestroyed) {
             const deathInt = deathIntegrations.get(c.type);
@@ -885,6 +945,7 @@ function animate(now) {
             const deathParams = getColossusDeathParams(0);
             playProceduralSound(deathParams);
             audioState = registerSound(audioState, `colossusDeath_${c.type}`, deathParams.duration, now * 0.001);
+            combatFeedback.triggerScreenShake(1.2);
           }
           break;
         }
@@ -1035,6 +1096,12 @@ function animate(now) {
     });
     camera.syncFromOrbit(orbitResult);
 
+    combatFeedback.update(dt);
+    const shake = combatFeedback.getShakeOffset();
+    camera.impl.position.x += shake.x;
+    camera.impl.position.y += shake.y;
+    camera.impl.position.z += shake.z;
+
     audioState = cleanupSounds(audioState, now * 0.001);
   }
 
@@ -1088,6 +1155,7 @@ function animate(now) {
   gameState.update(dt);
   ui.update(dt);
   hud.update(dt);
+  checkTutorialState(dt);
 
   if (gameState.isPlaying()) {
     const staminaForUI = getStaminaForUI(stamina);
