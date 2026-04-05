@@ -135,4 +135,24 @@ export class UISystem {
       this._damageTimer = Math.max(0, this._damageTimer - deltaTime);
     }
   }
+
+  showTitleScreen() {
+    const el = document.getElementById('title-screen');
+    if (el) el.style.display = 'flex';
+  }
+
+  hideTitleScreen() {
+    const el = document.getElementById('title-screen');
+    if (el) el.style.display = 'none';
+  }
+
+  showPauseOverlay() {
+    const el = document.getElementById('pause-overlay');
+    if (el) el.style.display = 'flex';
+  }
+
+  hidePauseOverlay() {
+    const el = document.getElementById('pause-overlay');
+    if (el) el.style.display = 'none';
+  }
 }

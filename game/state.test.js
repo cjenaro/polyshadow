@@ -200,3 +200,74 @@ describe('GameState update (timed transitions)', () => {
     assert.strictEqual(state.getState(), 'title');
   });
 });
+
+describe('GameState main loop integration', () => {
+  it('paused only allows transition back to playing', () => {
+    const state = new GameState();
+    state.transition('playing');
+    state.transition('paused');
+    assert.strictEqual(state.transition('title'), false);
+    assert.strictEqual(state.transition('victory'), false);
+    assert.strictEqual(state.transition('credits'), false);
+    assert.strictEqual(state.getState(), 'paused');
+  });
+
+  it('full game cycle: title → playing → paused → playing → victory → credits → title', () => {
+    const state = new GameState();
+    const log = [];
+    state.onTransition((from, to) => log.push(`${from}->${to}`));
+    state.transition('playing');
+    state.transition('paused');
+    state.transition('playing');
+    state.transition('victory');
+    state.transition('credits');
+    state.update(15);
+    assert.strictEqual(state.getState(), 'title');
+    assert.deepStrictEqual(log, [
+      'title->playing',
+      'playing->paused',
+      'paused->playing',
+      'playing->victory',
+      'victory->credits',
+      'credits->title',
+    ]);
+  });
+
+  it('multiple pause/resume cycles work correctly', () => {
+    const state = new GameState();
+    state.transition('playing');
+    for (let i = 0; i < 5; i++) {
+      assert.strictEqual(state.transition('paused'), true);
+      assert.strictEqual(state.getState(), 'paused');
+      assert.strictEqual(state.isPlaying(), false);
+      assert.strictEqual(state.transition('playing'), true);
+      assert.strictEqual(state.getState(), 'playing');
+      assert.strictEqual(state.isPlaying(), true);
+    }
+  });
+
+  it('isPlaying reflects state accurately across all transitions', () => {
+    const state = new GameState();
+    const playingStates = [];
+    for (const transition of ['playing', 'paused', 'playing', 'victory', 'credits']) {
+      playingStates.push(state.isPlaying());
+      state.transition(transition);
+    }
+    assert.deepStrictEqual(playingStates, [false, true, false, true, false]);
+  });
+
+  it('cannot transition playing to playing', () => {
+    const state = new GameState();
+    state.transition('playing');
+    assert.strictEqual(state.transition('playing'), false);
+    assert.strictEqual(state.getState(), 'playing');
+  });
+
+  it('cannot transition paused to paused', () => {
+    const state = new GameState();
+    state.transition('playing');
+    state.transition('paused');
+    assert.strictEqual(state.transition('paused'), false);
+    assert.strictEqual(state.getState(), 'paused');
+  });
+});

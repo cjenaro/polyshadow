@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   TIDE_TITAN_SCALE,
@@ -15,6 +15,9 @@ import {
   getSubmergeWarning,
   triggerTitanPhase2,
   getShockwaveForce,
+  createTitanMesh,
+  animateTitan,
+  setTHREE,
 } from './titan.js';
 import { createColossusBody, getWeakPoints, getAllClimbableParts, getBodyBounds } from './base.js';
 import { ColossusState } from './behavior.js';
@@ -695,5 +698,204 @@ describe('triggerTitanPhase2', () => {
     assert.strictEqual(result.health, 100);
     assert.strictEqual(result.state, ColossusState.AGGRO);
     assert.strictEqual(result.rotation, 1.5);
+  });
+});
+
+function createMockTHREE() {
+  function createMockMesh() {
+    const mesh = {
+      position: { x: 0, y: 0, z: 0, set(x, y, z) { mesh.position.x = x; mesh.position.y = y; mesh.position.z = z; } },
+      rotation: { x: 0, y: 0, z: 0, set(x, y, z) { mesh.rotation.x = x; mesh.rotation.y = y; mesh.rotation.z = z; } },
+      castShadow: false, receiveShadow: false, material: null,
+      add(child) { mesh.children.push(child); }, children: [],
+    };
+    return mesh;
+  }
+  function createMockMaterial(opts = {}) {
+    return {
+      color: opts.color || 0x888888,
+      roughness: opts.roughness !== undefined ? opts.roughness : 0.8,
+      metalness: opts.metalness !== undefined ? opts.metalness : 0.1,
+      emissive: opts.emissive || null,
+      emissiveIntensity: opts.emissiveIntensity !== undefined ? opts.emissiveIntensity : 0,
+      flatShading: opts.flatShading || false,
+    };
+  }
+  return {
+    Group: function() { return { children: [], add(child) { this.children.push(child); } }; },
+    Mesh: function(geo, mat) { const m = createMockMesh(); m.material = mat; return m; },
+    MeshStandardMaterial: createMockMaterial,
+    SphereGeometry: function(...args) { return { scale() {} }; },
+    BoxGeometry: function(...args) { return {}; },
+    CylinderGeometry: function(...args) { return {}; },
+    Color: function(c) { return c; },
+  };
+}
+
+describe('createTitanMesh', () => {
+  before(() => { setTHREE(createMockTHREE()); });
+
+  it('returns an object with children array', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    assert.ok(mesh !== null);
+    assert.ok(Array.isArray(mesh.children));
+  });
+
+  it('creates a child for each body part', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    assert.equal(mesh.children.length, def.parts.length,
+      `expected ${def.parts.length} children, got ${mesh.children.length}`);
+  });
+
+  it('children are keyed by part id', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    for (const part of def.parts) {
+      assert.ok(mesh.children.some(c => c.partId === part.id),
+        `missing child for part ${part.id}`);
+    }
+  });
+
+  it('shell_main child uses SphereGeometry', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    const shell = mesh.children.find(c => c.partId === 'shell_main');
+    assert.ok(shell !== undefined, 'shell_main child missing');
+    assert.strictEqual(shell.geometryType, 'sphere');
+  });
+
+  it('legs use CylinderGeometry', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    for (const id of ['left_leg_front', 'left_leg_rear', 'right_leg_front', 'right_leg_rear']) {
+      const leg = mesh.children.find(c => c.partId === id);
+      assert.ok(leg !== undefined, `${id} child missing`);
+      assert.strictEqual(leg.geometryType, 'cylinder', `${id} should use cylinder`);
+    }
+  });
+
+  it('claws use BoxGeometry', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    for (const id of ['left_claw_upper', 'left_claw_lower', 'right_claw_upper', 'right_claw_lower']) {
+      const claw = mesh.children.find(c => c.partId === id);
+      assert.ok(claw !== undefined, `${id} child missing`);
+      assert.strictEqual(claw.geometryType, 'box', `${id} should use box`);
+    }
+  });
+
+  it('children inherit position from definition', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    for (const part of def.parts) {
+      const child = mesh.children.find(c => c.partId === part.id);
+      assert.ok(child !== undefined, `missing ${part.id}`);
+      assert.ok(Math.abs(child.position.x - part.position.x) < 0.01,
+        `${part.id} x: ${child.position.x} != ${part.position.x}`);
+      assert.ok(Math.abs(child.position.y - part.position.y) < 0.01,
+        `${part.id} y: ${child.position.y} != ${part.position.y}`);
+      assert.ok(Math.abs(child.position.z - part.position.z) < 0.01,
+        `${part.id} z: ${child.position.z} != ${part.position.z}`);
+    }
+  });
+
+  it('children inherit rotation from definition', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    for (const part of def.parts) {
+      const child = mesh.children.find(c => c.partId === part.id);
+      assert.ok(child !== undefined, `missing ${part.id}`);
+      assert.ok(Math.abs(child.rotation.x - part.rotation.x) < 0.01,
+        `${part.id} rot x wrong`);
+      assert.ok(Math.abs(child.rotation.y - part.rotation.y) < 0.01,
+        `${part.id} rot y wrong`);
+      assert.ok(Math.abs(child.rotation.z - part.rotation.z) < 0.01,
+        `${part.id} rot z wrong`);
+    }
+  });
+
+  it('shell material has roughness (rocky texture)', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    const shell = mesh.children.find(c => c.partId === 'shell_main');
+    assert.ok(shell !== undefined);
+    assert.ok(typeof shell.material.roughness === 'number');
+    assert.ok(shell.material.roughness > 0.5, 'shell should be rough (rocky)');
+  });
+
+  it('underbelly material is smoother than shell', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    const shell = mesh.children.find(c => c.partId === 'shell_main');
+    const belly = mesh.children.find(c => c.partId === 'underbelly');
+    assert.ok(shell !== undefined);
+    assert.ok(belly !== undefined);
+    assert.ok(belly.material.roughness < shell.material.roughness,
+      `underbelly roughness ${belly.material.roughness} should be < shell ${shell.material.roughness}`);
+  });
+
+  it('rune parts have emissive glow', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    for (const id of ['shell_rune_left', 'shell_rune_right', 'shell_rune_center']) {
+      const rune = mesh.children.find(c => c.partId === id);
+      assert.ok(rune !== undefined, `missing ${id}`);
+      assert.ok(rune.material.emissiveIntensity > 0, `${id} should have emissive glow`);
+    }
+  });
+});
+
+describe('animateTitan', () => {
+  before(() => { setTHREE(createMockTHREE()); });
+
+  it('applies shell tilt from ai state', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    const aiState = createTitanBehaviorState({
+      state: ColossusState.AGGRO,
+      tiltAngle: 0.2,
+      tiltDirection: { x: 1, z: 0 },
+      attackCooldown: 100,
+    });
+    animateTitan(mesh, 0, aiState);
+    const shell = mesh.meshByPart.get('shell_main');
+    assert.ok(shell !== undefined);
+    assert.ok(Math.abs(shell.rotation.z - 0.2) < 0.01,
+      `shell rotation.z should be 0.2, got ${shell.rotation.z}`);
+  });
+
+  it('animates legs over time', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    const aiState = createTitanBehaviorState();
+    animateTitan(mesh, 0, aiState);
+    const leg0y = mesh.meshByPart.get('left_leg_front').position.y;
+    const leg0rx = mesh.meshByPart.get('left_leg_front').rotation.x;
+    animateTitan(mesh, 1, aiState);
+    const leg1y = mesh.meshByPart.get('left_leg_front').position.y;
+    const leg1rx = mesh.meshByPart.get('left_leg_front').rotation.x;
+    assert.ok(leg0y !== leg1y || leg0rx !== leg1rx,
+      'legs should animate with time');
+  });
+
+  it('animates claw snapping', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    const aiState = createTitanBehaviorState();
+    animateTitan(mesh, 0, aiState);
+    const claw0rz = mesh.meshByPart.get('left_claw_lower').rotation.z;
+    animateTitan(mesh, 1, aiState);
+    const claw1rz = mesh.meshByPart.get('left_claw_lower').rotation.z;
+    assert.ok(Math.abs(claw0rz - claw1rz) > 0.01,
+      `claw rotation.z should change: ${claw0rz} vs ${claw1rz}`);
+  });
+
+  it('returns void and does not throw', () => {
+    const def = createTitanDefinition();
+    const mesh = createTitanMesh(def);
+    const aiState = createTitanBehaviorState();
+    assert.doesNotThrow(() => animateTitan(mesh, 0, aiState));
   });
 });

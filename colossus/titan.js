@@ -2,6 +2,16 @@ import { vec3Add, vec3Scale, distance3D, randomRange, clamp } from '../utils/mat
 import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from './base.js';
 import { ColossusState } from './behavior.js';
 
+let _THREE = null;
+
+export function setTHREE(threeModule) {
+  _THREE = threeModule;
+}
+
+function getTHREE() {
+  return _THREE;
+}
+
 export const TIDE_TITAN_SCALE = 40;
 
 export function createTitanDefinition() {
@@ -579,4 +589,144 @@ export function getShockwaveForce(aiState, config, playerPosition, colossusPosit
 
   const strength = config.shockwaveDamage * (1 - dist / config.shockwaveRadius);
   return vec3Scale(normalized, strength);
+}
+
+function createMaterial(type) {
+  const T = getTHREE();
+  if (type === 'shell') {
+    return new T.MeshStandardMaterial({
+      color: 0x5a5046, roughness: 0.95, metalness: 0.1, flatShading: true,
+    });
+  }
+  if (type === 'underbelly') {
+    return new T.MeshStandardMaterial({
+      color: 0x8a7e6e, roughness: 0.6, metalness: 0.05,
+    });
+  }
+  if (type === 'rune') {
+    return new T.MeshStandardMaterial({
+      color: 0x00ccff, roughness: 0.3, metalness: 0.8,
+      emissive: new T.Color(0x00ccff), emissiveIntensity: 0.5,
+    });
+  }
+  if (type === 'head') {
+    return new T.MeshStandardMaterial({
+      color: 0x4a4036, roughness: 0.85, metalness: 0.15, flatShading: true,
+    });
+  }
+  return new T.MeshStandardMaterial({
+    color: 0x6a6056, roughness: 0.8, metalness: 0.1, flatShading: true,
+  });
+}
+
+function getGeometryType(partId) {
+  if (partId === 'shell_main') return 'sphere';
+  if (partId === 'underbelly') return 'sphere';
+  if (partId.startsWith('left_leg') || partId.startsWith('right_leg')) return 'cylinder';
+  return 'box';
+}
+
+function createPartMesh(part) {
+  const T = getTHREE();
+  const { position: pos, dimensions: dim, id, rotation: rot } = part;
+  let geometry;
+  const geoType = getGeometryType(id);
+
+  if (geoType === 'sphere') {
+    const radius = Math.max(dim.width, dim.depth) / 2;
+    const heightScale = dim.height / radius;
+    geometry = new T.SphereGeometry(radius, 32, 16, 0, Math.PI * 2, 0, Math.PI);
+    geometry.scale(1, heightScale, 1);
+  } else if (geoType === 'cylinder') {
+    geometry = new T.CylinderGeometry(dim.width / 2, dim.width / 2, dim.height, 8);
+  } else {
+    geometry = new T.BoxGeometry(dim.width, dim.height, dim.depth);
+  }
+
+  let material;
+  if (id === 'underbelly') {
+    material = createMaterial('underbelly');
+  } else if (id === 'head') {
+    material = createMaterial('head');
+  } else if (id.startsWith('shell_rune')) {
+    material = createMaterial('rune');
+  } else if (id.startsWith('shell')) {
+    material = createMaterial('shell');
+  } else {
+    material = createMaterial('default');
+  }
+
+  const mesh = new T.Mesh(geometry, material);
+  mesh.position.set(pos.x, pos.y, pos.z);
+  mesh.rotation.set(rot.x, rot.y, rot.z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  return { mesh, geoType };
+}
+
+export function createTitanMesh(definition) {
+  const T = getTHREE();
+  const group = new T.Group();
+  const children = [];
+  const meshByPart = new Map();
+
+  for (const part of definition.parts) {
+    const { mesh, geoType } = createPartMesh(part);
+    const parentNode = part.parent ? meshByPart.get(part.parent) : null;
+    if (parentNode) {
+      parentNode.add(mesh);
+    } else {
+      group.add(mesh);
+    }
+    meshByPart.set(part.id, mesh);
+    children.push({
+      partId: part.id,
+      geometryType: geoType,
+      position: { x: part.position.x, y: part.position.y, z: part.position.z },
+      rotation: { x: part.rotation.x, y: part.rotation.y, z: part.rotation.z },
+      material: {
+        roughness: mesh.material.roughness,
+        metalness: mesh.material.metalness,
+        emissiveIntensity: mesh.material.emissiveIntensity || 0,
+      },
+    });
+  }
+
+  return { impl: group, children, meshByPart };
+}
+
+export function animateTitan(mesh, time, aiState) {
+  const { meshByPart } = mesh;
+  const shell = meshByPart.get('shell_main');
+  if (!shell) return;
+
+  const tilt = getShellTilt(aiState || {});
+  shell.rotation.x = tilt.angle * tilt.direction.z;
+  shell.rotation.z = tilt.angle * tilt.direction.x;
+
+  const legs = ['left_leg_front', 'left_leg_rear', 'right_leg_front', 'right_leg_rear'];
+  for (let i = 0; i < legs.length; i++) {
+    const leg = meshByPart.get(legs[i]);
+    if (!leg) continue;
+    const phase = time * 1.5 + i * Math.PI * 0.5;
+    leg.rotation.x = Math.sin(phase) * 0.15;
+    leg.position.y = leg.position.y + Math.sin(phase) * 0.3;
+  }
+
+  const claws = ['left_claw_lower', 'right_claw_lower'];
+  for (let i = 0; i < claws.length; i++) {
+    const claw = meshByPart.get(claws[i]);
+    if (!claw) continue;
+    const snapPhase = Math.sin(time * 2 + i * Math.PI);
+    claw.rotation.z = snapPhase * 0.4;
+  }
+
+  const runes = ['shell_rune_left', 'shell_rune_right', 'shell_rune_center'];
+  for (const runeId of runes) {
+    const rune = meshByPart.get(runeId);
+    if (!rune) continue;
+    const baseIntensity = rune.material.emissiveIntensity || 0.5;
+    rune.material.emissiveIntensity = baseIntensity + Math.sin(time * 3) * 0.3;
+  }
 }
