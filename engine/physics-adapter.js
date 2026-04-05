@@ -57,6 +57,7 @@ export function createMockAdapter() {
       if (!internal) return;
 
       const { gravity, bodies, collisionListeners } = internal;
+      internal._lastContacts = [];
 
       for (const body of bodies) {
         if (body.type !== "dynamic") continue;
@@ -100,6 +101,8 @@ export function createMockAdapter() {
             resolvePenetration(dyn, stat, penetration);
 
             const n = penetration.normal;
+            internal._lastContacts.push({ bodyA: dyn, bodyB: stat, normal: n });
+
             const velDotN = dyn._velocity.x * n.x + dyn._velocity.y * n.y + dyn._velocity.z * n.z;
 
             const friction =
@@ -233,6 +236,22 @@ export function createMockAdapter() {
       if (internal) {
         internal.collisionListeners.push({ bodyA, bodyB, callback });
       }
+    },
+
+    fixedStep(world, dt) {
+      this.step(world, dt);
+    },
+
+    hasGroundedContact(world, body) {
+      const internal = getInternal(world);
+      if (!internal || !internal._lastContacts) return false;
+      for (const contact of internal._lastContacts) {
+        if (contact.bodyA === body || contact.bodyB === body) {
+          const normal = contact.normal;
+          if (normal && normal.y > 0.3) return true;
+        }
+      }
+      return false;
     },
 
     createTrimeshCollider(world, opts) {

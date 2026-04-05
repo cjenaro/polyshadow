@@ -102,6 +102,25 @@ export function createCannonAdapter() {
       internal.cannonWorld.step(clampedDt, undefined, 3);
     },
 
+    fixedStep(world, dt) {
+      const internal = getInternal(world);
+      if (!internal) return;
+      internal.cannonWorld.fixedStep();
+    },
+
+    hasGroundedContact(world, body) {
+      const internal = getInternal(world);
+      if (!internal) return false;
+      const cannonBody = body.impl;
+      for (const contact of internal.cannonWorld.contacts) {
+        if (contact.bi === cannonBody || contact.bj === cannonBody) {
+          const ni = contact.ni;
+          if (ni && ni.y > 0.3) return true;
+        }
+      }
+      return false;
+    },
+
     applyForce(world, body, force) {
       body.impl.applyForce(new CANNON.Vec3(force.x, force.y, force.z));
     },

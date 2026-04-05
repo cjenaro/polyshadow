@@ -32,6 +32,13 @@ export function resolveCollisions(pos, vel, adapter, world) {
 }
 
 function detectGround(p, adapter, world) {
+  if (adapter.hasGroundedContact) {
+    const isGrounded = adapter.hasGroundedContact(world, { impl: p._body }) || false;
+    if (isGrounded) {
+      return { groundY: p.y, isGrounded: true };
+    }
+  }
+
   const hit = adapter.raycast(
     world,
     { x: p.x, y: p.y + GROUND_RAY_UP, z: p.z },

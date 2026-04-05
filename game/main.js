@@ -1094,7 +1094,10 @@ function animate(now) {
     physicsAdapter.setPosition(physicsWorld, playerPhysicsBody, player.state.position);
     physicsAdapter.setVelocity(physicsWorld, playerPhysicsBody, player.state.velocity);
     physicsGrounded = false;
-    physicsAdapter.step(physicsWorld, dt);
+    physicsAdapter.fixedStep(physicsWorld, dt);
+    player.state.position = physicsAdapter.getPosition(physicsWorld, playerPhysicsBody);
+    player.state.velocity = physicsAdapter.getVelocity(physicsWorld, playerPhysicsBody);
+    physicsGrounded = physicsAdapter.hasGroundedContact(physicsWorld, playerPhysicsBody);
 
     if (inputState.start) {
       if (document.pointerLockElement === canvas) {
