@@ -40,13 +40,6 @@ function getPartCategory(partId) {
   return "body";
 }
 
-function getCenterY(voxels, offset) {
-  if (voxels.length === 0) return offset.y;
-  let sum = 0;
-  for (const v of voxels) sum += v.y;
-  return offset.y + sum / voxels.length;
-}
-
 function randomUnitSphere() {
   while (true) {
     const x = Math.random() * 2 - 1;

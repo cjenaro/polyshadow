@@ -9,7 +9,7 @@ import {
   createSentinelMesh,
   animateSentinel,
 } from "./sentinel.js";
-import { getBodyHeight, getAllClimbableParts, getWeakPoints } from "./base.js";
+import { getBodyHeight, getWeakPoints } from "./base.js";
 
 describe("createSentinelDefinition", () => {
   it("returns a valid body definition", () => {
@@ -308,10 +308,10 @@ function createMockTHREE() {
 }
 
 describe("createSentinelMesh", () => {
-  let T, createdMeshes, createdGroups;
+  let T, createdMeshes;
 
   beforeEach(() => {
-    ({ T, createdMeshes, createdGroups } = createMockTHREE());
+    ({ T, createdMeshes } = createMockTHREE());
     setTHREE(T);
   });
 

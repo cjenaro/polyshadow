@@ -14,8 +14,6 @@ import { createSky } from "../world/sky.js";
 import {
   createIntegratedInput,
   updateIntegratedInput,
-  getActiveInputType,
-  destroyIntegratedInput,
 } from "../engine/input-integration.js";
 import { OrbitCamera } from "../engine/camera.js";
 import { updatePlayer } from "../player/movement.js";
@@ -64,7 +62,6 @@ import {
   createIntegratedCombat,
   updateIntegratedCombat,
   handleShakeOff,
-  getCombatStats,
 } from "../player/combat-integration.js";
 import {
   createDodgeState,
@@ -89,7 +86,6 @@ import {
   applyDeathToMesh,
 } from "../colossus/death-integration.js";
 import {
-  createWeakPointVisuals,
   setTHREE as setWeakPointTHREE,
 } from "../colossus/weak-point-visuals.js";
 import {
@@ -99,7 +95,6 @@ import {
   getIslandPositions,
   getCreditsAlpha,
   shouldShowCredits,
-  isEndingComplete,
   skipEnding,
   shouldShowSkipHint,
 } from "./ending-sequence.js";
@@ -144,7 +139,6 @@ import {
   addCurrent,
   updateCurrents,
   getWindForce,
-  isInAnyCurrent,
 } from "../world/wind.js";
 import {
   createAudioState,
@@ -166,7 +160,7 @@ import {
 const canvas = document.getElementById("game-canvas");
 const renderer = createRenderer(canvas);
 const { scene, camera } = initScene(renderer);
-const handleResize = resize(renderer, camera);
+resize(renderer, camera);
 const sky = createSky(scene);
 const godRays = createGodRaySystem({ x: 50, y: 20, z: 30 });
 for (const ray of godRays.rays) {
@@ -197,7 +191,7 @@ const gameState = new GameState();
 const ui = new UISystem();
 const progression = new ProgressionTracker();
 
-const stamina = createIntegratedStamina();
+let stamina = createIntegratedStamina();
 const climbing = createClimbingState();
 let combat = createIntegratedCombat();
 const dodge = createDodgeState();
@@ -991,7 +985,7 @@ canvas.addEventListener("click", () => {
   }
 });
 
-canvas.addEventListener("touchstart", (e) => {
+canvas.addEventListener("touchstart", (_e) => {
   ensureAudio();
   if (gameState.getState() === "title") {
     gameState.transition("playing");
@@ -1004,7 +998,6 @@ if (touchOverlay && input.touch) {
     "touchstart",
     (e) => {
       const w = window.innerWidth;
-      const h = window.innerHeight;
       for (const touch of e.changedTouches) {
         if (touch.clientX >= w * 0.4) {
           const layout = input._touchLayout || touchOverlay.getLayout();
@@ -1023,7 +1016,7 @@ if (touchOverlay && input.touch) {
   canvas.addEventListener(
     "touchend",
     (e) => {
-      for (const touch of e.changedTouches) {
+      for (const _touch of e.changedTouches) {
         const layout = input._touchLayout || touchOverlay.getLayout();
         for (const btn of layout.buttons) {
           touchOverlay.unhighlightButton(btn.id);
@@ -1116,7 +1109,6 @@ function animate(now) {
 
     const surfaces = getColossusSurfaces(colossi);
     let weakPoints = getColossusWeakPoints(colossi);
-    const playerPos = player.state.position;
     const prevClimbingThisFrame = isPlayerClimbing(climbing);
 
     const climbResult = updateClimbing(
@@ -1515,7 +1507,6 @@ function animate(now) {
     updateDirectionIndicators(pos);
     updateAmbientWind(0.3 + Math.sin(now * 0.0003) * 0.15);
 
-    const target = { x: pos.x, y: pos.y + 1, z: pos.z };
     const fallCamData = getFreefallCameraData(player.state, FALL_CONSTANTS);
     const justExitedFall = wasFalling && !player.state.isFalling;
     if (fallCamData.lookUp) {

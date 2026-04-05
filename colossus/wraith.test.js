@@ -19,7 +19,7 @@ import {
   createWraithMesh,
   animateWraith,
 } from "./wraith.js";
-import { getBodyHeight, getAllClimbableParts, getWeakPoints } from "./base.js";
+import { getBodyHeight, getWeakPoints } from "./base.js";
 
 describe("createWraithDefinition", () => {
   it("returns a valid body definition", () => {
@@ -887,10 +887,11 @@ describe("animateWraith", () => {
   });
 
   it("body positions match expected wave formula at time=0", () => {
-    animateWraith(wraithMesh, 0);
+    const time = 0;
+    animateWraith(wraithMesh, time);
     const chest = wraithMesh.meshByPart.get("chest");
     const orig = wraithMesh.originalPositions.get("chest");
-    const phase = 0 * 1.5 + 1 * 0.8;
+    const phase = time * 1.5 + 1 * 0.8;
     const expected = orig.x + Math.sin(phase) * 0.5;
     assert.ok(
       Math.abs(chest.position.x - expected) < 0.001,

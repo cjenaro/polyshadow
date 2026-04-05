@@ -1,13 +1,3 @@
-const MOVE_KEYS = new Set([
-  "KeyW",
-  "KeyA",
-  "KeyS",
-  "KeyD",
-  "ArrowUp",
-  "ArrowDown",
-  "ArrowLeft",
-  "ArrowRight",
-]);
 
 const MOVE_MAP = {
   KeyW: { x: 0, y: 1 },

@@ -393,7 +393,7 @@ describe("setPositionProvider", () => {
     const scene = createMockScene();
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, "head");
-    ctrl.setPositionProvider((bodyPartId) => ({ x: 10, y: 20, z: 30 }));
+    ctrl.setPositionProvider((_bodyPartId) => ({ x: 10, y: 20, z: 30 }));
     ctrl.update(0.016);
     const mesh = scene._children.find((c) => c.geometry);
     assert.equal(mesh.position.x, 10);
@@ -405,7 +405,7 @@ describe("setPositionProvider", () => {
     const scene = createMockScene();
     const ctrl = createWeakPointVisuals(scene);
     ctrl.addWeakPoint({ x: 0, y: 0, z: 0 }, "head");
-    ctrl.setPositionProvider((bodyPartId) => ({ x: 10, y: 20, z: 30 }));
+    ctrl.setPositionProvider((_bodyPartId) => ({ x: 10, y: 20, z: 30 }));
     ctrl.update(0.016);
     const light = scene._children.find((c) => c.intensity !== undefined);
     assert.equal(light.position.x, 10);

@@ -1,4 +1,4 @@
-import { lerp, clamp, smoothstep, randomRange } from "../utils/math.js";
+import { lerp, clamp, smoothstep } from "../utils/math.js";
 
 export const DEATH_PHASES = {
   KNEEL: "kneel",

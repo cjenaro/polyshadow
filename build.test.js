@@ -82,7 +82,7 @@ describe("build.test.js", () => {
       }
     }
     const html = fs.readFileSync(path.join(ROOT, "polyshadow.html"), "utf8");
-    const moduleCount = (html.match(/const _m_/g) || []).length;
+
     const iifeCount = (html.match(/\(\(\) => \{/g) || []).length;
     assert.ok(
       iifeCount >= totalFiles,

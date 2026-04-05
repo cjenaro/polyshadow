@@ -31,24 +31,6 @@ function resolveImport(fromFile, importPath) {
   return resolved;
 }
 
-function parseFileExports(content) {
-  const names = [];
-  for (const m of content.matchAll(/export\s+function\s+(\w+)/g)) names.push(m[1]);
-  for (const m of content.matchAll(/export\s+(?:const|let|var)\s+(\w+)/g)) names.push(m[1]);
-  for (const m of content.matchAll(/export\s+class\s+(\w+)/g)) names.push(m[1]);
-  for (const m of content.matchAll(/export\s*\{([\s\S]*?)\}\s*;?\s*/g)) {
-    for (const part of m[1].split(",")) {
-      const trimmed = part.trim();
-      const asMatch = trimmed.match(/(\w+)\s+as\s+(\w+)/);
-      if (asMatch) {
-        names.push(asMatch[2]);
-      } else if (trimmed && /^\w+$/.test(trimmed)) {
-        names.push(trimmed);
-      }
-    }
-  }
-  return [...new Set(names)];
-}
 
 function parseFileExportsForIIFE(content) {
   const map = new Map();

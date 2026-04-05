@@ -1,5 +1,5 @@
-import { CHUNK_SIZE, getBlock, getExposedFaces, getChunkWorldPosition } from "./voxel-chunk.js";
-import { BlockType, getBlockColor, getBlockEmissive, isBlockSolid } from "./block-types.js";
+import { getBlock, getExposedFaces, getChunkWorldPosition } from "./voxel-chunk.js";
+import { getBlockEmissive, isBlockSolid } from "./block-types.js";
 import { getBlockColorForFace } from "./voxel-materials.js";
 
 const FACE_VERTICES = {
