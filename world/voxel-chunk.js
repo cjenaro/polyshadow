@@ -2,8 +2,6 @@ import {
   BlockType,
   isBlockSolid,
   isBlockTransparent,
-  getBlockColor,
-  getBlockEmissive,
 } from "./block-types.js";
 
 export const CHUNK_SIZE = 16;

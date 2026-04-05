@@ -1,4 +1,3 @@
-import { clamp } from "../utils/math.js";
 
 export const STAMINA_CONSTANTS = {
   MAX: 100,

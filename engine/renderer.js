@@ -205,7 +205,7 @@ export function lerpColors(c1, c2, t) {
 }
 
 export function createIslandMesh(island) {
-  const { positions, colors, vertCount } = buildIslandGeometryData(island);
+  const { positions, colors } = buildIslandGeometryData(island);
   const resolution = island.resolution;
 
   const indices = [];

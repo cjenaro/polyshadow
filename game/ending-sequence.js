@@ -1,4 +1,3 @@
-const PHASE_ACTIVE = 0;
 const PHASE_SKY_OPENING = 1;
 const PHASE_ISLANDS_CONVERGING = 4;
 const PHASE_CREDITS = 8;
@@ -9,7 +8,7 @@ export function createEndingState() {
   return { phase: "active", elapsed: 0 };
 }
 
-export function updateEndingState(state, dt, defeatedColossiPositions, hubPosition) {
+export function updateEndingState(state, dt, _defeatedColossiPositions, _hubPosition) {
   const next = { ...state, elapsed: state.elapsed + dt };
 
   if (next.elapsed >= PHASE_COMPLETE) {

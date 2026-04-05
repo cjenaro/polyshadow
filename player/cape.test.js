@@ -10,22 +10,6 @@ import {
   isCapeActive,
 } from "./cape.js";
 
-function makeParticle(overrides = {}) {
-  return {
-    x: 0,
-    y: 0,
-    z: 0,
-    px: 0,
-    py: 0,
-    py: 0,
-    vx: 0,
-    vy: 0,
-    vz: 0,
-    pinned: false,
-    ...overrides,
-  };
-}
-
 describe("createChain", () => {
   it("creates chain with correct number of particles", () => {
     const chain = createChain({ x: 0, y: 5, z: 0 });

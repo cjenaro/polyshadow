@@ -275,9 +275,7 @@ describe("onCollision", () => {
     adapter.addBody(world, bodyA);
     adapter.addBody(world, bodyB);
 
-    let called = false;
     adapter.onCollision(world, bodyA, bodyB, (event) => {
-      called = true;
       assert.ok(event.bodyA);
       assert.ok(event.bodyB);
     });

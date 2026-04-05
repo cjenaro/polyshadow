@@ -71,13 +71,12 @@ describe("voxel-mesher", () => {
   it("uses neighbor function for cross-chunk queries", () => {
     const chunk = createChunk(0, 0, 0);
     setBlock(chunk, 0, 5, 5, BlockType.STONE);
-    const getNeighbor = (lx, ly, lz) => {
+    const getNeighbor = (lx, _ly, _lz) => {
       if (lx === -1) return BlockType.STONE;
       return BlockType.AIR;
     };
     const data = buildChunkMeshData(chunk, getNeighbor);
     assert.ok(data);
-    const hasNegX = false;
     for (let i = 0; i < data.normals.length / 3; i++) {
       if (data.normals[i * 3] === -1) {
         assert.ok(false, "should not have -X face when neighbor is solid");

@@ -67,7 +67,6 @@ describe("updateFogSystem", () => {
     const fog = createFogSystem();
     const updated = updateFogSystem(fog, 1.0);
     for (let i = 0; i < fog.layers.length; i++) {
-      const orig = fog.layers[i].currentDensity;
       const curr = updated.layers[i].currentDensity;
       if (fog.layers[i].density > 0) {
         assert.ok(typeof curr === "number");

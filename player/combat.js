@@ -1,4 +1,4 @@
-import { distance3D, vec3Add, vec3Scale, clamp } from "../utils/math.js";
+import { distance3D, clamp } from "../utils/math.js";
 import { drainStamina } from "./stamina.js";
 
 export const COMBAT_CONFIG = {

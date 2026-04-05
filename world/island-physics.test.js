@@ -93,7 +93,7 @@ describe("createIslandCollider", () => {
       capturedOpts = opts;
       return origCreate(w, opts);
     };
-    const body = createIslandCollider(adapter, world, island);
+    createIslandCollider(adapter, world, island);
     assert.strictEqual(capturedOpts.userData.entity, "island");
     assert.strictEqual(capturedOpts.userData.type, "bridge");
   });
