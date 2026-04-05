@@ -1,6 +1,6 @@
 import { createRenderer, initScene, resize, createBoxMesh, createIslandMesh } from '../engine/renderer.js';
 import { createSky } from '../world/sky.js';
-import { InputManager } from '../engine/input.js';
+import { createIntegratedInput, updateIntegratedInput, getActiveInputType, destroyIntegratedInput } from '../engine/input-integration.js';
 import { OrbitCamera } from '../engine/camera.js';
 import { updatePlayer } from '../player/movement.js';
 import { PlayerCharacter } from '../player/character.js';
@@ -8,13 +8,22 @@ import { GameState } from './state.js';
 import { ProgressionTracker } from './progression.js';
 import { UISystem } from '../engine/ui.js';
 import { createHubIsland, createArenaIsland, generateIslandGeometry, getIslandSurfaceHeight } from '../world/island.js';
+import { createColossus, updateColossi, getColossusSurfaces, getColossusWeakPoints, damageColossus, getColossusByType } from '../colossus/integration.js';
+import { setTHREE as setSentinelTHREE } from '../colossus/sentinel.js';
+import { setTHREE as setWraithTHREE } from '../colossus/wraith.js';
+import { setTHREE as setTitanTHREE } from '../colossus/titan.js';
+import * as THREE from 'three';
+import { createClimbingState, isPlayerClimbing, updateClimbing } from '../player/climbing-integration.js';
+import { createIntegratedStamina, updateIntegratedStamina, getStaminaForUI } from '../player/stamina-integration.js';
+import { createIntegratedCombat, updateIntegratedCombat, handleShakeOff, getCombatStats } from '../player/combat-integration.js';
+import { createDeathIntegration, triggerDeathSequence, updateDeathIntegration, applyDeathToMesh } from '../colossus/death-integration.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = createRenderer(canvas);
 const { scene, camera } = initScene();
 const handleResize = resize(renderer, camera);
 const sky = createSky(scene);
-const input = new InputManager(canvas);
+const input = createIntegratedInput(canvas);
 const orbit = new OrbitCamera({ distance: 8, pitch: 0.4 });
 
 const player = new PlayerCharacter();
@@ -24,6 +33,10 @@ scene.add(playerMesh);
 const gameState = new GameState();
 const ui = new UISystem();
 const progression = new ProgressionTracker();
+
+const stamina = createIntegratedStamina();
+const climbing = createClimbingState();
+const combat = createIntegratedCombat();
 
 progression.onAllDefeated(() => {
   if (gameState.isPlaying()) {
@@ -41,6 +54,10 @@ gameState.onTransition((from, to) => {
   if (from === 'paused') ui.hidePauseOverlay();
 });
 
+setSentinelTHREE(THREE);
+setWraithTHREE(THREE);
+setTitanTHREE(THREE);
+
 const hubIsland = generateIslandGeometry(createHubIsland());
 const hubMesh = createIslandMesh(hubIsland);
 hubMesh.setPosition(hubIsland.center.x, 0, hubIsland.center.z);
@@ -48,7 +65,7 @@ scene.add(hubMesh);
 
 const arenaConfigs = [
   { type: 'sentinel', center: { x: 120, z: 0 } },
-  { type: 'minotaur', center: { x: -100, z: 80 } },
+  { type: 'titan', center: { x: -100, z: 80 } },
   { type: 'wraith', center: { x: -60, z: -110 } },
 ];
 
@@ -63,6 +80,18 @@ const arenaIslands = arenaConfigs.map(({ type, center }) => {
 });
 
 const allIslands = [hubIsland, ...arenaIslands];
+
+const colossi = arenaConfigs.map(({ type, center }) => {
+  const c = createColossus(type, { x: center.x, y: 0, z: center.z });
+  c.aiState.arenaCenter = { x: center.x, z: center.z };
+  scene.add(c.mesh);
+  return c;
+});
+
+const deathIntegrations = new Map();
+for (const c of colossi) {
+  deathIntegrations.set(c.type, createDeathIntegration(c));
+}
 
 function getGroundHeight(x, z) {
   let maxH = 0;
@@ -83,7 +112,7 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Escape') {
     if (gameState.getState() === 'playing') {
       gameState.transition('paused');
-      input.unlockPointer();
+      input.keyboard.unlockPointer();
     } else if (gameState.getState() === 'paused') {
       gameState.transition('playing');
     }
@@ -92,10 +121,11 @@ document.addEventListener('keydown', (e) => {
 
 canvas.addEventListener('click', () => {
   if (document.pointerLockElement !== canvas) {
-    input.lockPointer();
+    input.keyboard.lockPointer();
   }
 });
 
+let prevAttack = false;
 let lastTime = performance.now();
 
 function animate(now) {
@@ -104,23 +134,41 @@ function animate(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.1);
   lastTime = now;
 
-  input.update();
+  const inputState = updateIntegratedInput(input);
 
   if (gameState.isPlaying()) {
-    const state = input.getState();
-    if (state.start) {
+    if (inputState.start) {
       if (document.pointerLockElement === canvas) {
-        input.unlockPointer();
+        input.keyboard.unlockPointer();
       }
     }
 
-    const moveInput = { x: state.move.x, y: state.move.y, jump: state.jump, sprint: state.sprint };
-    player.state = updatePlayer(player.state, moveInput, orbit.yaw, dt, player);
+    const surfaces = getColossusSurfaces(colossi);
+    const weakPoints = getColossusWeakPoints(colossi);
+    const isClimbing = isPlayerClimbing(climbing);
+    const playerPos = player.state.position;
+
+    const climbResult = updateClimbing(player.state, climbing, inputState, stamina, surfaces, dt);
+    player.state = climbResult.playerState;
+    climbing.isClimbing = climbResult.climbingState.isClimbing;
+    climbing.climbGrabTime = climbResult.climbingState.climbGrabTime;
+
+    const staminaResult = updateIntegratedStamina(stamina, {
+      isClimbing: isPlayerClimbing(climbing),
+      isSprinting: inputState.sprint && !isPlayerClimbing(climbing),
+      isGrounded: player.state.isGrounded,
+    }, dt);
+    Object.assign(stamina, staminaResult.staminaState);
+
+    if (!isPlayerClimbing(climbing)) {
+      const moveInput = { x: inputState.move.x, y: inputState.move.y, jump: inputState.jump, sprint: inputState.sprint && !staminaResult.shouldPreventSprint };
+      player.state = updatePlayer(player.state, moveInput, orbit.yaw, dt, player);
+    }
 
     const groundY = getGroundHeight(player.state.position.x, player.state.position.z);
     player.GROUND_Y = groundY;
 
-    if (player.state.velocity.y <= 0 && player.state.position.y <= groundY + 0.1) {
+    if (player.state.velocity.y <= 0 && player.state.position.y <= groundY + 0.1 && !isPlayerClimbing(climbing)) {
       player.state = {
         ...player.state,
         position: { ...player.state.position, y: groundY },
@@ -130,11 +178,58 @@ function animate(now) {
       };
     }
 
+    const attackJustPressed = inputState.attack && !prevAttack;
+    const combatResult = updateIntegratedCombat(combat, { ...inputState, attackJustPressed }, player.state.position, player.state.rotation, weakPoints, isPlayerClimbing(climbing), dt);
+    prevAttack = inputState.attack;
+
+    if (combatResult.hitResult.attacked && combatResult.hitResult.hitWeakPoint) {
+      const hr = combatResult.hitResult;
+      for (const c of colossi) {
+        const wp = c.weakPoints.find(w => w.id === hr.weakPointId);
+        if (wp) {
+          const dmgResult = damageColossus(colossi, c.type, hr.weakPointId, hr.damage);
+          if (dmgResult.allDestroyed) {
+            const deathInt = deathIntegrations.get(c.type);
+            if (deathInt) triggerDeathSequence(deathInt);
+          }
+          break;
+        }
+      }
+    }
+
+    const colossusEvents = updateColossi(colossi, player.state.position, dt);
+    for (const event of colossusEvents) {
+      if (event.type === 'shakeOff' && isPlayerClimbing(climbing)) {
+        const shakeResult = handleShakeOff(combat, stamina, dt, inputState.action);
+        Object.assign(combat, shakeResult.combatState);
+        Object.assign(stamina, shakeResult.staminaState);
+      }
+    }
+
+    for (const [type, deathInt] of deathIntegrations) {
+      if (deathInt.active) {
+        const result = updateDeathIntegration(deathInt, dt);
+        const entity = getColossusByType(colossi, type);
+        if (entity) {
+          applyDeathToMesh(deathInt, entity.mesh);
+        }
+        if (result.isComplete) {
+          scene.remove(entity.mesh.impl);
+          onColossusDefeated(type);
+        }
+      }
+    }
+
+    for (const c of colossi) {
+      const animateFn = c.type === 'sentinel' ? sentinelAnimate : c.type === 'wraith' ? wraithAnimate : titanAnimate;
+      animateFn(c.mesh, now * 0.001);
+    }
+
     const pos = player.state.position;
     playerMesh.setPosition(pos.x, pos.y + 0.6, pos.z);
 
     const target = { x: pos.x, y: pos.y + 1, z: pos.z };
-    const orbitResult = orbit.update(dt, state.look, target);
+    const orbitResult = orbit.update(dt, inputState.look, target);
     camera.syncFromOrbit(orbitResult);
   }
 
@@ -142,6 +237,29 @@ function animate(now) {
   ui.update(dt);
   sky.update(now * 0.001);
   renderer.render(scene, camera);
+}
+
+function sentinelAnimate(mesh, time) {
+  const torso = mesh.meshByPart.get('torso');
+  if (torso) {
+    const pulse = 1 + Math.sin(time * 1.5) * 0.015;
+    torso.scale.set(pulse, pulse, pulse);
+  }
+}
+
+function wraithAnimate(mesh, time) {
+  const wings = [mesh.meshByPart.get('wing_left'), mesh.meshByPart.get('wing_right')];
+  for (const wing of wings) {
+    if (wing) wing.rotation.z = Math.sin(time * 2) * 0.3;
+  }
+}
+
+function titanAnimate(mesh, time) {
+  const legs = ['front_left_upper', 'front_right_upper', 'back_left_upper', 'back_right_upper'];
+  for (let i = 0; i < legs.length; i++) {
+    const leg = mesh.meshByPart.get(legs[i]);
+    if (leg) leg.rotation.x = Math.sin(time * 0.5 + i * 1.5) * 0.05;
+  }
 }
 
 function onColossusDefeated(type) {
