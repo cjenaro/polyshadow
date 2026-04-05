@@ -1,4 +1,3 @@
-
 const MOVE_MAP = {
   KeyW: { x: 0, y: 1 },
   KeyS: { x: 0, y: -1 },

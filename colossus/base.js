@@ -1,4 +1,3 @@
-
 const VALID_TYPES = new Set(["core", "limb_upper", "limb_lower", "head"]);
 
 function normalizePart(part) {

@@ -1,4 +1,3 @@
-
 export const STAMINA_CONSTANTS = {
   MAX: 100,
   SPRINT_DRAIN_RATE: 15,

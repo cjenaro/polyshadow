@@ -1,8 +1,4 @@
-import {
-  BlockType,
-  isBlockSolid,
-  isBlockTransparent,
-} from "./block-types.js";
+import { BlockType, isBlockSolid, isBlockTransparent } from "./block-types.js";
 
 export const CHUNK_SIZE = 16;
 

@@ -11,10 +11,7 @@ import {
 import { noise2D } from "../utils/noise.js";
 import { createCharacterMesh } from "../player/character-mesh.js";
 import { createSky } from "../world/sky.js";
-import {
-  createIntegratedInput,
-  updateIntegratedInput,
-} from "../engine/input-integration.js";
+import { createIntegratedInput, updateIntegratedInput } from "../engine/input-integration.js";
 import { OrbitCamera } from "../engine/camera.js";
 import { updatePlayer } from "../player/movement.js";
 import { resolveCollisions } from "../player/collision.js";
@@ -85,9 +82,7 @@ import {
   updateDeathIntegration,
   applyDeathToMesh,
 } from "../colossus/death-integration.js";
-import {
-  setTHREE as setWeakPointTHREE,
-} from "../colossus/weak-point-visuals.js";
+import { setTHREE as setWeakPointTHREE } from "../colossus/weak-point-visuals.js";
 import {
   createEndingState,
   updateEndingState,

@@ -15,8 +15,6 @@ import {
   updateCombat,
 } from "./combat.js";
 
-
-
 function makeWeakPoint(overrides = {}) {
   return {
     id: "head",

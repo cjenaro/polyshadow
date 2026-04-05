@@ -31,7 +31,6 @@ function resolveImport(fromFile, importPath) {
   return resolved;
 }
 
-
 function parseFileExportsForIIFE(content) {
   const map = new Map();
   for (const m of content.matchAll(/export\s+function\s+(\w+)/g)) map.set(m[1], m[1]);
