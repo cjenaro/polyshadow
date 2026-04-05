@@ -129,7 +129,7 @@ export function shouldTriggerArenaEntry(playerPos, arenaConfigs, defeated, trigg
   return closest;
 }
 
-export function shouldTriggerHubReturn(mgr, defeatedType, defeated) {
+export function shouldTriggerHubReturn(mgr, defeatedType, _defeated) {
   if (mgr.state !== TRANSITION_STATES.IN_ARENA) return false;
   if (isTransitioning(mgr)) return false;
   return mgr.currentArena === defeatedType;

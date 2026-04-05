@@ -71,7 +71,7 @@ export function createChunkManager(voxelStorage, opts = {}) {
     return processed;
   }
 
-  function update(centerX, centerY, centerZ, dt) {
+  function update(_centerX, _centerY, _centerZ, _dt) {
     enqueueDirtyChunks();
     processDirtyChunks();
   }

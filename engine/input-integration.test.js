@@ -6,7 +6,6 @@ import {
   getActiveInputType,
   destroyIntegratedInput,
 } from "./input-integration.js";
-import { createEmptyState } from "./input.js";
 
 globalThis.window = globalThis;
 

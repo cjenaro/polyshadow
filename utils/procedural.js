@@ -1,5 +1,4 @@
-import { fbm2D, noise2D } from "./noise.js";
-import { randomRange } from "./math.js";
+import { fbm2D } from "./noise.js";
 
 function seededRandom(seed) {
   let s = seed | 0 || 1;

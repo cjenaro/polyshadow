@@ -6,7 +6,6 @@ import {
   generateVoxelRuins,
 } from "../world/voxel-island-generator.js";
 import { voxelGroundHeight } from "../world/voxel-physics.js";
-import { getVoxelLODLevel, shouldRenderChunk } from "../world/voxel-lod.js";
 import { buildColossusVoxels } from "../colossus/voxel-builder.js";
 import { generateVoxelSurfacePatches } from "../colossus/voxel-climbing.js";
 
@@ -125,7 +124,7 @@ export function getVoxelGroundHeightFn(voxelCtx) {
   };
 }
 
-export function updateVoxelFrame(voxelCtx, playerPos, dt) {
+export function updateVoxelFrame(voxelCtx, _playerPos, _dt) {
   const { chunkManager } = voxelCtx;
   chunkManager.enqueueDirtyChunks();
   const processed = chunkManager.processDirtyChunks();

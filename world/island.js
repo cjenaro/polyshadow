@@ -1,8 +1,5 @@
-import { normalize2D, distance2D, clamp } from "../utils/math.js";
 import { generateIslandShape } from "../utils/procedural.js";
 import { fbm2D } from "../utils/noise.js";
-
-const RESOLUTION_MULTIPLIER = 2;
 
 export function createIsland(params) {
   return {
@@ -17,7 +14,6 @@ export function createIsland(params) {
 }
 
 export function generateIslandGeometry(island) {
-  const resolution = island.radius * RESOLUTION_MULTIPLIER;
   const heightData = generateIslandShape(island.radius, island.maxHeight, island.seed);
 
   return {

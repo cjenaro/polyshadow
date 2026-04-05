@@ -1,4 +1,4 @@
-import { BlockType, isBlockSolid } from "../world/block-types.js";
+import { BlockType } from "../world/block-types.js";
 import { buildVoxelGeometryForGroup } from "../world/voxel-mesher.js";
 
 const FACE_DIRS = [

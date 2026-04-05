@@ -11,7 +11,6 @@ export function createVoxelArrowMesh() {
   for (let z = 0; z < STEM_LENGTH; z++) {
     voxels.push({ x: 0, y: 0, z: -(z + 1), blockType: "indicator_stem" });
   }
-  const HEAD_WIDTH = 3;
   for (let x = -1; x <= 1; x++) {
     voxels.push({ x, y: 0, z: 0, blockType: "indicator_head" });
   }

@@ -104,7 +104,7 @@ describe("OrbitCamera", () => {
 
   it("update() with look input changes yaw and pitch", () => {
     const cam = new OrbitCamera({ yaw: 0, pitch: 0 });
-    const result = cam.update(0.016, { x: 1, y: 0.5 }, { x: 0, y: 0, z: 0 });
+    cam.update(0.016, { x: 1, y: 0.5 }, { x: 0, y: 0, z: 0 });
     assert.ok(cam.yaw !== 0, "yaw should change");
     assert.ok(cam.pitch !== 0, "pitch should change");
   });
@@ -154,7 +154,6 @@ describe("OrbitCamera", () => {
 
   it("camera smoothly follows target with lerp", () => {
     const cam = new OrbitCamera({ yaw: 0, pitch: 0, distance: 10, lerpSpeed: 5 });
-    const startPos = { x: 0, y: 0, z: 10 };
     cam.currentTarget = { x: 0, y: 0, z: 0 };
     cam.update(0.016, { x: 0, y: 0 }, { x: 0, y: 0, z: 100 });
     const target = cam.currentTarget;
@@ -198,7 +197,7 @@ describe("OrbitCamera", () => {
       { x: 0, y: 0 },
       { x: 0, y: 0, z: 0 },
       {
-        raycastFn: (origin, direction) => ({ distance: 5 }),
+        raycastFn: (_origin, _direction) => ({ distance: 5 }),
       },
     );
     const pos = cam.getPosition();
@@ -233,7 +232,7 @@ describe("OrbitCamera", () => {
       { x: 0, y: 0 },
       { x: 0, y: 0, z: 0 },
       {
-        raycastFn: (origin, direction) => ({ distance: 0.5 }),
+        raycastFn: (_origin, _direction) => ({ distance: 0.5 }),
       },
     );
     const pos = cam.getPosition();

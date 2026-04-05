@@ -98,7 +98,7 @@ export function getHeartbeatParams() {
   };
 }
 
-export function shouldPlayHeartbeat(audioState, staminaRatio, currentTime, deltaTime) {
+export function shouldPlayHeartbeat(audioState, staminaRatio, currentTime, _deltaTime) {
   if (staminaRatio >= AUDIO_CONFIG.lowStaminaThreshold) return false;
   const elapsed = currentTime - audioState.lastHeartbeatTime;
   const ratio = clamp(staminaRatio / AUDIO_CONFIG.lowStaminaThreshold, 0, 1);
