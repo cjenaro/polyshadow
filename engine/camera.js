@@ -48,7 +48,7 @@ export function resolveCameraDistance(
 
 export class OrbitCamera {
   static DEFAULTS = {
-    distance: 10,
+    distance: 18,
     minDistance: 2,
     maxDistance: 30,
     yaw: 0,
@@ -61,9 +61,9 @@ export class OrbitCamera {
     distanceLerpSpeed: 5,
     collisionOffset: 0.2,
     contextDistances: {
-      exploration: 12,
-      climbing: 5,
-      combat: 8,
+      exploration: 22,
+      climbing: 8,
+      combat: 12,
     },
   };
 

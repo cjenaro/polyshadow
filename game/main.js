@@ -112,6 +112,9 @@ import { applyHealthOpacity } from "../engine/health-visual.js";
 import { setTHREE as setFeedbackTHREE, createCombatFeedback } from "../engine/combat-feedback.js";
 import { LOD_THRESHOLDS, getShadowMapSize, getParticleCount } from "../engine/lod.js";
 import { createTouchOverlay } from "../engine/touch-overlay.js";
+import { createDebugOverlay, updateDebugOverlay, setDebugPosition, setDebugVelocity, showCollisionBox } from "./debug.js";
+import { RUNTIME_CONFIG, updateRuntimeConfig } from "./config.js";
+import * as dat from "dat.gui";
 import {
   createArenaTransitionManager,
   updateArenaTransition,
@@ -206,6 +209,40 @@ window.addEventListener("resize", () => {
 });
 let endingState = null;
 let arenaTransition = createArenaTransitionManager();
+
+createDebugOverlay();
+
+const gui = new dat.GUI({ width: 280 });
+const playerFolder = gui.addFolder("Player");
+playerFolder.add(RUNTIME_CONFIG.player, "moveSpeed", 1, 20).name("Move Speed");
+playerFolder.add(RUNTIME_CONFIG.player, "sprintMultiplier", 1, 3).name("Sprint Multiplier");
+playerFolder.add(RUNTIME_CONFIG.player, "jumpForce", 5, 25).name("Jump Force");
+playerFolder.add(RUNTIME_CONFIG.player, "climbSpeed", 1, 10).name("Climb Speed");
+playerFolder.open();
+const cameraFolder = gui.addFolder("Camera");
+cameraFolder.add(RUNTIME_CONFIG.camera, "distance", 5, 50).name("Distance");
+cameraFolder.add(RUNTIME_CONFIG.camera, "lerpSpeed", 1, 20).name("Lerp Speed");
+cameraFolder.open();
+const combatFolder = gui.addFolder("Combat");
+combatFolder.add(RUNTIME_CONFIG.combat, "slashRange", 1, 15).name("Slash Range");
+combatFolder.add(RUNTIME_CONFIG.combat, "slashDamage", 1, 50).name("Slash Damage");
+combatFolder.add(RUNTIME_CONFIG.combat, "slashCooldown", 0.1, 3).name("Slash Cooldown");
+combatFolder.add(RUNTIME_CONFIG.combat, "stabChargeTime", 0.5, 3).name("Stab Charge");
+combatFolder.add(RUNTIME_CONFIG.combat, "stabDamage", 10, 100).name("Stab Damage");
+combatFolder.open();
+const staminaFolder = gui.addFolder("Stamina");
+staminaFolder.add(RUNTIME_CONFIG.stamina, "maxStamina", 50, 200).name("Max Stamina");
+staminaFolder.add(RUNTIME_CONFIG.stamina, "drainRate", 5, 50).name("Drain Rate");
+staminaFolder.add(RUNTIME_CONFIG.stamina, "regenRate", 5, 50).name("Regen Rate");
+staminaFolder.open();
+const debugFolder = gui.addFolder("Debug");
+debugFolder.add(RUNTIME_CONFIG.debug, "showFPS").name("Show FPS");
+debugFolder.add(RUNTIME_CONFIG.debug, "showCollision").name("Show Collision");
+debugFolder.add(RUNTIME_CONFIG.debug, "showPaths").name("Show Paths");
+debugFolder.add(RUNTIME_CONFIG.debug, "godMode").name("God Mode");
+debugFolder.add(RUNTIME_CONFIG.debug, "infiniteStamina").name("Infinite Stamina");
+debugFolder.open();
+gui.close();
 
 const physicsAdapter = createCannonAdapter();
 const physicsWorld = physicsAdapter.createPhysicsWorld();
@@ -612,6 +649,17 @@ for (const island of allIslands) {
   physicsAdapter.onCollision(physicsWorld, playerPhysicsBody, body, ({ normal }) => {
     if (normal.y > 0.3) physicsGrounded = true;
   });
+
+  const halfW = island.radius * 0.8;
+  const halfH = island.maxHeight * 0.5;
+  const halfD = island.radius * 0.8;
+  const boxBody = physicsAdapter.createBody(physicsWorld, {
+    type: "static",
+    shape: { type: "box", halfExtents: { x: halfW, y: halfH, z: halfD } },
+    position: { x: island.center.x, y: halfH, z: island.center.z },
+  });
+  physicsAdapter.addBody(physicsWorld, boxBody);
+  islandPhysicsBodies.push(boxBody);
 }
 
 const pathDefs = arenaConfigs.map(({ center }) =>
@@ -1073,6 +1121,8 @@ function animate(now) {
   const dt = Math.min((now - lastTime) / 1000, 0.1);
   lastTime = now;
 
+  updateDebugOverlay(dt);
+
   const inputState = updateIntegratedInput(input);
 
   const gamepadConnected = input.gamepad && input.gamepad.isGamepadConnected();
@@ -1098,6 +1148,9 @@ function animate(now) {
     player.state.position = physicsAdapter.getPosition(physicsWorld, playerPhysicsBody);
     player.state.velocity = physicsAdapter.getVelocity(physicsWorld, playerPhysicsBody);
     physicsGrounded = physicsAdapter.hasGroundedContact(physicsWorld, playerPhysicsBody);
+
+    setDebugPosition(player.state.position.x, player.state.position.y, player.state.position.z);
+    setDebugVelocity(player.state.velocity.x, player.state.velocity.y, player.state.velocity.z);
 
     if (inputState.start) {
       if (document.pointerLockElement === canvas) {
@@ -1698,6 +1751,8 @@ function titanAnimate(mesh, time) {
 function onColossusDefeated(type) {
   progression.defeatColossus(type);
 }
+
+updateDebugOverlay(0.016);
 
 animate(performance.now());
 

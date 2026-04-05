@@ -88,7 +88,7 @@ describe("OrbitCamera", () => {
     const cam = new OrbitCamera();
     approx(cam.yaw, 0);
     approx(cam.pitch, 0.3);
-    approx(cam.distance, 10);
+    approx(cam.distance, 18);
     approx(cam.minDistance, 2);
     approx(cam.maxDistance, 30);
     approx(cam.lerpSpeed, 5);

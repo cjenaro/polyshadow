@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { buildIslandGeometryData } from "./island-mesh.js";
 import { generateNormalMapData } from "../utils/normal-map.js";
+import { createGrassShaderMaterial } from "./grass-shader.js";
 
 export function createNormalMapTexture(opts = {}) {
   const { size = 256, scale = 0.05, seed = 42, strength = 2.0 } = opts;
@@ -204,7 +205,7 @@ export function lerpColors(c1, c2, t) {
   return c;
 }
 
-export function createIslandMesh(island) {
+export function createIslandMesh(island, useGrassShader = true) {
   const { positions, colors } = buildIslandGeometryData(island);
   const resolution = island.resolution;
 
@@ -226,16 +227,20 @@ export function createIslandMesh(island) {
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
 
-  const normalMap = createNormalMapTexture({ size: 512, scale: 0.08, seed: 42, strength: 2.0 });
-
-  const material = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    flatShading: false,
-    roughness: 0.9,
-    metalness: 0.0,
-    normalMap,
-    normalScale: new THREE.Vector2(0.8, 0.8),
-  });
+  let material;
+  if (useGrassShader) {
+    material = createGrassShaderMaterial(island);
+  } else {
+    const normalMap = createNormalMapTexture({ size: 512, scale: 0.08, seed: 42, strength: 2.0 });
+    material = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      flatShading: false,
+      roughness: 0.9,
+      metalness: 0.0,
+      normalMap,
+      normalScale: new THREE.Vector2(0.8, 0.8),
+    });
+  }
 
   const impl = new THREE.Mesh(geometry, material);
   impl.receiveShadow = true;
