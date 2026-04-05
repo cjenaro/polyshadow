@@ -26,6 +26,12 @@ import { createSteppingStonesPath, generatePathPoints, isOnPath } from '../world
 import { createDirectionIndicator, updateIndicators, isIndicatorVisible } from '../world/indicators.js';
 import { MusicSystem } from '../engine/music.js';
 import { createPostProcessState, updatePostProcessState, getActiveColorGrading, shouldEnableBloom } from '../engine/post-processing.js';
+import {
+  createArenaTransitionManager, updateArenaTransition, getTransitionProgress,
+  isTransitioning, startTransitionToArena, startTransitionToHub,
+  shouldTriggerArenaEntry, shouldTriggerHubReturn,
+  getArenaSpawnPoint, getHubSpawnPoint, TRANSITION_STATES,
+} from './arena-transition.js';
 import { createParticleSystem, updateParticleSystem, DEFAULT_BOUNDS } from '../world/particles.js';
 import { createFogSystem, updateFogSystem, DEFAULT_LAYERS } from '../world/fog.js';
 import { createWindSystem, updateWindSystem, getWindVector } from '../world/wind.js';
@@ -68,6 +74,8 @@ let ambientWindNode = null;
 let ambientWindGain = null;
 let postProcess = createPostProcessState();
 let endingState = null;
+let arenaTransition = createArenaTransitionManager();
+let hasTeleported = false;
 
 function ensureAudio() {
   if (audioCtx) return;
@@ -308,6 +316,8 @@ gameState.onTransition((from, to) => {
   }
   if (to === 'title') {
     endingState = null;
+    arenaTransition = createArenaTransitionManager();
+    hasTeleported = false;
     const creditsEl = document.getElementById('credits-overlay');
     if (creditsEl) creditsEl.style.display = 'none';
   }
@@ -707,6 +717,9 @@ function animate(now) {
         if (result.isComplete) {
           scene.remove(entity.mesh.impl);
           onColossusDefeated(type);
+          if (shouldTriggerHubReturn(arenaTransition, type, progression.defeated)) {
+            arenaTransition = startTransitionToHub(arenaTransition);
+          }
         }
       }
     }
@@ -714,6 +727,36 @@ function animate(now) {
     for (const c of colossi) {
       const animateFn = c.type === 'sentinel' ? sentinelAnimate : c.type === 'wraith' ? wraithAnimate : titanAnimate;
       animateFn(c.mesh, now * 0.001);
+    }
+
+    if (!isTransitioning(arenaTransition) && arenaTransition.state !== TRANSITION_STATES.IN_ARENA) {
+      const entryArena = shouldTriggerArenaEntry(player.state.position, arenaConfigs, progression.defeated);
+      if (entryArena) {
+        arenaTransition = startTransitionToArena(arenaTransition, entryArena, arenaConfigs, progression.defeated);
+        hasTeleported = false;
+      }
+    }
+
+    arenaTransition = updateArenaTransition(arenaTransition, dt);
+
+    if (arenaTransition.state === TRANSITION_STATES.TELEPORTING && !hasTeleported) {
+      hasTeleported = true;
+      if (arenaTransition.returningToHub) {
+        const spawn = getHubSpawnPoint();
+        player.state = { ...player.state, position: spawn, velocity: { x: 0, y: 0, z: 0 }, isGrounded: true, isFalling: false, isJumping: false };
+      } else {
+        const config = arenaConfigs.find(c => c.type === arenaTransition.currentArena);
+        const spawn = getArenaSpawnPoint(config.center);
+        player.state = { ...player.state, position: spawn, velocity: { x: 0, y: 0, z: 0 }, isGrounded: true, isFalling: false, isJumping: false };
+      }
+    }
+
+    if (arenaTransition.state === TRANSITION_STATES.IN_ARENA) {
+      const activeColossus = colossi.find(c => c.type === arenaTransition.currentArena);
+      if (activeColossus && activeColossus.aiState.isDead) {
+        arenaTransition = startTransitionToHub(arenaTransition);
+        hasTeleported = false;
+      }
     }
 
     const colossusDist = getNearestLivingColossusDist(player.state.position);
@@ -823,6 +866,26 @@ function animate(now) {
   gameState.update(dt);
   ui.update(dt);
   sky.update(now * 0.001);
+
+  const transitionOverlay = document.getElementById('transition-overlay');
+  if (transitionOverlay) {
+    const fadeProgress = getTransitionProgress(arenaTransition);
+    transitionOverlay.style.opacity = fadeProgress;
+  }
+
+  const arenaNameEl = document.getElementById('arena-name');
+  if (arenaNameEl) {
+    if (arenaTransition.state === TRANSITION_STATES.TELEPORTING && !arenaTransition.returningToHub) {
+      const names = { sentinel: 'Stone Sentinel', titan: 'Tide Titan', wraith: 'Wind Wraith' };
+      arenaNameEl.textContent = names[arenaTransition.currentArena] || '';
+      arenaNameEl.style.opacity = 1;
+    } else if (arenaTransition.state === TRANSITION_STATES.FADING_IN) {
+      arenaNameEl.style.opacity = Math.max(0, 1 - getTransitionProgress(arenaTransition) * 2);
+    } else {
+      arenaNameEl.style.opacity = 0;
+    }
+  }
+
   renderer.render(scene, camera);
 }
 
