@@ -66,6 +66,7 @@ class InputManager {
   constructor(canvas) {
     this.canvas = canvas;
     this.pressedKeys = new Set();
+    this.pressedMouseButtons = new Set();
     this.mouseDelta = { x: 0, y: 0 };
     this.mouseButton = 0;
     this.justPressed = new Set();
