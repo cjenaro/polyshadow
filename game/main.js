@@ -16,7 +16,25 @@ import * as THREE from 'three';
 import { createClimbingState, isPlayerClimbing, updateClimbing } from '../player/climbing-integration.js';
 import { createIntegratedStamina, updateIntegratedStamina, getStaminaForUI } from '../player/stamina-integration.js';
 import { createIntegratedCombat, updateIntegratedCombat, handleShakeOff, getCombatStats } from '../player/combat-integration.js';
+import { enterFall, updateFall, checkFall, respawn, getFreefallCameraData, FALL_CONSTANTS } from '../player/fall.js';
 import { createDeathIntegration, triggerDeathSequence, updateDeathIntegration, applyDeathToMesh } from '../colossus/death-integration.js';
+import { createSteppingStonesPath, generatePathPoints, isOnPath } from '../world/paths.js';
+import { createDirectionIndicator, updateIndicators, isIndicatorVisible } from '../world/indicators.js';
+import { MusicSystem } from '../engine/music.js';
+import { createParticleSystem, updateParticleSystem, DEFAULT_BOUNDS } from '../world/particles.js';
+import { createFogSystem, updateFogSystem, DEFAULT_LAYERS } from '../world/fog.js';
+import { createWindSystem, updateWindSystem, getWindVector } from '../world/wind.js';
+import { createWindCurrent, generateWindCurrentPath } from '../world/wind_currents.js';
+import {
+  createAudioState, initAudio, getEffectiveVolume, registerSound, cleanupSounds,
+  getFootstepParams, shouldPlayFootstep,
+  getClimbingGrabParams,
+  getHeartbeatParams, shouldPlayHeartbeat,
+  getSwordSlashParams,
+  getWeakPointHitParams,
+  getColossusDeathParams,
+  getAmbientWindParams,
+} from '../engine/audio.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = createRenderer(canvas);
@@ -37,6 +55,209 @@ const progression = new ProgressionTracker();
 const stamina = createIntegratedStamina();
 const climbing = createClimbingState();
 const combat = createIntegratedCombat();
+const music = new MusicSystem();
+let audioCtx = null;
+let audioState = createAudioState();
+let prevClimbing = false;
+let ambientWindNode = null;
+let ambientWindGain = null;
+
+function ensureAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  audioState = initAudio(audioState);
+  music.init(audioCtx);
+  startAmbientWind();
+}
+
+function createNoiseBuffer(duration) {
+  const sampleRate = audioCtx.sampleRate;
+  const length = Math.max(1, Math.floor(sampleRate * duration));
+  const buffer = audioCtx.createBuffer(1, length, sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < length; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  return buffer;
+}
+
+function playProceduralSound(params) {
+  if (!audioCtx || !audioState.isInitialized) return;
+  const vol = getEffectiveVolume(audioState, params.gain || 1);
+  if (vol <= 0) return;
+
+  const t = audioCtx.currentTime;
+  const duration = params.duration;
+
+  switch (params.type) {
+    case 'noise_burst': {
+      const src = audioCtx.createBufferSource();
+      src.buffer = createNoiseBuffer(duration);
+      const bp = audioCtx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = params.bandpassFreq || 400;
+      bp.Q.value = params.bandpassQ || 1;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      src.connect(bp).connect(g).connect(audioCtx.destination);
+      src.start(t);
+      src.stop(t + duration);
+      break;
+    }
+    case 'filtered_click': {
+      const src = audioCtx.createBufferSource();
+      src.buffer = createNoiseBuffer(duration);
+      const hp = audioCtx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = params.highpassFreq || 2000;
+      hp.Q.value = params.resonance || 3;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      src.connect(hp).connect(g).connect(audioCtx.destination);
+      src.start(t);
+      src.stop(t + duration);
+      break;
+    }
+    case 'pulse': {
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = params.frequency || 40;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + (params.attack || 0.01));
+      g.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      osc.connect(g).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + duration);
+      break;
+    }
+    case 'metallic_resonance': {
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(params.frequency || 1200, t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1, (params.frequency || 1200) * 0.5), t + duration);
+      const bp = audioCtx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = params.frequency || 1200;
+      bp.Q.value = 10;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + (params.decay || duration));
+      osc.connect(bp).connect(g).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + duration);
+      if (params.noiseMix > 0) {
+        const nSrc = audioCtx.createBufferSource();
+        nSrc.buffer = createNoiseBuffer(duration);
+        const nG = audioCtx.createGain();
+        nG.gain.setValueAtTime(vol * params.noiseMix * 0.3, t);
+        nG.gain.exponentialRampToValueAtTime(0.001, t + duration);
+        nSrc.connect(nG).connect(audioCtx.destination);
+        nSrc.start(t);
+        nSrc.stop(t + duration);
+      }
+      break;
+    }
+    case 'low_freq_boom': {
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(params.frequency || 30, t);
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1, (params.frequency || 30) * 0.3), t + duration);
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + (params.decay || duration));
+      osc.connect(g).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + duration);
+      break;
+    }
+    case 'resonant_ding': {
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = params.frequency || 1000;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + (params.decay || 0.3));
+      osc.connect(g).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + duration);
+      if (params.reverbMix > 0) {
+        const delay = audioCtx.createDelay();
+        delay.delayTime.value = 0.05;
+        const dG = audioCtx.createGain();
+        dG.gain.value = params.reverbMix * 0.5;
+        const rOsc = audioCtx.createOscillator();
+        rOsc.type = 'sine';
+        rOsc.frequency.value = (params.frequency || 1000) * 1.5;
+        const rG = audioCtx.createGain();
+        rG.gain.setValueAtTime(vol * params.reverbMix * 0.3, t);
+        rG.gain.exponentialRampToValueAtTime(0.001, t + duration);
+        rOsc.connect(delay).connect(dG).connect(rG).connect(audioCtx.destination);
+        rOsc.start(t);
+        rOsc.stop(t + duration);
+      }
+      break;
+    }
+    case 'evolving_drone': {
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sawtooth';
+      const baseFreq = params.baseFrequency || 50;
+      osc.frequency.setValueAtTime(baseFreq, t);
+      osc.frequency.linearRampToValueAtTime(baseFreq * 2, t + duration);
+      const lp = audioCtx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = params.filterFreq || 200;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      osc.connect(lp).connect(g).connect(audioCtx.destination);
+      osc.start(t);
+      osc.stop(t + duration);
+      if (params.noiseAmount > 0) {
+        const nSrc = audioCtx.createBufferSource();
+        nSrc.buffer = createNoiseBuffer(duration);
+        const nG = audioCtx.createGain();
+        nG.gain.setValueAtTime(vol * params.noiseAmount * 0.2, t);
+        nG.gain.setValueAtTime(vol * params.noiseAmount * 0.2, t + duration * 0.8);
+        nG.gain.exponentialRampToValueAtTime(0.001, t + duration);
+        nSrc.connect(nG).connect(audioCtx.destination);
+        nSrc.start(t);
+        nSrc.stop(t + duration);
+      }
+      break;
+    }
+    case 'filtered_noise': {
+      return null;
+    }
+  }
+
+  return { startTime: t, duration };
+}
+
+function startAmbientWind() {
+  if (!audioCtx || ambientWindNode) return;
+  const params = getAmbientWindParams(0.5);
+  ambientWindNode = audioCtx.createBufferSource();
+  ambientWindNode.buffer = createNoiseBuffer(2);
+  ambientWindNode.loop = true;
+  const lp = audioCtx.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = params.lowpassFreq;
+  lp.Q.value = 1;
+  ambientWindGain = audioCtx.createGain();
+  ambientWindGain.gain.value = params.gain;
+  ambientWindNode.connect(lp).connect(ambientWindGain).connect(audioCtx.destination);
+  ambientWindNode.start();
+}
+
+function updateAmbientWind(strength) {
+  if (!ambientWindGain) return;
+  const params = getAmbientWindParams(strength);
+  const vol = getEffectiveVolume(audioState, params.gain);
+  ambientWindGain.gain.linearRampToValueAtTime(vol, audioCtx.currentTime + 0.5);
+}
 
 progression.onAllDefeated(() => {
   if (gameState.isPlaying()) {
@@ -44,14 +265,37 @@ progression.onAllDefeated(() => {
   }
 });
 
+function getNearestLivingColossusDist(pos) {
+  let minDist = Infinity;
+  for (const c of colossi) {
+    if (c.aiState.isDead) continue;
+    const dx = pos.x - c.aiState.position.x;
+    const dz = pos.z - c.aiState.position.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < minDist) minDist = dist;
+  }
+  return minDist;
+}
+
 gameState.onTransition((from, to) => {
   if (to === 'title') {
     progression.reset();
     ui.showTitleScreen();
+    music.setState('idle');
   }
-  if (from === 'title') ui.hideTitleScreen();
-  if (to === 'paused') ui.showPauseOverlay();
-  if (from === 'paused') ui.hidePauseOverlay();
+  if (from === 'title') {
+    ui.hideTitleScreen();
+    music.setState('exploration');
+  }
+  if (to === 'paused') {
+    ui.showPauseOverlay();
+    music.pause();
+  }
+  if (from === 'paused') {
+    ui.hidePauseOverlay();
+    music.resume();
+  }
+  if (to === 'victory') music.setState('victory');
 });
 
 setSentinelTHREE(THREE);
@@ -81,6 +325,43 @@ const arenaIslands = arenaConfigs.map(({ type, center }) => {
 
 const allIslands = [hubIsland, ...arenaIslands];
 
+const pathDefs = arenaConfigs.map(({ center }) =>
+  createSteppingStonesPath({ x: 0, y: 0, z: 0 }, { x: center.x, y: 0, z: center.z }, 5, { stoneRadius: 2 })
+);
+const pathPoints = pathDefs.map(p => generatePathPoints(p));
+const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0x888877, flatShading: true });
+const stoneGeometry = new THREE.CylinderGeometry(2, 2.2, 0.6, 8);
+for (const points of pathPoints) {
+  for (const p of points) {
+    const stone = new THREE.Mesh(stoneGeometry, stoneMaterial);
+    stone.position.set(p.x, Math.max(p.y, 0), p.z);
+    scene.impl.add(stone);
+  }
+}
+
+function getStoneHeight(x, z) {
+  for (const points of pathPoints) {
+    if (isOnPath(points, x, z, 2.5)) {
+      let minY = Infinity;
+      for (const p of points) {
+        const dx = x - p.x;
+        const dz = z - p.z;
+        if (dx * dx + dz * dz <= 2.5 * 2.5) {
+          minY = Math.min(minY, p.y);
+        }
+      }
+      if (minY < Infinity) return Math.max(minY, 0);
+    }
+  }
+  return 0;
+}
+
+
+const respawnPoints = [
+  { position: { x: 0, y: 2, z: 0 } },
+  ...arenaConfigs.map(c => ({ position: { x: c.center.x, y: 2, z: c.center.z } })),
+];
+
 const colossi = arenaConfigs.map(({ type, center }) => {
   const c = createColossus(type, { x: center.x, y: 0, z: center.z });
   c.aiState.arenaCenter = { x: center.x, z: center.z };
@@ -93,18 +374,148 @@ for (const c of colossi) {
   deathIntegrations.set(c.type, createDeathIntegration(c));
 }
 
+const directionIndicators = arenaConfigs.map(({ type, center }) =>
+  createDirectionIndicator(type, { x: center.x, z: center.z })
+);
+
+const indicatorMeshes = directionIndicators.map(() => {
+  const geo = new THREE.CylinderGeometry(0.08, 0.08, 3, 8);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffd700, transparent: true, opacity: 1 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.visible = false;
+  scene.impl.add(mesh);
+  return mesh;
+});
+
+function updateDirectionIndicators(playerPos) {
+  const colossusPositions = colossi.map(c => ({
+    id: c.type,
+    x: c.aiState.arenaCenter.x,
+    z: c.aiState.arenaCenter.z,
+    defeated: progression.defeated.has(c.type),
+  }));
+
+  const updated = updateIndicators(directionIndicators, playerPos, colossusPositions);
+
+  for (let i = 0; i < updated.length; i++) {
+    const ind = updated[i];
+    const mesh = indicatorMeshes[i];
+    directionIndicators[i] = ind;
+
+    if (!isIndicatorVisible(ind, playerPos)) {
+      mesh.visible = false;
+      continue;
+    }
+
+    mesh.visible = true;
+    mesh.material.opacity = ind.opacity;
+    mesh.position.set(
+      playerPos.x + ind.direction.x * 20,
+      playerPos.y + 1.5,
+      playerPos.z + ind.direction.z * 20
+    );
+    mesh.lookAt(playerPos.x, playerPos.y + 1.5, playerPos.z);
+  }
+}
+
+const PARTICLE_COUNT = 200;
+const particleSystem = createParticleSystem(PARTICLE_COUNT, DEFAULT_BOUNDS);
+const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+const particleGeometry = new THREE.BufferGeometry();
+particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+const particleMaterial = new THREE.PointsMaterial({
+  size: 0.15,
+  color: 0xff6622,
+  transparent: true,
+  opacity: 0.6,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+});
+const particlePoints = new THREE.Points(particleGeometry, particleMaterial);
+scene.impl.add(particlePoints);
+
+const fogSystem = createFogSystem(DEFAULT_LAYERS);
+const fogPlanes = fogSystem.layers.map(layer => {
+  const geo = new THREE.PlaneGeometry(800, 800);
+  const mat = new THREE.MeshBasicMaterial({
+    transparent: true,
+    opacity: layer.currentDensity * 0.15,
+    color: new THREE.Color(layer.color.r, layer.color.g, layer.color.b),
+    side: THREE.DoubleSide,
+    depthWrite: false,
+    fog: false,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.y = layer.height;
+  mesh.rotation.x = -Math.PI / 2;
+  scene.impl.add(mesh);
+  return mesh;
+});
+
+let windSystem = createWindSystem();
+
+const windCurrents = arenaConfigs.map((cfg, i) => {
+  const c = createWindCurrent({
+    start: { x: cfg.center.x * 0.1, y: 3, z: cfg.center.z * 0.1 },
+    end: { x: cfg.center.x * 0.9, y: 5, z: cfg.center.z * 0.9 },
+    strength: 5,
+    width: 15,
+    seed: i * 100 + 42,
+    id: `arena_${i}`,
+  });
+  c.points = generateWindCurrentPath(c);
+  return c;
+});
+
+const windCurrentVisuals = [];
+for (const current of windCurrents) {
+  const pts = current.points;
+  const count = 80;
+  const tArr = [];
+  const spreadX = [];
+  const spreadY = [];
+  const spreadZ = [];
+  const posArr = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    tArr.push(Math.random());
+    spreadX.push((Math.random() - 0.5) * current.width * 0.3);
+    spreadY.push((Math.random() - 0.5) * 2);
+    spreadZ.push((Math.random() - 0.5) * current.width * 0.3);
+    const segIdx = Math.min(Math.floor(tArr[i] * (pts.length - 1)), pts.length - 2);
+    const localT = tArr[i] * (pts.length - 1) - segIdx;
+    posArr[i * 3] = pts[segIdx].x + (pts[segIdx + 1].x - pts[segIdx].x) * localT + spreadX[i];
+    posArr[i * 3 + 1] = pts[segIdx].y + (pts[segIdx + 1].y - pts[segIdx].y) * localT + spreadY[i];
+    posArr[i * 3 + 2] = pts[segIdx].z + (pts[segIdx + 1].z - pts[segIdx].z) * localT + spreadZ[i];
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+  const mat = new THREE.PointsMaterial({
+    color: 0xfff5e6,
+    size: 0.3,
+    transparent: true,
+    opacity: 0.15,
+    depthWrite: false,
+  });
+  const pointsMesh = new THREE.Points(geom, mat);
+  scene.impl.add(pointsMesh);
+  windCurrentVisuals.push({ geom, pts, posArr, tArr, spreadX, spreadY, spreadZ, count });
+}
+
 function getGroundHeight(x, z) {
   let maxH = 0;
   for (const island of allIslands) {
     const h = getIslandSurfaceHeight(island, x, z);
     if (h > maxH) maxH = h;
   }
+  const stoneH = getStoneHeight(x, z);
+  if (stoneH > maxH) maxH = stoneH;
   return maxH;
 }
 
 ui.showTitleScreen();
 
 document.addEventListener('keydown', (e) => {
+  ensureAudio();
   if (gameState.getState() === 'title') {
     gameState.transition('playing');
     return;
@@ -120,6 +531,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 canvas.addEventListener('click', () => {
+  ensureAudio();
   if (document.pointerLockElement !== canvas) {
     input.keyboard.lockPointer();
   }
@@ -137,6 +549,7 @@ function animate(now) {
   const inputState = updateIntegratedInput(input);
 
   if (gameState.isPlaying()) {
+    windSystem = updateWindSystem(windSystem, dt);
     if (inputState.start) {
       if (document.pointerLockElement === canvas) {
         input.keyboard.unlockPointer();
@@ -153,6 +566,13 @@ function animate(now) {
     climbing.isClimbing = climbResult.climbingState.isClimbing;
     climbing.climbGrabTime = climbResult.climbingState.climbGrabTime;
 
+    if (isClimbing && !prevClimbing) {
+      const grabParams = getClimbingGrabParams();
+      playProceduralSound(grabParams);
+      audioState = registerSound(audioState, 'climbGrab', grabParams.duration, now * 0.001);
+    }
+    prevClimbing = isClimbing;
+
     const staminaResult = updateIntegratedStamina(stamina, {
       isClimbing: isPlayerClimbing(climbing),
       isSprinting: inputState.sprint && !isPlayerClimbing(climbing),
@@ -160,10 +580,25 @@ function animate(now) {
     }, dt);
     Object.assign(stamina, staminaResult.staminaState);
 
-    if (!isPlayerClimbing(climbing)) {
+    const fallCheck = checkFall(player.state, stamina);
+    if (fallCheck.shouldFall && !player.state.isFalling) {
+      player.state = enterFall(player.state);
+    }
+    if (player.state.isFalling) {
+      player.state = updateFall(player.state, dt, FALL_CONSTANTS);
+    }
+    if (fallCheck.shouldRespawn) {
+      player.state = respawn(player.state, respawnPoints);
+    }
+
+    if (!isPlayerClimbing(climbing) && !player.state.isFalling) {
       const moveInput = { x: inputState.move.x, y: inputState.move.y, jump: inputState.jump, sprint: inputState.sprint && !staminaResult.shouldPreventSprint };
       player.state = updatePlayer(player.state, moveInput, orbit.yaw, dt, player);
     }
+
+    const wv = getWindVector(windSystem, player.state.position.x, player.state.position.y, player.state.position.z);
+    player.state.position.x += wv.x * 0.15 * dt;
+    player.state.position.z += wv.z * 0.15 * dt;
 
     const groundY = getGroundHeight(player.state.position.x, player.state.position.z);
     player.GROUND_Y = groundY;
@@ -178,12 +613,38 @@ function animate(now) {
       };
     }
 
+    const isMoving = player.state.isGrounded && !isPlayerClimbing(climbing) &&
+      (Math.abs(inputState.move.x) > 0.1 || Math.abs(inputState.move.y) > 0.1);
+    const isSprinting = inputState.sprint && !staminaResult.shouldPreventSprint;
+    if (shouldPlayFootstep(audioState, isMoving, isSprinting, now * 0.001)) {
+      const fsParams = getFootstepParams(isSprinting);
+      playProceduralSound(fsParams);
+      audioState = { ...audioState, lastFootstepTime: now * 0.001 };
+      audioState = registerSound(audioState, 'footstep', fsParams.duration, now * 0.001);
+    }
+
+    const staminaRatio = stamina.current / stamina.max;
+    if (shouldPlayHeartbeat(audioState, staminaRatio, now * 0.001, dt)) {
+      const hbParams = getHeartbeatParams();
+      playProceduralSound(hbParams);
+      audioState = { ...audioState, lastHeartbeatTime: now * 0.001 };
+      audioState = registerSound(audioState, 'heartbeat', hbParams.duration, now * 0.001);
+    }
+
     const attackJustPressed = inputState.attack && !prevAttack;
+    if (attackJustPressed) {
+      const slashParams = getSwordSlashParams(false);
+      playProceduralSound(slashParams);
+      audioState = registerSound(audioState, 'swordSlash', slashParams.duration, now * 0.001);
+    }
     const combatResult = updateIntegratedCombat(combat, { ...inputState, attackJustPressed }, player.state.position, player.state.rotation, weakPoints, isPlayerClimbing(climbing), dt);
     prevAttack = inputState.attack;
 
     if (combatResult.hitResult.attacked && combatResult.hitResult.hitWeakPoint) {
       const hr = combatResult.hitResult;
+      const hitParams = getWeakPointHitParams(false);
+      playProceduralSound(hitParams);
+      audioState = registerSound(audioState, 'weakPointHit', hitParams.duration, now * 0.001);
       for (const c of colossi) {
         const wp = c.weakPoints.find(w => w.id === hr.weakPointId);
         if (wp) {
@@ -191,6 +652,9 @@ function animate(now) {
           if (dmgResult.allDestroyed) {
             const deathInt = deathIntegrations.get(c.type);
             if (deathInt) triggerDeathSequence(deathInt);
+            const deathParams = getColossusDeathParams(0);
+            playProceduralSound(deathParams);
+            audioState = registerSound(audioState, `colossusDeath_${c.type}`, deathParams.duration, now * 0.001);
           }
           break;
         }
@@ -225,12 +689,56 @@ function animate(now) {
       animateFn(c.mesh, now * 0.001);
     }
 
+    const colossusDist = getNearestLivingColossusDist(player.state.position);
+    if (colossusDist < 50) {
+      music.setState('combat');
+    } else {
+      music.setState('exploration');
+    }
+
+    for (const vis of windCurrentVisuals) {
+      for (let i = 0; i < vis.count; i++) {
+        vis.tArr[i] = (vis.tArr[i] + dt * 0.05) % 1;
+        const segIdx = Math.min(Math.floor(vis.tArr[i] * (vis.pts.length - 1)), vis.pts.length - 2);
+        const localT = vis.tArr[i] * (vis.pts.length - 1) - segIdx;
+        vis.posArr[i * 3] = vis.pts[segIdx].x + (vis.pts[segIdx + 1].x - vis.pts[segIdx].x) * localT + vis.spreadX[i];
+        vis.posArr[i * 3 + 1] = vis.pts[segIdx].y + (vis.pts[segIdx + 1].y - vis.pts[segIdx].y) * localT + vis.spreadY[i];
+        vis.posArr[i * 3 + 2] = vis.pts[segIdx].z + (vis.pts[segIdx + 1].z - vis.pts[segIdx].z) * localT + vis.spreadZ[i];
+      }
+      vis.geom.attributes.position.needsUpdate = true;
+    }
+
     const pos = player.state.position;
     playerMesh.setPosition(pos.x, pos.y + 0.6, pos.z);
 
+    const wind = { x: 0, z: 0, strength: 1 };
+    particleSystem.particles = updateParticleSystem(particleSystem, wind, dt).particles;
+    const posAttr = particleGeometry.attributes.position;
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      const p = particleSystem.particles[i];
+      posAttr.setXYZ(i, p.x, p.y, p.z);
+    }
+    posAttr.needsUpdate = true;
+
+    updateDirectionIndicators(pos);
+    updateAmbientWind(0.3 + Math.sin(now * 0.0003) * 0.15);
+
     const target = { x: pos.x, y: pos.y + 1, z: pos.z };
-    const orbitResult = orbit.update(dt, inputState.look, target);
+    const fallCamData = getFreefallCameraData(player.state, FALL_CONSTANTS);
+    if (fallCamData.lookUp) {
+      orbit.setDistance(orbit.distance * fallCamData.zoom);
+    }
+    const adjustedTarget = { x: pos.x, y: pos.y + 1 + fallCamData.offsetY, z: pos.z };
+    const orbitResult = orbit.update(dt, inputState.look, adjustedTarget);
     camera.syncFromOrbit(orbitResult);
+
+    audioState = cleanupSounds(audioState, now * 0.001);
+  }
+
+  music.update(dt);
+  Object.assign(fogSystem, updateFogSystem(fogSystem, dt));
+  for (let i = 0; i < fogPlanes.length; i++) {
+    fogPlanes[i].material.opacity = fogSystem.layers[i].currentDensity * 0.15;
   }
 
   gameState.update(dt);
