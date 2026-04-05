@@ -1,5 +1,6 @@
 import { vec3Add, vec3Scale } from '../utils/math.js';
 import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from './base.js';
+import { generateNormalMapData } from '../utils/normal-map.js';
 
 export const STONE_SENTINEL_SCALE = 20;
 
@@ -274,6 +275,26 @@ function getGeometryType(partId) {
   return 'box';
 }
 
+let _colossusNormalMap = null;
+
+function getColossusNormalMap() {
+  if (_colossusNormalMap) return _colossusNormalMap;
+  const T = getTHREE();
+  if (!T || typeof document === 'undefined') return null;
+  const { data, width, height } = generateNormalMapData(256, 256, 0.12, 77, 2.5);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.createImageData(width, height);
+  imageData.data.set(data);
+  ctx.putImageData(imageData, 0, 0);
+  _colossusNormalMap = new T.CanvasTexture(canvas);
+  _colossusNormalMap.wrapS = T.RepeatWrapping;
+  _colossusNormalMap.wrapT = T.RepeatWrapping;
+  return _colossusNormalMap;
+}
+
 function createSentinelMaterial(part) {
   const T = getTHREE();
   if (part.isWeakPoint) {
@@ -285,11 +306,14 @@ function createSentinelMaterial(part) {
       emissiveIntensity: 0.5,
     });
   }
+  const normalMap = getColossusNormalMap();
+  const normalProps = normalMap ? { normalMap, normalScale: new T.Vector2(0.5, 0.5) } : {};
   return new T.MeshStandardMaterial({
     color: 0x444444,
     roughness: 0.85,
     metalness: 0.1,
     flatShading: true,
+    ...normalProps,
   });
 }
 

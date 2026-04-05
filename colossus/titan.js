@@ -2,6 +2,7 @@ import { vec3Add, vec3Scale, distance3D, randomRange, clamp } from '../utils/mat
 import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from './base.js';
 import { ColossusState } from './behavior.js';
 import { moveToward2D } from './steering.js';
+import { generateNormalMapData } from '../utils/normal-map.js';
 
 let _THREE = null;
 
@@ -606,16 +607,40 @@ export function getShockwaveForce(aiState, config, playerPosition, colossusPosit
   return vec3Scale(normalized, strength);
 }
 
+let _colossusNormalMap = null;
+
+function getColossusNormalMap() {
+  if (_colossusNormalMap) return _colossusNormalMap;
+  const T = getTHREE();
+  if (!T || typeof document === 'undefined') return null;
+  const { data, width, height } = generateNormalMapData(256, 256, 0.1, 99, 2.5);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.createImageData(width, height);
+  imageData.data.set(data);
+  ctx.putImageData(imageData, 0, 0);
+  _colossusNormalMap = new T.CanvasTexture(canvas);
+  _colossusNormalMap.wrapS = T.RepeatWrapping;
+  _colossusNormalMap.wrapT = T.RepeatWrapping;
+  return _colossusNormalMap;
+}
+
 function createMaterial(type) {
   const T = getTHREE();
+  const normalMap = getColossusNormalMap();
+  const normalProps = normalMap ? { normalMap, normalScale: new T.Vector2(0.6, 0.6) } : {};
   if (type === 'shell') {
     return new T.MeshStandardMaterial({
       color: 0x5a5046, roughness: 0.95, metalness: 0.1, flatShading: true,
+      ...normalProps,
     });
   }
   if (type === 'underbelly') {
     return new T.MeshStandardMaterial({
       color: 0x8a7e6e, roughness: 0.6, metalness: 0.05,
+      ...normalProps,
     });
   }
   if (type === 'rune') {
@@ -627,10 +652,12 @@ function createMaterial(type) {
   if (type === 'head') {
     return new T.MeshStandardMaterial({
       color: 0x4a4036, roughness: 0.85, metalness: 0.15, flatShading: true,
+      ...normalProps,
     });
   }
   return new T.MeshStandardMaterial({
     color: 0x6a6056, roughness: 0.8, metalness: 0.1, flatShading: true,
+    ...normalProps,
   });
 }
 

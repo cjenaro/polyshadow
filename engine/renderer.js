@@ -1,5 +1,22 @@
 import * as THREE from 'three';
 import { buildIslandGeometryData } from './island-mesh.js';
+import { generateNormalMapData } from '../utils/normal-map.js';
+
+export function createNormalMapTexture(opts = {}) {
+  const { size = 256, scale = 0.05, seed = 42, strength = 2.0 } = opts;
+  const { data, width, height } = generateNormalMapData(size, size, scale, seed, strength);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.createImageData(width, height);
+  imageData.data.set(data);
+  ctx.putImageData(imageData, 0, 0);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  return texture;
+}
 
 export function createRenderer(canvas) {
   const impl = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -22,6 +39,21 @@ export function initScene() {
   const impl = new THREE.Scene();
   impl.background = new THREE.Color(0x0a0a12);
   impl.fog = new THREE.FogExp2(0x0a0a12, 0.02);
+
+  const pmremGenerator = new THREE.PMREMGenerator(impl);
+  pmremGenerator.compileEquirectangularShader();
+
+  const envScene = new THREE.Scene();
+  envScene.background = new THREE.Color(0x0a0a12);
+  envScene.add(new THREE.HemisphereLight(0x334466, 0x221100, 2));
+  const envCamera = new THREE.PerspectiveCamera();
+  const envRT = pmremGenerator.fromScene(envScene);
+  impl.environment = envRT.texture;
+  pmremGenerator.dispose();
+  envScene.traverse(child => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) child.material.dispose();
+  });
 
   const camera = createPerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
   camera.impl.position.set(0, 5, 10);
@@ -151,11 +183,15 @@ export function createIslandMesh(island) {
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
 
+  const normalMap = createNormalMapTexture({ size: 512, scale: 0.08, seed: 42, strength: 2.0 });
+
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true,
     flatShading: false,
     roughness: 0.9,
     metalness: 0.0,
+    normalMap,
+    normalScale: new THREE.Vector2(0.8, 0.8),
   });
 
   const impl = new THREE.Mesh(geometry, material);

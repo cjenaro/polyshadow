@@ -2,6 +2,7 @@ import { vec3Add, vec3Scale } from '../utils/math.js';
 import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from './base.js';
 import { distance3D } from '../utils/math.js';
 import { moveToward2D, moveToward3D } from './steering.js';
+import { generateNormalMapData } from '../utils/normal-map.js';
 
 export const WIND_WRAITH_SCALE = 30;
 
@@ -492,8 +493,29 @@ function getTHREE() {
   return _THREE;
 }
 
+let _colossusNormalMap = null;
+
+function getColossusNormalMap() {
+  if (_colossusNormalMap) return _colossusNormalMap;
+  const T = getTHREE();
+  if (!T || typeof document === 'undefined') return null;
+  const { data, width, height } = generateNormalMapData(256, 256, 0.15, 55, 1.5);
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const imageData = ctx.createImageData(width, height);
+  imageData.data.set(data);
+  ctx.putImageData(imageData, 0, 0);
+  _colossusNormalMap = new T.CanvasTexture(canvas);
+  _colossusNormalMap.wrapS = T.RepeatWrapping;
+  _colossusNormalMap.wrapT = T.RepeatWrapping;
+  return _colossusNormalMap;
+}
+
 function createWraithMaterial(type) {
   const T = getTHREE();
+  const normalMap = getColossusNormalMap();
   const base = {
     color: 0xccddee,
     transparent: true,
@@ -501,6 +523,7 @@ function createWraithMaterial(type) {
     roughness: 0.4,
     metalness: 0.2,
     side: T.DoubleSide,
+    ...(normalMap ? { normalMap, normalScale: new T.Vector2(0.4, 0.4) } : {}),
   };
 
   if (type === 'wing') {
