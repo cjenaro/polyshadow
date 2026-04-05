@@ -18,8 +18,16 @@ export function calculateMovementDirection(inputMove, cameraYaw) {
 export function applyMovement(state, inputMove, cameraYaw, dt, isSprinting, constants, adapter, world, playerBody) {
   const dir = calculateMovementDirection(inputMove, cameraYaw);
   const speed = isSprinting ? constants.RUN_SPEED : constants.WALK_SPEED;
-  const newVelX = dir.x * speed;
-  const newVelZ = dir.z * speed;
+  const factor = state.isGrounded ? 1 : constants.AIR_CONTROL_FACTOR;
+
+  let newVelX, newVelZ;
+  if (state.isGrounded) {
+    newVelX = dir.x * speed;
+    newVelZ = dir.z * speed;
+  } else {
+    newVelX = state.velocity.x + (dir.x * speed - state.velocity.x) * factor;
+    newVelZ = state.velocity.z + (dir.z * speed - state.velocity.z) * factor;
+  }
 
   if (adapter && world && playerBody) {
     const currentVel = adapter.getVelocity(world, playerBody);
@@ -35,8 +43,8 @@ export function applyMovement(state, inputMove, cameraYaw, dt, isSprinting, cons
     velocity: { ...state.velocity, x: newVelX, z: newVelZ },
     position: {
       ...state.position,
-      x: state.position.x + dir.x * speed * dt,
-      z: state.position.z + dir.z * speed * dt,
+      x: state.position.x + newVelX * dt,
+      z: state.position.z + newVelZ * dt,
     },
   };
 }

@@ -11,6 +11,7 @@ import {
   getBodyPartWorldPosition,
   findNearestWeakPoint,
   isNearWeakPoint,
+  getRestSpots,
 } from './base.js';
 
 const SIMPLE_BODY = {
@@ -130,6 +131,53 @@ describe('getWeakPoints', () => {
     const weak = getWeakPoints(body);
     assert.equal(weak.length, 1);
     assert.equal(weak[0].id, 'head');
+  });
+});
+
+describe('getRestSpots', () => {
+  it('returns empty array when no parts are rest spots', () => {
+    const body = createColossusBody(SIMPLE_BODY);
+    const spots = getRestSpots(body);
+    assert.equal(spots.length, 0);
+  });
+
+  it('returns only parts marked as rest spots', () => {
+    const def = {
+      parts: [
+        {
+          id: 'torso', type: 'core',
+          position: { x: 0, y: 5, z: 0 },
+          dimensions: { width: 4, height: 6, depth: 3 },
+          rotation: { x: 0, y: 0, z: 0 },
+          parent: null,
+        },
+        {
+          id: 'shoulder_left', type: 'limb_upper',
+          position: { x: -3, y: 8, z: 0 },
+          dimensions: { width: 2, height: 1, depth: 2 },
+          rotation: { x: 0, y: 0, z: 0 },
+          parent: 'torso', isRestSpot: true,
+        },
+        {
+          id: 'arm', type: 'limb_upper',
+          position: { x: -3, y: 6, z: 0 },
+          dimensions: { width: 1, height: 4, depth: 1 },
+          rotation: { x: 0, y: 0, z: 0 },
+          parent: 'torso',
+        },
+      ],
+    };
+    const body = createColossusBody(def);
+    const spots = getRestSpots(body);
+    assert.equal(spots.length, 1);
+    assert.equal(spots[0].id, 'shoulder_left');
+  });
+
+  it('rest spot parts default isRestSpot to false', () => {
+    const body = createColossusBody(SIMPLE_BODY);
+    for (const part of body.parts.values()) {
+      assert.equal(part.isRestSpot, false, `${part.id} should not be a rest spot`);
+    }
   });
 });
 

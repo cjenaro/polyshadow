@@ -1,4 +1,4 @@
-import { lerp, clamp } from '../utils/math.js';
+import { lerp } from '../utils/math.js';
 import { noise2D } from '../utils/noise.js';
 
 export function createWindCurrent({
@@ -11,7 +11,7 @@ export function createWindCurrent({
   pulseSpeed = 1.5,
   pulseAmplitude = 0.2,
 } = {}) {
-  return {
+  const current = {
     id,
     start,
     end,
@@ -23,8 +23,9 @@ export function createWindCurrent({
     active: true,
     pulseSpeed,
     pulseAmplitude,
-    points: null,
   };
+  current.points = generateWindCurrentPath(current);
+  return current;
 }
 
 export function generateWindCurrentPath(current) {
@@ -92,9 +93,9 @@ export function getWindForce(current, position) {
 
   const pulseFactor = 1 + Math.sin(current.phase) * current.pulseAmplitude;
   const effectiveStrength = current.strength * pulseFactor;
-  const distanceFromCenter = findClosestPointOnPath(points, position).distance;
+  const { distance } = findClosestPointOnPath(points, position);
   const halfWidth = current.width / 2;
-  const centerFactor = 1 - (distanceFromCenter / halfWidth) * 0.3;
+  const centerFactor = 1 - (distance / halfWidth) * 0.3;
 
   return {
     x: (dx / len) * effectiveStrength * centerFactor,
@@ -104,40 +105,33 @@ export function getWindForce(current, position) {
 }
 
 export function updateWindCurrent(current, dt) {
-  const newTime = current.time + dt;
-  const newPhase = (current.phase + dt * current.pulseSpeed) % (Math.PI * 2);
   return {
     ...current,
-    time: newTime,
-    phase: newPhase,
+    time: current.time + dt,
+    phase: (current.phase + dt * current.pulseSpeed) % (Math.PI * 2),
   };
 }
 
-function attachMethods(system) {
-  system.addCurrent = (current) => attachMethods(addCurrent(system, current));
-  system.removeCurrent = (id) => attachMethods(removeCurrent(system, id));
-  system.update = (dt) => attachMethods(updateSystem(system, dt));
-  system.getForceAt = (position) => getForceAt(system, position);
-  return system;
+export function createWindCurrentSystem(currents = []) {
+  return { currents: [...currents] };
 }
 
-function addCurrent(system, current) {
+export function addCurrent(system, current) {
   return { currents: [...system.currents, current] };
 }
 
-function removeCurrent(system, id) {
+export function removeCurrent(system, id) {
   return { currents: system.currents.filter(c => c.id !== id) };
 }
 
-function updateSystem(system, dt) {
+export function updateCurrents(system, dt) {
   return { currents: system.currents.map(c => updateWindCurrent(c, dt)) };
 }
 
-function getForceAt(system, position) {
+export function getForceAt(system, position) {
   let totalForce = { x: 0, y: 0, z: 0 };
   for (const current of system.currents) {
-    const pts = current.points ?? generateWindCurrentPath(current);
-    const force = getWindForce({ ...current, points: pts }, position);
+    const force = getWindForce(current, position);
     totalForce = {
       x: totalForce.x + force.x,
       y: totalForce.y + force.y,
@@ -147,6 +141,6 @@ function getForceAt(system, position) {
   return totalForce;
 }
 
-export function createWindCurrentSystem() {
-  return attachMethods({ currents: [] });
+export function isInAnyCurrent(system, position) {
+  return system.currents.some(c => isInWindCurrent(c, position));
 }

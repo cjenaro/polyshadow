@@ -1,8 +1,6 @@
 const TAU = Math.PI * 2;
 const STAMINA_COLOR = '#d4a843';
 const STAMINA_BG = '#333333';
-const HEALTH_COLOR = '#c44040';
-const HEALTH_BG = '#1a1a1a';
 const HINT_COLOR = 'rgba(255, 255, 255, 0.5)';
 
 export function createHUD(canvas) {
@@ -19,9 +17,6 @@ export function createHUD(canvas) {
     ctx.clearRect(0, 0, w, h);
 
     drawStaminaArc(state.stamina, w, h);
-    if (state.colossusHealth != null) {
-      drawHealthBar(state.colossusHealth, state.colossusName, w, h);
-    }
     if (state.hints && state.hints.length > 0) {
       drawHints(state.hints, w, h);
     }
@@ -51,31 +46,6 @@ export function createHUD(canvas) {
     ctx.arc(cx, cy, radius, startAngle, endAngle);
     ctx.strokeStyle = STAMINA_COLOR;
     ctx.stroke();
-  }
-
-  function drawHealthBar(health, name, w, h) {
-    const ratio = Math.max(0, Math.min(1, health));
-    const barW = Math.min(400, w * 0.4);
-    const barH = 10;
-    const barX = (w - barW) / 2;
-    const barY = 30;
-    const pad = 4;
-
-    if (name) {
-      ctx.font = '14px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillText(name, w / 2, barY - pad);
-    }
-
-    ctx.fillStyle = HEALTH_BG;
-    ctx.fillRect(barX, barY, barW, barH);
-
-    if (ratio > 0) {
-      ctx.fillStyle = HEALTH_COLOR;
-      ctx.fillRect(barX, barY, barW * ratio, barH);
-    }
   }
 
   function drawHints(hints, w, h) {

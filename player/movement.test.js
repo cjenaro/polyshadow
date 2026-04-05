@@ -120,6 +120,80 @@ describe('applyGravity', () => {
   });
 });
 
+describe('applyMovement air control', () => {
+  it('reduces horizontal speed while airborne', () => {
+    const state = makeState({ isGrounded: false, velocity: { x: 0, y: 5, z: 0 } });
+    const groundState = applyMovement(state, { x: 0, y: -1 }, 0, 1, false, constants);
+    const groundedState = makeState({ isGrounded: true });
+    const fullState = applyMovement(groundedState, { x: 0, y: -1 }, 0, 1, false, constants);
+
+    assert.ok(
+      Math.abs(groundState.velocity.z) < Math.abs(fullState.velocity.z),
+      'airborne velocity should be less than grounded velocity'
+    );
+  });
+
+  it('airborne player cannot instantly reverse 180 degrees', () => {
+    const state = makeState({ isGrounded: false, velocity: { x: 0, y: 5, z: -4 } });
+    const newState = applyMovement(state, { x: 0, y: 1 }, 0, 1, false, constants);
+
+    assert.ok(
+      newState.velocity.z < 0,
+      'should still carry forward momentum, not fully reverse'
+    );
+  });
+
+  it('allows slight air correction in new direction', () => {
+    const state = makeState({ isGrounded: false, velocity: { x: 4, y: 5, z: 0 } });
+    const newState = applyMovement(state, { x: 0, y: -1 }, 0, 1, false, constants);
+
+    assert.ok(
+      newState.velocity.z < 0,
+      'should have some z component from air correction'
+    );
+  });
+
+  it('preserves full ground control when grounded', () => {
+    const state = makeState({ isGrounded: true, velocity: { x: -4, y: 0, z: 0 } });
+    const newState = applyMovement(state, { x: 0, y: -1 }, 0, 1, false, constants);
+
+    assert.ok(
+      Math.abs(newState.velocity.x) < 0.1,
+      'grounded player should fully respond to input'
+    );
+    assert.ok(
+      Math.abs(Math.abs(newState.velocity.z) - constants.WALK_SPEED) < 0.1,
+      'grounded player should reach full walk speed'
+    );
+  });
+
+  it('AIR_CONTROL_FACTOR defaults to 0.3', () => {
+    const c = new PlayerCharacter();
+    assert.strictEqual(c.AIR_CONTROL_FACTOR, 0.3);
+  });
+});
+
+describe('applyMovement air control with adapter', () => {
+  it('reduces horizontal speed via adapter when airborne', () => {
+    const adapter = createMockAdapter();
+    const world = adapter.createPhysicsWorld();
+    const playerBody = adapter.createBody(world, { type: 'dynamic', mass: 1, position: { x: 0, y: 5, z: 0 } });
+    adapter.addBody(world, playerBody);
+    adapter.setPosition(world, playerBody, { x: 0, y: 5, z: 0 });
+    adapter.setVelocity(world, playerBody, { x: 0, y: 3, z: 0 });
+
+    const state = makeState({ isGrounded: false, velocity: { x: 0, y: 3, z: 0 } });
+    const newState = applyMovement(state, { x: 0, y: -1 }, 0, 0.016, false, constants, adapter, world, playerBody);
+
+    const vel = adapter.getVelocity(world, playerBody);
+    assert.ok(
+      Math.abs(vel.z) < constants.WALK_SPEED,
+      'adapter airborne velocity should be reduced'
+    );
+    assert.strictEqual(vel.y, 3, 'vertical velocity preserved');
+  });
+});
+
 describe('updatePlayer', () => {
   it('full integration: move forward, jump, land', () => {
     let state = makeState();

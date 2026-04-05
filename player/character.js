@@ -4,6 +4,7 @@ export class PlayerCharacter {
   JUMP_FORCE = 8;
   GRAVITY = -20;
   GROUND_Y = 0;
+  AIR_CONTROL_FACTOR = 0.3;
 
   constructor() {
     this.state = {

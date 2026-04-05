@@ -211,6 +211,7 @@ export function getWraithWeakPointPositions(definition, colossusPosition, coloss
 }
 
 export const WEAK_POINT_BASE_HEALTH = 50;
+export const WRAITH_STUN_DAMAGE_THRESHOLD = 60;
 
 export function buildWraithCombatWeakPoints(definition, colossusPosition, colossusRotation) {
   const body = definition.parts instanceof Map ? definition : createColossusBody(definition);
@@ -284,6 +285,7 @@ export function createWraithBehaviorState(overrides = {}) {
     swoopTarget: null,
     flightPhase: 0,
     windPushTimer: 0,
+    stunDamageAccumulator: 0,
     ...overrides,
   };
 }
@@ -431,8 +433,52 @@ export function getWraithWindForce(aiState, config, targetPosition) {
   };
 }
 
+export function triggerWraithStun(aiState, config) {
+  if (aiState.state === WraithState.DYING || aiState.state === WraithState.STUNNED) {
+    return { ...aiState };
+  }
+
+  return {
+    ...aiState,
+    state: WraithState.STUNNED,
+    stunTimer: config.stunDuration,
+    stateTimer: 0,
+    stunDamageAccumulator: 0,
+  };
+}
+
+export function applyWraithDamage(aiState, config, damage) {
+  if (aiState.state === WraithState.STUNNED || aiState.state === WraithState.DYING) {
+    return { ...aiState };
+  }
+
+  const newAccumulator = (aiState.stunDamageAccumulator || 0) + damage;
+
+  if (newAccumulator >= WRAITH_STUN_DAMAGE_THRESHOLD) {
+    return {
+      ...aiState,
+      state: WraithState.STUNNED,
+      stunTimer: config.stunDuration,
+      stateTimer: 0,
+      stunDamageAccumulator: 0,
+    };
+  }
+
+  return {
+    ...aiState,
+    stunDamageAccumulator: newAccumulator,
+  };
+}
+
+export function getWraithStunProgress(aiState) {
+  const acc = aiState.stunDamageAccumulator || 0;
+  return Math.min(1, acc / WRAITH_STUN_DAMAGE_THRESHOLD);
+}
+
 export function isWraithClimbable(aiState) {
   return aiState.state === WraithState.CIRCLING ||
+         aiState.state === WraithState.SWOOPING ||
+         aiState.state === WraithState.CLIMBING_BACK ||
          aiState.state === WraithState.STUNNED;
 }
 

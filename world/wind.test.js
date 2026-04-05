@@ -4,7 +4,6 @@ import {
   createWindSystem,
   updateWindSystem,
   getWindVector,
-  isInWindCurrent,
 } from './wind.js';
 
 describe('createWindSystem', () => {
@@ -37,6 +36,11 @@ describe('createWindSystem', () => {
     const w = createWindSystem({ direction: 1.5, strength: 8 });
     assert.strictEqual(w.direction, 1.5);
     assert.strictEqual(w.strength, 8);
+  });
+
+  it('does not include currents property', () => {
+    const w = createWindSystem();
+    assert.ok(!('currents' in w), 'wind system should not have currents - use wind_currents.js');
   });
 });
 
@@ -132,51 +136,5 @@ describe('getWindVector', () => {
     const v2 = getWindVector(w, 100, 0, 100);
     const diff = Math.abs(v1.x - v2.x) + Math.abs(v1.z - v2.z);
     assert.ok(diff > 0.01, 'different positions should give different wind');
-  });
-});
-
-describe('isInWindCurrent', () => {
-  it('returns boolean', () => {
-    const w = createWindSystem();
-    const result = isInWindCurrent(w, 0, 10, 0);
-    assert.strictEqual(typeof result, 'boolean');
-  });
-
-  it('returns false with no wind currents defined', () => {
-    const w = createWindSystem({ currents: [] });
-    assert.strictEqual(isInWindCurrent(w, 0, 10, 0), false);
-  });
-
-  it('returns true when inside a defined wind current', () => {
-    const w = createWindSystem({
-      currents: [{
-        x: 0, y: 10, z: 0,
-        radius: 5, height: 5,
-        direction: 0, strength: 10,
-      }],
-    });
-    assert.strictEqual(isInWindCurrent(w, 0, 10, 0), true);
-  });
-
-  it('returns false when outside current radius', () => {
-    const w = createWindSystem({
-      currents: [{
-        x: 0, y: 10, z: 0,
-        radius: 2, height: 5,
-        direction: 0, strength: 10,
-      }],
-    });
-    assert.strictEqual(isInWindCurrent(w, 10, 10, 0), false);
-  });
-
-  it('returns false when above current height', () => {
-    const w = createWindSystem({
-      currents: [{
-        x: 0, y: 10, z: 0,
-        radius: 5, height: 3,
-        direction: 0, strength: 10,
-      }],
-    });
-    assert.strictEqual(isInWindCurrent(w, 0, 20, 0), false);
   });
 });

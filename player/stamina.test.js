@@ -9,6 +9,90 @@ import {
   STAMINA_CONSTANTS,
 } from './stamina.js';
 
+describe('updateStamina with rest spots', () => {
+  it('regenerates stamina when climbing on a rest spot', () => {
+    const state = createStaminaState({ current: 50 });
+    const next = updateStamina(
+      state,
+      { isSprinting: false, isGrounded: false, isClimbing: true, isOnRestSpot: true },
+      0.5
+    );
+    assert.ok(next.current > 50);
+  });
+
+  it('still drains stamina when climbing but NOT on a rest spot', () => {
+    const state = createStaminaState();
+    const next = updateStamina(
+      state,
+      { isSprinting: false, isGrounded: false, isClimbing: true, isOnRestSpot: false },
+      0.5
+    );
+    assert.ok(next.current < STAMINA_CONSTANTS.MAX);
+  });
+
+  it('drains stamina when climbing with no isOnRestSpot flag (backwards compat)', () => {
+    const state = createStaminaState();
+    const next = updateStamina(
+      state,
+      { isSprinting: false, isGrounded: false, isClimbing: true },
+      1.0
+    );
+    assert.ok(next.current < STAMINA_CONSTANTS.MAX);
+  });
+
+  it('rest spot regen uses REST_REGEN_RATE constant', () => {
+    const state = createStaminaState({ current: 50 });
+    const next = updateStamina(
+      state,
+      { isSprinting: false, isGrounded: false, isClimbing: true, isOnRestSpot: true },
+      1.0
+    );
+    const expected = 50 + STAMINA_CONSTANTS.REST_REGEN_RATE;
+    assert.ok(Math.abs(next.current - expected) < 0.01, `expected ${expected}, got ${next.current}`);
+  });
+
+  it('rest spot regen does not exceed max stamina', () => {
+    const state = createStaminaState({ current: STAMINA_CONSTANTS.MAX - 1 });
+    const next = updateStamina(
+      state,
+      { isSprinting: false, isGrounded: false, isClimbing: true, isOnRestSpot: true },
+      10
+    );
+    assert.strictEqual(next.current, STAMINA_CONSTANTS.MAX);
+  });
+
+  it('does not regen on rest spot while in depleted cooldown', () => {
+    const state = createStaminaState({ current: 0, isDepleted: true, depletedTimer: 1.0 });
+    const next = updateStamina(
+      state,
+      { isSprinting: false, isGrounded: false, isClimbing: true, isOnRestSpot: true },
+      0.5
+    );
+    assert.strictEqual(next.current, 0);
+  });
+
+  it('begins rest spot regen after depleted cooldown expires', () => {
+    const state = createStaminaState({ current: 0, isDepleted: true, depletedTimer: 0.1 });
+    const next = updateStamina(
+      state,
+      { isSprinting: false, isGrounded: false, isClimbing: true, isOnRestSpot: true },
+      0.2
+    );
+    assert.strictEqual(next.isDepleted, false);
+    assert.ok(next.current > 0);
+  });
+
+  it('does not regen on rest spot when also sprinting', () => {
+    const state = createStaminaState({ current: 50 });
+    const next = updateStamina(
+      state,
+      { isSprinting: true, isGrounded: false, isClimbing: true, isOnRestSpot: true },
+      0.5
+    );
+    assert.ok(next.current < 50);
+  });
+});
+
 describe('createStaminaState', () => {
   it('returns state with max stamina and not depleted', () => {
     const state = createStaminaState();

@@ -17,6 +17,7 @@ import * as THREE from 'three';
 import { createClimbingState, isPlayerClimbing, updateClimbing } from '../player/climbing-integration.js';
 import { createIntegratedStamina, updateIntegratedStamina, getStaminaForUI } from '../player/stamina-integration.js';
 import { createIntegratedCombat, updateIntegratedCombat, handleShakeOff, getCombatStats } from '../player/combat-integration.js';
+import { createDodgeState, tryStartDodge, updateDodge, applyDodgeMovement, getDodgeStaminaCost, isDodging as isPlayerDodging } from '../player/dodge.js';
 import { enterFall, updateFall, checkFall, respawn, getFreefallCameraData, FALL_CONSTANTS } from '../player/fall.js';
 import { createDeathIntegration, triggerDeathSequence, updateDeathIntegration, applyDeathToMesh } from '../colossus/death-integration.js';
 import {
@@ -28,6 +29,7 @@ import { createDirectionIndicator, updateIndicators, isIndicatorVisible } from '
 import { MusicSystem } from '../engine/music.js';
 import { createPostProcessState, updatePostProcessState, getActiveColorGrading, shouldEnableBloom, createBloomPipeline } from '../engine/post-processing.js';
 import { createHUD } from '../engine/hud.js';
+import { applyHealthOpacity } from '../engine/health-visual.js';
 import { createTouchOverlay } from '../engine/touch-overlay.js';
 import {
   createArenaTransitionManager, updateArenaTransition, getTransitionProgress,
@@ -38,7 +40,14 @@ import {
 import { createParticleSystem, updateParticleSystem, DEFAULT_BOUNDS } from '../world/particles.js';
 import { createFogSystem, updateFogSystem, DEFAULT_LAYERS } from '../world/fog.js';
 import { createWindSystem, updateWindSystem, getWindVector } from '../world/wind.js';
-import { createWindCurrent, generateWindCurrentPath } from '../world/wind_currents.js';
+import {
+  createWindCurrent,
+  createWindCurrentSystem,
+  addCurrent,
+  updateCurrents,
+  getForceAt,
+  isInAnyCurrent,
+} from '../world/wind_currents.js';
 import {
   createAudioState, initAudio, getEffectiveVolume, registerSound, cleanupSounds,
   getFootstepParams, shouldPlayFootstep,
@@ -75,6 +84,7 @@ const progression = new ProgressionTracker();
 const stamina = createIntegratedStamina();
 const climbing = createClimbingState();
 const combat = createIntegratedCombat();
+const dodge = createDodgeState();
 const music = new MusicSystem();
 let audioCtx = null;
 let audioState = createAudioState();
@@ -498,21 +508,24 @@ const fogPlanes = fogSystem.layers.map(layer => {
 
 let windSystem = createWindSystem();
 
-const windCurrents = arenaConfigs.map((cfg, i) => {
-  const c = createWindCurrent({
-    start: { x: cfg.center.x * 0.1, y: 3, z: cfg.center.z * 0.1 },
-    end: { x: cfg.center.x * 0.9, y: 5, z: cfg.center.z * 0.9 },
-    strength: 5,
-    width: 15,
-    seed: i * 100 + 42,
-    id: `arena_${i}`,
-  });
-  c.points = generateWindCurrentPath(c);
-  return c;
-});
+let windCurrentSystem = createWindCurrentSystem();
+
+const windCurrentConfigs = arenaConfigs.map((cfg, i) => ({
+  start: { x: cfg.center.x * 0.1, y: 3, z: cfg.center.z * 0.1 },
+  end: { x: cfg.center.x * 0.9, y: 5, z: cfg.center.z * 0.9 },
+  strength: 5,
+  width: 15,
+  seed: i * 100 + 42,
+  id: `arena_${i}`,
+}));
+
+for (const cfg of windCurrentConfigs) {
+  const current = createWindCurrent(cfg);
+  windCurrentSystem = addCurrent(windCurrentSystem, current);
+}
 
 const windCurrentVisuals = [];
-for (const current of windCurrents) {
+for (const current of windCurrentSystem.currents) {
   const pts = current.points;
   const count = 80;
   const tArr = [];
@@ -648,6 +661,7 @@ if (touchOverlay && input.touch) {
 }
 
 let prevAttack = false;
+let prevDodge = false;
 let prevGamepadConnected = false;
 let lastTime = performance.now();
 
@@ -670,6 +684,7 @@ function animate(now) {
 
   if (gameState.isPlaying()) {
     windSystem = updateWindSystem(windSystem, dt);
+    windCurrentSystem = updateCurrents(windCurrentSystem, dt);
     if (inputState.start) {
       if (document.pointerLockElement === canvas) {
         input.keyboard.unlockPointer();
@@ -678,13 +693,14 @@ function animate(now) {
 
     const surfaces = getColossusSurfaces(colossi);
     const weakPoints = getColossusWeakPoints(colossi);
-    const isClimbing = isPlayerClimbing(climbing);
     const playerPos = player.state.position;
+    const prevClimbingThisFrame = isPlayerClimbing(climbing);
 
     const climbResult = updateClimbing(player.state, climbing, inputState, stamina, surfaces, dt);
     player.state = climbResult.playerState;
     climbing.isClimbing = climbResult.climbingState.isClimbing;
     climbing.climbGrabTime = climbResult.climbingState.climbGrabTime;
+    const isClimbing = isPlayerClimbing(climbing);
 
     if (isClimbing && !prevClimbing) {
       const grabParams = getClimbingGrabParams();
@@ -694,11 +710,27 @@ function animate(now) {
     prevClimbing = isClimbing;
 
     const staminaResult = updateIntegratedStamina(stamina, {
-      isClimbing: isPlayerClimbing(climbing),
-      isSprinting: inputState.sprint && !isPlayerClimbing(climbing),
+      isClimbing,
+      isSprinting: inputState.sprint && !isClimbing,
       isGrounded: player.state.isGrounded,
     }, dt);
     Object.assign(stamina, staminaResult.staminaState);
+
+    const dodgeJustPressed = inputState.dodge && !prevDodge;
+    const prevDodgeState = { ...dodge };
+    if (dodgeJustPressed && !isClimbing && !player.state.isFalling && player.state.isGrounded) {
+      Object.assign(dodge, tryStartDodge(dodge, inputState.move, stamina));
+    }
+    Object.assign(dodge, updateDodge(dodge, dt));
+    const dodgeCost = getDodgeStaminaCost(dodge, prevDodgeState);
+    if (dodgeCost > 0) {
+      Object.assign(stamina, drainStamina(stamina, dodgeCost));
+    }
+    prevDodge = inputState.dodge;
+
+    if (isPlayerDodging(dodge)) {
+      player.state = applyDodgeMovement(player.state, dodge, orbit.yaw, dt);
+    }
 
     const fallCheck = checkFall(player.state, stamina);
     if (fallCheck.shouldFall && !player.state.isFalling) {
@@ -712,7 +744,7 @@ function animate(now) {
       player.state = respawn(player.state, respawnPoints);
     }
 
-    if (!isPlayerClimbing(climbing) && !player.state.isFalling && !player.state.justRespawned) {
+    if (!isPlayerClimbing(climbing) && !player.state.isFalling && !player.state.justRespawned && !isPlayerDodging(dodge)) {
       const moveInput = { x: inputState.move.x, y: inputState.move.y, jump: inputState.jump, sprint: inputState.sprint && !staminaResult.shouldPreventSprint };
       player.state = updatePlayer(player.state, moveInput, orbit.yaw, dt, player);
     }
@@ -723,6 +755,11 @@ function animate(now) {
     const wv = getWindVector(windSystem, player.state.position.x, player.state.position.y, player.state.position.z);
     player.state.position.x += wv.x * 0.15 * dt;
     player.state.position.z += wv.z * 0.15 * dt;
+
+    const currentForce = getForceAt(windCurrentSystem, player.state.position);
+    player.state.position.x += currentForce.x * 0.1 * dt;
+    player.state.position.y += currentForce.y * 0.1 * dt;
+    player.state.position.z += currentForce.z * 0.1 * dt;
 
     const groundY = getGroundHeight(player.state.position.x, player.state.position.z);
     player.GROUND_Y = groundY;
@@ -977,7 +1014,6 @@ function animate(now) {
     const showStamina = isClimbingNow || staminaForUI.percent < 1;
 
     let colossusHealth = null;
-    let colossusName = null;
     const nearestColossus = colossi.find(c => {
       const dx = player.state.position.x - c.aiState.position.x;
       const dz = player.state.position.z - c.aiState.position.z;
@@ -985,20 +1021,22 @@ function animate(now) {
     });
     if (nearestColossus) {
       colossusHealth = nearestColossus.aiState.health / nearestColossus.behaviorConfig.maxHealth;
-      colossusName = nearestColossus.type.charAt(0).toUpperCase() + nearestColossus.type.slice(1);
+      applyHealthOpacity(
+        nearestColossus.mesh,
+        nearestColossus.aiState.health,
+        nearestColossus.behaviorConfig.maxHealth,
+      );
     }
 
     const hudState = {
       stamina: showStamina ? staminaForUI.percent : 1,
-      colossusHealth,
-      colossusName,
       hints: [],
     };
     hud.draw(hudState);
   } else if (gameState.getState() === 'paused') {
-    hud.draw({ stamina: 1, colossusHealth: null, colossusName: null, hints: [] });
+    hud.draw({ stamina: 1, hints: [] });
   } else {
-    hud.draw({ stamina: 1, colossusHealth: null, colossusName: null, hints: [] });
+    hud.draw({ stamina: 1, hints: [] });
   }
 
   sky.update(now * 0.001);

@@ -22,6 +22,7 @@ function createEmptyState() {
     attack: false,
     jump: false,
     sprint: false,
+    dodge: false,
     start: false,
   };
 }
@@ -42,6 +43,7 @@ function mapKeysToInput(pressedKeys, mouseDelta = { x: 0, y: 0 }, pressedMouseBu
     if (code === 'Space') state.jump = true;
     if (code === 'ShiftLeft' || code === 'ShiftRight') state.sprint = true;
     if (code === 'KeyE') state.action = true;
+    if (code === 'KeyC') state.dodge = true;
     if (code === 'Escape') state.start = true;
   }
 
@@ -159,6 +161,7 @@ const DEFAULT_GAMEPAD_MAP = {
   jump: 0,
   grab: 1,
   attack: 2,
+  dodge: 3,
   pause: 9,
 };
 
@@ -217,6 +220,7 @@ function mapGamepadToInput(leftStickX, leftStickY, rightStickX, rightStickY, but
   state.jump = mapped.jump || false;
   state.action = mapped.grab || false;
   state.attack = mapped.attack || false;
+  state.dodge = mapped.dodge || false;
   state.start = mapped.pause || false;
 
   return state;

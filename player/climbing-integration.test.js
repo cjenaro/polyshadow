@@ -291,3 +291,92 @@ describe('updateClimbing', () => {
     assert.strictEqual(result.climbingState.isClimbing, true);
   });
 });
+
+function simulateFrame(playerState, climbing, input, stamina, surfaces, dt, prevClimbing) {
+  const result = updateClimbing(playerState, climbing, input, stamina, surfaces, dt);
+  climbing.isClimbing = result.climbingState.isClimbing;
+  climbing.climbGrabTime = result.climbingState.climbGrabTime;
+  const isClimbing = isPlayerClimbing(climbing);
+  return {
+    playerState: result.playerState,
+    climbing,
+    isClimbing,
+    justStartedClimbing: isClimbing && !prevClimbing,
+    justStoppedClimbing: !isClimbing && prevClimbing,
+  };
+}
+
+describe('climbing state transition detection (frame pattern)', () => {
+  it('detects justStartedClimbing on the grab frame', () => {
+    const climbing = createClimbingState();
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 } });
+    const frame = simulateFrame(
+      makePlayerState(), climbing, makeInput({ action: true }),
+      makeStaminaState(), [surface], 0.1, false
+    );
+    assert.strictEqual(frame.isClimbing, true);
+    assert.strictEqual(frame.justStartedClimbing, true);
+    assert.strictEqual(frame.justStoppedClimbing, false);
+  });
+
+  it('does not detect justStartedClimbing on subsequent climbing frames', () => {
+    const climbing = createClimbingState();
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 } });
+    const frame1 = simulateFrame(
+      makePlayerState(), climbing, makeInput({ action: true }),
+      makeStaminaState(), [surface], 0.1, false
+    );
+    const frame2 = simulateFrame(
+      frame1.playerState, frame1.climbing,
+      makeInput({ action: true, move: { x: 0, y: 1 } }),
+      makeStaminaState(), [surface], 0.1, frame1.isClimbing
+    );
+    assert.strictEqual(frame2.isClimbing, true);
+    assert.strictEqual(frame2.justStartedClimbing, false);
+  });
+
+  it('detects justStoppedClimbing on the release frame', () => {
+    const climbing = createClimbingState();
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const frame1 = simulateFrame(
+      makePlayerState(), climbing, makeInput({ action: true }),
+      makeStaminaState(), [surface], 0.1, false
+    );
+    const frame2 = simulateFrame(
+      frame1.playerState, frame1.climbing,
+      makeInput({ action: false, move: { x: 0, y: 0 } }),
+      makeStaminaState(), [surface], 0.1, frame1.isClimbing
+    );
+    assert.strictEqual(frame2.isClimbing, false);
+    assert.strictEqual(frame2.justStoppedClimbing, true);
+    assert.strictEqual(frame2.justStartedClimbing, false);
+  });
+
+  it('does not detect justStoppedClimbing when already on ground', () => {
+    const climbing = createClimbingState();
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 } });
+    const frame = simulateFrame(
+      makePlayerState(), climbing, makeInput({ action: false }),
+      makeStaminaState(), [surface], 0.1, false
+    );
+    assert.strictEqual(frame.isClimbing, false);
+    assert.strictEqual(frame.justStoppedClimbing, false);
+    assert.strictEqual(frame.justStartedClimbing, false);
+  });
+
+  it('isClimbing is consistent throughout the frame after update', () => {
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 } });
+    const climbing = createClimbingState();
+    const input = makeInput({ action: true });
+    const result = updateClimbing(
+      makePlayerState(), climbing, input, makeStaminaState(), [surface], 0.1
+    );
+    climbing.isClimbing = result.climbingState.isClimbing;
+
+    const beforeUpdate = false;
+    const afterUpdate = isPlayerClimbing(climbing);
+    assert.strictEqual(beforeUpdate, false, 'was not climbing before');
+    assert.strictEqual(afterUpdate, true, 'is climbing after');
+    assert.notStrictEqual(beforeUpdate, afterUpdate, 'state changed - must use post-update value');
+  });
+});

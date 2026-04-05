@@ -18,6 +18,23 @@ export function orbitCameraPosition(yaw, pitch, distance, target) {
   };
 }
 
+export function computeCollisionDistance(desiredDistance, hitDistance, offset = 0.2, minDistance = 0) {
+  if (hitDistance == null || hitDistance >= desiredDistance) {
+    return desiredDistance;
+  }
+  return Math.max(minDistance, hitDistance - offset);
+}
+
+export function getContextDistance(context, distanceMap, defaultDistance = 0) {
+  if (context in distanceMap) return distanceMap[context];
+  return defaultDistance;
+}
+
+export function resolveCameraDistance(currentDistance, targetDistance, lerpFactor, minDistance, maxDistance) {
+  const next = currentDistance + (targetDistance - currentDistance) * lerpFactor;
+  return Math.max(minDistance, Math.min(maxDistance, next));
+}
+
 export class OrbitCamera {
   static DEFAULTS = {
     distance: 10,
@@ -30,10 +47,20 @@ export class OrbitCamera {
     lerpSpeed: 5,
     collisionLayers: [],
     lookSensitivity: 2.0,
+    distanceLerpSpeed: 5,
+    collisionOffset: 0.2,
+    contextDistances: {
+      exploration: 12,
+      climbing: 5,
+      combat: 8,
+    },
   };
 
   constructor(options = {}) {
     const cfg = { ...OrbitCamera.DEFAULTS, ...options };
+    if (options.contextDistances) {
+      cfg.contextDistances = { ...OrbitCamera.DEFAULTS.contextDistances, ...options.contextDistances };
+    }
     this.distance = cfg.distance;
     this.minDistance = cfg.minDistance;
     this.maxDistance = cfg.maxDistance;
@@ -44,12 +71,37 @@ export class OrbitCamera {
     this.lerpSpeed = cfg.lerpSpeed;
     this.lookSensitivity = cfg.lookSensitivity;
     this.collisionLayers = cfg.collisionLayers;
+    this.distanceLerpSpeed = cfg.distanceLerpSpeed;
+    this.collisionOffset = cfg.collisionOffset;
+    this.contextDistances = cfg.contextDistances;
 
     this._position = { x: 0, y: 0, z: 0 };
     this.currentTarget = { x: 0, y: 0, z: 0 };
+    this.targetDistance = cfg.distance;
+    this.context = 'exploration';
   }
 
-  update(dt, inputLook, targetPosition) {
+  setContext(newContext) {
+    this.context = newContext;
+    this.targetDistance = getContextDistance(
+      newContext,
+      this.contextDistances,
+      this.distance
+    );
+    return this.targetDistance;
+  }
+
+  snapToTarget(position) {
+    this.currentTarget = { x: position.x, y: position.y, z: position.z };
+    this._position = orbitCameraPosition(
+      this.yaw,
+      this.pitch,
+      this.distance,
+      this.currentTarget
+    );
+  }
+
+  update(dt, inputLook, targetPosition, options) {
     this.yaw += inputLook.x * this.lookSensitivity * dt;
     this.pitch += inputLook.y * this.lookSensitivity * dt;
     this.pitch = clampPitch(this.pitch, this.minPitch, this.maxPitch);
@@ -58,6 +110,37 @@ export class OrbitCamera {
     this.currentTarget.x += (targetPosition.x - this.currentTarget.x) * t;
     this.currentTarget.y += (targetPosition.y - this.currentTarget.y) * t;
     this.currentTarget.z += (targetPosition.z - this.currentTarget.z) * t;
+
+    const distFactor = 1 - Math.exp(-this.distanceLerpSpeed * dt);
+    let effectiveDistance = this.distance;
+
+    if (this.targetDistance !== this.distance) {
+      effectiveDistance = resolveCameraDistance(
+        this.distance,
+        this.targetDistance,
+        distFactor,
+        this.minDistance,
+        this.maxDistance
+      );
+    }
+
+    if (options?.raycastFn) {
+      const desiredPos = orbitCameraPosition(this.yaw, this.pitch, effectiveDistance, this.currentTarget);
+      const dir = {
+        x: desiredPos.x - this.currentTarget.x,
+        y: desiredPos.y - this.currentTarget.y,
+        z: desiredPos.z - this.currentTarget.z,
+      };
+      const hit = options.raycastFn(this.currentTarget, dir);
+      effectiveDistance = computeCollisionDistance(
+        effectiveDistance,
+        hit?.distance ?? null,
+        this.collisionOffset,
+        this.minDistance
+      );
+    }
+
+    this.distance = effectiveDistance;
 
     this._position = orbitCameraPosition(
       this.yaw,

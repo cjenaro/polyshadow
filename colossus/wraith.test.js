@@ -9,6 +9,10 @@ import {
   WraithState,
   createWraithBehaviorState,
   updateWraithBehavior,
+  triggerWraithStun,
+  applyWraithDamage,
+  WRAITH_STUN_DAMAGE_THRESHOLD,
+  getWraithStunProgress,
   getWraithWindForce,
   isWraithClimbable,
   setTHREE,
@@ -590,14 +594,14 @@ describe('isWraithClimbable', () => {
     assert.strictEqual(isWraithClimbable(state), true);
   });
 
-  it('returns false for Swooping (too fast)', () => {
+  it('returns true for Swooping (primary climbing opportunity per GDD)', () => {
     const state = createWraithBehaviorState({ state: WraithState.SWOOPING });
-    assert.strictEqual(isWraithClimbable(state), false);
+    assert.strictEqual(isWraithClimbable(state), true);
   });
 
-  it('returns false for ClimbingBack', () => {
+  it('returns true for ClimbingBack (climbable/attackable window)', () => {
     const state = createWraithBehaviorState({ state: WraithState.CLIMBING_BACK });
-    assert.strictEqual(isWraithClimbable(state), false);
+    assert.strictEqual(isWraithClimbable(state), true);
   });
 
   it('returns true for Stunned', () => {
@@ -820,5 +824,204 @@ describe('animateWraith', () => {
     animateWraith(wraithMesh, 2.0);
     const px2 = wraithMesh.meshByPart.get('neck').position.x;
     assert.strictEqual(px1, px2);
+  });
+});
+
+describe('triggerWraithStun', () => {
+  it('transitions any non-dying state to STUNNED', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.CIRCLING,
+      altitude: 20,
+      position: { x: 5, y: 20, z: 5 },
+    });
+    const result = triggerWraithStun(state, WRAITH_BEHAVIOR_CONFIG);
+    assert.strictEqual(result.state, WraithState.STUNNED);
+  });
+
+  it('sets stunTimer to config stunDuration', () => {
+    const state = createWraithBehaviorState({ state: WraithState.SWOOPING });
+    const result = triggerWraithStun(state, WRAITH_BEHAVIOR_CONFIG);
+    assert.strictEqual(result.stunTimer, WRAITH_BEHAVIOR_CONFIG.stunDuration);
+  });
+
+  it('resets stateTimer', () => {
+    const state = createWraithBehaviorState({ state: WraithState.CIRCLING, stateTimer: 5 });
+    const result = triggerWraithStun(state, WRAITH_BEHAVIOR_CONFIG);
+    assert.strictEqual(result.stateTimer, 0);
+  });
+
+  it('resets stunDamageAccumulator', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.CIRCLING,
+      stunDamageAccumulator: 50,
+    });
+    const result = triggerWraithStun(state, WRAITH_BEHAVIOR_CONFIG);
+    assert.strictEqual(result.stunDamageAccumulator, 0);
+  });
+
+  it('does not stun if already dying', () => {
+    const state = createWraithBehaviorState({ state: WraithState.DYING });
+    const result = triggerWraithStun(state, WRAITH_BEHAVIOR_CONFIG);
+    assert.strictEqual(result.state, WraithState.DYING);
+  });
+
+  it('does not stun if already stunned', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.STUNNED,
+      stunTimer: 1.5,
+    });
+    const result = triggerWraithStun(state, WRAITH_BEHAVIOR_CONFIG);
+    assert.strictEqual(result.state, WraithState.STUNNED);
+    assert.strictEqual(result.stunTimer, 1.5);
+  });
+
+  it('preserves position and altitude', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.CLIMBING_BACK,
+      position: { x: 10, y: 15, z: -5 },
+      altitude: 15,
+    });
+    const result = triggerWraithStun(state, WRAITH_BEHAVIOR_CONFIG);
+    assert.strictEqual(result.position.x, 10);
+    assert.strictEqual(result.position.z, -5);
+    assert.strictEqual(result.altitude, 15);
+  });
+});
+
+describe('applyWraithDamage', () => {
+  it('returns updated state with damage accumulated', () => {
+    const state = createWraithBehaviorState({ state: WraithState.CIRCLING });
+    const result = applyWraithDamage(state, WRAITH_BEHAVIOR_CONFIG, 20);
+    assert.strictEqual(result.stunDamageAccumulator, 20);
+  });
+
+  it('accumulates damage across multiple hits', () => {
+    const state = createWraithBehaviorState({ state: WraithState.CIRCLING });
+    let result = applyWraithDamage(state, WRAITH_BEHAVIOR_CONFIG, 20);
+    result = applyWraithDamage(result, WRAITH_BEHAVIOR_CONFIG, 15);
+    assert.strictEqual(result.stunDamageAccumulator, 35);
+  });
+
+  it('auto-stuns when accumulated damage reaches threshold', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.CIRCLING,
+      altitude: 20,
+      position: { x: 0, y: 20, z: 0 },
+    });
+    const damage = WRAITH_STUN_DAMAGE_THRESHOLD;
+    const result = applyWraithDamage(state, WRAITH_BEHAVIOR_CONFIG, damage);
+    assert.strictEqual(result.state, WraithState.STUNNED);
+    assert.strictEqual(result.stunTimer, WRAITH_BEHAVIOR_CONFIG.stunDuration);
+  });
+
+  it('resets accumulator after triggering stun', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.CIRCLING,
+      stunDamageAccumulator: WRAITH_STUN_DAMAGE_THRESHOLD - 1,
+      altitude: 20,
+      position: { x: 0, y: 20, z: 0 },
+    });
+    const result = applyWraithDamage(state, WRAITH_BEHAVIOR_CONFIG, 2);
+    assert.strictEqual(result.stunDamageAccumulator, 0);
+  });
+
+  it('does not accumulate damage while already stunned', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.STUNNED,
+      stunTimer: 1.0,
+      stunDamageAccumulator: 0,
+    });
+    const result = applyWraithDamage(state, WRAITH_BEHAVIOR_CONFIG, 50);
+    assert.strictEqual(result.stunDamageAccumulator, 0);
+    assert.strictEqual(result.stunTimer, 1.0);
+  });
+
+  it('does not accumulate damage while dying', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.DYING,
+      stunDamageAccumulator: 0,
+    });
+    const result = applyWraithDamage(state, WRAITH_BEHAVIOR_CONFIG, 50);
+    assert.strictEqual(result.stunDamageAccumulator, 0);
+  });
+
+  it('does not stun if damage does not reach threshold', () => {
+    const state = createWraithBehaviorState({ state: WraithState.CIRCLING });
+    const result = applyWraithDamage(state, WRAITH_BEHAVIOR_CONFIG, WRAITH_STUN_DAMAGE_THRESHOLD - 1);
+    assert.strictEqual(result.state, WraithState.CIRCLING);
+    assert.strictEqual(result.stunDamageAccumulator, WRAITH_STUN_DAMAGE_THRESHOLD - 1);
+  });
+
+  it('works during CLIMBING_BACK state', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.CLIMBING_BACK,
+      altitude: 10,
+      position: { x: 0, y: 10, z: 0 },
+    });
+    const result = applyWraithDamage(state, WRAITH_BEHAVIOR_CONFIG, 20);
+    assert.strictEqual(result.stunDamageAccumulator, 20);
+    assert.strictEqual(result.state, WraithState.CLIMBING_BACK);
+  });
+});
+
+describe('getWraithStunProgress', () => {
+  it('returns 0 when no damage accumulated', () => {
+    const state = createWraithBehaviorState({ state: WraithState.CIRCLING });
+    const progress = getWraithStunProgress(state);
+    assert.strictEqual(progress, 0);
+  });
+
+  it('returns 0.5 when half the threshold is accumulated', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.CIRCLING,
+      stunDamageAccumulator: WRAITH_STUN_DAMAGE_THRESHOLD / 2,
+    });
+    const progress = getWraithStunProgress(state);
+    assert.ok(Math.abs(progress - 0.5) < 0.001, `expected 0.5, got ${progress}`);
+  });
+
+  it('returns 1.0 when at threshold', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.CIRCLING,
+      stunDamageAccumulator: WRAITH_STUN_DAMAGE_THRESHOLD,
+    });
+    const progress = getWraithStunProgress(state);
+    assert.strictEqual(progress, 1.0);
+  });
+
+  it('clamps to 1.0 when over threshold', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.CIRCLING,
+      stunDamageAccumulator: WRAITH_STUN_DAMAGE_THRESHOLD + 50,
+    });
+    const progress = getWraithStunProgress(state);
+    assert.strictEqual(progress, 1.0);
+  });
+
+  it('returns 0 when stunned (accumulator was reset)', () => {
+    const state = createWraithBehaviorState({
+      state: WraithState.STUNNED,
+      stunDamageAccumulator: 0,
+    });
+    const progress = getWraithStunProgress(state);
+    assert.strictEqual(progress, 0);
+  });
+});
+
+describe('WRAITH_STUN_DAMAGE_THRESHOLD', () => {
+  it('is a positive number', () => {
+    assert.ok(typeof WRAITH_STUN_DAMAGE_THRESHOLD === 'number');
+    assert.ok(WRAITH_STUN_DAMAGE_THRESHOLD > 0);
+  });
+
+  it('is less than maxHealth (stun should be achievable before kill)', () => {
+    assert.ok(WRAITH_STUN_DAMAGE_THRESHOLD < WRAITH_BEHAVIOR_CONFIG.maxHealth);
+  });
+});
+
+describe('createWraithBehaviorState stun fields', () => {
+  it('initializes stunDamageAccumulator to 0', () => {
+    const state = createWraithBehaviorState();
+    assert.strictEqual(state.stunDamageAccumulator, 0);
   });
 });

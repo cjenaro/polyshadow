@@ -12,19 +12,16 @@ export const WIND_DEFAULTS = {
   gustMaxStrength: 15,
   directionDrift: 0.3,
   time: 0,
-  currents: [],
 };
 
 export function createWindSystem(config = {}) {
   const c = { ...WIND_DEFAULTS, ...config };
   c.direction = config.direction != null ? config.direction : Math.random() * Math.PI * 2;
-  c.strength = c.strength;
-  c.currents = config.currents || [];
   return c;
 }
 
 export function updateWindSystem(system, dt) {
-  let { direction, strength, gustStrength, gustTimer, gustDuration, gustCooldown, gustMaxDuration, gustMaxStrength, directionDrift, time, currents } = system;
+  let { direction, strength, gustStrength, gustTimer, gustDuration, gustCooldown, gustMaxDuration, gustMaxStrength, directionDrift, time } = system;
 
   time += dt;
 
@@ -46,7 +43,7 @@ export function updateWindSystem(system, dt) {
     }
   }
 
-  return { direction, strength, gustStrength, gustTimer, gustDuration, gustCooldown, gustMaxDuration, gustMaxStrength, directionDrift, time, currents };
+  return { direction, strength, gustStrength, gustTimer, gustDuration, gustCooldown, gustMaxDuration, gustMaxStrength, directionDrift, time };
 }
 
 export function getWindVector(system, x, y, z) {
@@ -58,17 +55,4 @@ export function getWindVector(system, x, y, z) {
   const wz = Math.sin(system.direction) * totalStrength + turbZ * system.strength;
 
   return { x: wx, z: wz };
-}
-
-export function isInWindCurrent(system, x, y, z) {
-  for (const c of system.currents) {
-    const dx = x - c.x;
-    const dy = y - c.y;
-    const dz = z - c.z;
-    const horizontalDist = Math.sqrt(dx * dx + dz * dz);
-    if (horizontalDist <= c.radius && Math.abs(dy) <= c.height / 2) {
-      return true;
-    }
-  }
-  return false;
 }

@@ -7,6 +7,11 @@ import {
   getWindForce,
   updateWindCurrent,
   createWindCurrentSystem,
+  addCurrent,
+  removeCurrent,
+  updateCurrents,
+  getForceAt,
+  isInAnyCurrent,
 } from './wind_currents.js';
 
 describe('createWindCurrent', () => {
@@ -44,6 +49,31 @@ describe('createWindCurrent', () => {
     assert.ok(typeof current.width === 'number');
     assert.ok(current.strength > 0);
     assert.ok(current.width > 0);
+  });
+
+  it('auto-generates and caches path points', () => {
+    const current = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 30, z: 50 },
+      seed: 42,
+    });
+    assert.ok(Array.isArray(current.points), 'points should be auto-generated');
+    assert.ok(current.points.length > 0, 'points should not be empty');
+  });
+
+  it('cached points match generateWindCurrentPath output', () => {
+    const current = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 30, z: 50 },
+      seed: 42,
+    });
+    const manual = generateWindCurrentPath(current);
+    assert.equal(current.points.length, manual.length);
+    for (let i = 0; i < current.points.length; i++) {
+      assert.equal(current.points[i].x, manual[i].x, `x mismatch at ${i}`);
+      assert.equal(current.points[i].y, manual[i].y, `y mismatch at ${i}`);
+      assert.equal(current.points[i].z, manual[i].z, `z mismatch at ${i}`);
+    }
   });
 });
 
@@ -148,7 +178,6 @@ describe('isInWindCurrent', () => {
       width: 10,
       seed: 42,
     });
-    current.points = generateWindCurrentPath(current);
     assert.ok(isInWindCurrent(current, { x: 50, y: 20, z: 0 }));
   });
 
@@ -160,7 +189,6 @@ describe('isInWindCurrent', () => {
       width: 10,
       seed: 42,
     });
-    current.points = generateWindCurrentPath(current);
     assert.ok(isInWindCurrent(current, { x: 50, y: 20, z: 4 }));
   });
 
@@ -172,7 +200,6 @@ describe('isInWindCurrent', () => {
       width: 10,
       seed: 42,
     });
-    current.points = generateWindCurrentPath(current);
     assert.ok(!isInWindCurrent(current, { x: 50, y: 20, z: 20 }));
   });
 
@@ -184,7 +211,6 @@ describe('isInWindCurrent', () => {
       width: 10,
       seed: 42,
     });
-    current.points = generateWindCurrentPath(current);
     assert.ok(!isInWindCurrent(current, { x: 150, y: 20, z: 0 }));
   });
 
@@ -196,7 +222,6 @@ describe('isInWindCurrent', () => {
       width: 10,
       seed: 42,
     });
-    current.points = generateWindCurrentPath(current);
     current.active = false;
     assert.ok(!isInWindCurrent(current, { x: 50, y: 20, z: 0 }));
   });
@@ -210,7 +235,6 @@ describe('getWindForce', () => {
       strength: 5,
       seed: 42,
     });
-    current.points = generateWindCurrentPath(current);
     const force = getWindForce(current, { x: 50, y: 22, z: 0 });
     assert.ok(typeof force.x === 'number');
     assert.ok(typeof force.y === 'number');
@@ -224,7 +248,6 @@ describe('getWindForce', () => {
       strength: 10,
       seed: 42,
     });
-    current.points = generateWindCurrentPath(current);
     const force = getWindForce(current, { x: 50, y: 20, z: 0 });
     assert.ok(force.x > 0, 'force should push toward end (positive x)');
   });
@@ -236,7 +259,6 @@ describe('getWindForce', () => {
       strength: 2,
       seed: 42,
     });
-    c1.points = generateWindCurrentPath(c1);
 
     const c2 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
@@ -244,7 +266,6 @@ describe('getWindForce', () => {
       strength: 10,
       seed: 42,
     });
-    c2.points = generateWindCurrentPath(c2);
 
     const f1 = getWindForce(c1, { x: 50, y: 20, z: 0 });
     const f2 = getWindForce(c2, { x: 50, y: 20, z: 0 });
@@ -262,7 +283,6 @@ describe('getWindForce', () => {
       width: 5,
       seed: 42,
     });
-    current.points = generateWindCurrentPath(current);
     const force = getWindForce(current, { x: 50, y: 20, z: 100 });
     assert.equal(force.x, 0);
     assert.equal(force.y, 0);
@@ -319,6 +339,18 @@ describe('updateWindCurrent', () => {
     }
     assert.ok(updated.phase < Math.PI * 2, `phase should stay bounded, got ${updated.phase}`);
   });
+
+  it('preserves cached points after update', () => {
+    const current = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      seed: 42,
+    });
+    const updated = updateWindCurrent(current, 0.1);
+    assert.ok(Array.isArray(updated.points), 'points should be preserved after update');
+    assert.equal(updated.points.length, current.points.length);
+  });
 });
 
 describe('createWindCurrentSystem', () => {
@@ -328,7 +360,22 @@ describe('createWindCurrentSystem', () => {
     assert.equal(system.currents.length, 0);
   });
 
-  it('addCurrent adds a current to the system', () => {
+  it('creates system from initial currents', () => {
+    const c = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      id: 'w1',
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c]);
+    assert.equal(system.currents.length, 1);
+    assert.equal(system.currents[0].id, 'w1');
+  });
+});
+
+describe('addCurrent', () => {
+  it('adds a current to the system', () => {
     const system = createWindCurrentSystem();
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
@@ -336,34 +383,62 @@ describe('createWindCurrentSystem', () => {
       strength: 5,
       seed: 42,
     });
-    const updated = system.addCurrent(current);
+    const updated = addCurrent(system, current);
     assert.equal(updated.currents.length, 1);
     assert.equal(updated.currents[0].strength, 5);
   });
 
-  it('removeCurrent removes a current from the system', () => {
+  it('does not mutate the original system', () => {
     const system = createWindCurrentSystem();
+    const current = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      seed: 42,
+    });
+    addCurrent(system, current);
+    assert.equal(system.currents.length, 0);
+  });
+});
+
+describe('removeCurrent', () => {
+  it('removes a current from the system', () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
       strength: 5,
       id: 'wind1',
+      seed: 42,
     });
     const c2 = createWindCurrent({
       start: { x: 0, y: 20, z: 50 },
       end: { x: 100, y: 20, z: 50 },
       strength: 3,
       id: 'wind2',
+      seed: 99,
     });
-    let updated = system.addCurrent(c1).addCurrent(c2);
-    assert.equal(updated.currents.length, 2);
-    updated = updated.removeCurrent('wind1');
+    const system = createWindCurrentSystem([c1, c2]);
+    const updated = removeCurrent(system, 'wind1');
     assert.equal(updated.currents.length, 1);
     assert.equal(updated.currents[0].id, 'wind2');
   });
 
-  it('update advances all currents', () => {
-    const system = createWindCurrentSystem();
+  it('does not mutate the original system', () => {
+    const c1 = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      id: 'wind1',
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c1]);
+    removeCurrent(system, 'wind1');
+    assert.equal(system.currents.length, 1);
+  });
+});
+
+describe('updateCurrents', () => {
+  it('advances all currents', () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -376,15 +451,40 @@ describe('createWindCurrentSystem', () => {
       strength: 3,
       seed: 99,
     });
-    const sys = system.addCurrent(c1).addCurrent(c2);
-    const updated = sys.update(0.1);
+    const system = createWindCurrentSystem([c1, c2]);
+    const updated = updateCurrents(system, 0.1);
     for (const c of updated.currents) {
       assert.ok(c.time > 0);
     }
   });
 
-  it('getForceAt returns combined force from all affecting currents', () => {
-    const system = createWindCurrentSystem();
+  it('does not mutate the original system', () => {
+    const c1 = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c1]);
+    updateCurrents(system, 0.1);
+    assert.equal(system.currents[0].time, 0);
+  });
+
+  it('preserves cached points on all currents', () => {
+    const c1 = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c1]);
+    const updated = updateCurrents(system, 0.1);
+    assert.ok(Array.isArray(updated.currents[0].points), 'points should be preserved');
+  });
+});
+
+describe('getForceAt', () => {
+  it('returns combined force from all affecting currents', () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -392,15 +492,14 @@ describe('createWindCurrentSystem', () => {
       width: 10,
       seed: 42,
     });
-    const sys = system.addCurrent(c1);
-    const force = sys.getForceAt({ x: 50, y: 20, z: 0 });
+    const system = createWindCurrentSystem([c1]);
+    const force = getForceAt(system, { x: 50, y: 20, z: 0 });
     assert.ok(typeof force.x === 'number');
     assert.ok(typeof force.y === 'number');
     assert.ok(typeof force.z === 'number');
   });
 
-  it('getForceAt returns zero when no currents affect position', () => {
-    const system = createWindCurrentSystem();
+  it('returns zero when no currents affect position', () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -408,10 +507,83 @@ describe('createWindCurrentSystem', () => {
       width: 2,
       seed: 42,
     });
-    const sys = system.addCurrent(c1);
-    const force = sys.getForceAt({ x: 500, y: 20, z: 500 });
+    const system = createWindCurrentSystem([c1]);
+    const force = getForceAt(system, { x: 500, y: 20, z: 500 });
     assert.equal(force.x, 0);
     assert.equal(force.y, 0);
     assert.equal(force.z, 0);
+  });
+
+  it('uses cached points without regenerating', () => {
+    const c1 = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      width: 10,
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c1]);
+    const originalPoints = c1.points;
+    getForceAt(system, { x: 50, y: 20, z: 0 });
+    assert.strictEqual(c1.points, originalPoints, 'should use same cached points reference');
+  });
+
+  it('returns zero for empty system', () => {
+    const system = createWindCurrentSystem();
+    const force = getForceAt(system, { x: 50, y: 20, z: 0 });
+    assert.equal(force.x, 0);
+    assert.equal(force.y, 0);
+    assert.equal(force.z, 0);
+  });
+});
+
+describe('isInAnyCurrent', () => {
+  it('returns true when position is within a current', () => {
+    const c1 = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      width: 10,
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c1]);
+    assert.ok(isInAnyCurrent(system, { x: 50, y: 20, z: 0 }));
+  });
+
+  it('returns false when position is outside all currents', () => {
+    const c1 = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      width: 10,
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c1]);
+    assert.ok(!isInAnyCurrent(system, { x: 500, y: 20, z: 500 }));
+  });
+
+  it('returns false for empty system', () => {
+    const system = createWindCurrentSystem();
+    assert.ok(!isInAnyCurrent(system, { x: 50, y: 20, z: 0 }));
+  });
+
+  it('returns true if position is in any of multiple currents', () => {
+    const c1 = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      width: 5,
+      seed: 42,
+    });
+    const c2 = createWindCurrent({
+      start: { x: 0, y: 20, z: 50 },
+      end: { x: 100, y: 20, z: 50 },
+      strength: 3,
+      width: 10,
+      seed: 99,
+    });
+    const system = createWindCurrentSystem([c1, c2]);
+    assert.ok(isInAnyCurrent(system, { x: 50, y: 20, z: 0 }));
+    assert.ok(isInAnyCurrent(system, { x: 50, y: 20, z: 50 }));
   });
 });

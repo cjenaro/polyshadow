@@ -53,6 +53,7 @@ export function updateIntegratedInput(integration) {
     merged.attack = gpState.attack;
     merged.jump = gpState.jump;
     merged.sprint = gpState.sprint;
+    merged.dodge = gpState.dodge;
     merged.start = gpState.start;
   } else if (integration.touch && integration.touch.getTouchJoystick().active) {
     integration.activeType = 'touch';
@@ -70,6 +71,7 @@ export function updateIntegratedInput(integration) {
     merged.jump = actions.jump || false;
 
     merged.sprint = actions.sprint || kbState.sprint;
+    merged.dodge = actions.dodge || kbState.dodge;
     merged.start = kbState.start;
   } else {
     integration.activeType = 'keyboard';
@@ -81,6 +83,7 @@ export function updateIntegratedInput(integration) {
     merged.attack = kbState.attack;
     merged.jump = kbState.jump;
     merged.sprint = kbState.sprint;
+    merged.dodge = kbState.dodge;
     merged.start = kbState.start;
   }
 

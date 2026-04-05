@@ -7,6 +7,7 @@ import {
   tryJumpClimb,
   releaseGrab,
   isGrabPressed,
+  updateClimbNormal,
 } from './climbing.js';
 import { createSentinelDefinition, generateSentinelSurfacePatches } from '../colossus/sentinel.js';
 
@@ -849,5 +850,146 @@ describe('climbing + sentinel surface patches integration', () => {
     const constants = { CLIMB_SPEED: 2 };
     const newState = applyClimbingMovement(state, input, 1, constants);
     assert.ok(newState.position.y > state.position.y, 'should move upward on front face');
+  });
+});
+
+describe('updateClimbNormal', () => {
+  it('returns unchanged state when not climbing', () => {
+    const state = makeState({ isClimbing: false });
+    const surfaces = [makeSurface({ position: { x: 0, y: 0, z: -2 } })];
+    const result = updateClimbNormal(state, surfaces);
+    assert.strictEqual(result, state);
+  });
+
+  it('returns unchanged state when climbNormal is null', () => {
+    const state = makeState({ isClimbing: true, climbNormal: null, position: { x: 0, y: 0, z: 0 } });
+    const surfaces = [makeSurface()];
+    const result = updateClimbNormal(state, surfaces);
+    assert.strictEqual(result, state);
+  });
+
+  it('updates climbNormal to nearest surface patch normal', () => {
+    const nearPatch = makeSurface({
+      position: { x: 0, y: 1, z: -2 },
+      normal: { x: 0.5, y: 0, z: -0.866 },
+    });
+    const farPatch = makeSurface({
+      position: { x: 0, y: 10, z: -2 },
+      normal: { x: 0, y: 1, z: 0 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: nearPatch,
+      climbNormal: { x: 0, y: 0, z: -1 },
+      position: { x: 0, y: 0.5, z: -2 },
+    });
+    const result = updateClimbNormal(state, [farPatch, nearPatch], { smoothFactor: 1 });
+    assert.ok(Math.abs(result.climbNormal.x - 0.5) < 0.01);
+    assert.ok(Math.abs(result.climbNormal.y - 0) < 0.01);
+    assert.ok(Math.abs(result.climbNormal.z - (-0.866)) < 0.01);
+  });
+
+  it('smooths normal transition with factor < 1', () => {
+    const patch = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 1, z: 0 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: patch,
+      climbNormal: { x: 0, y: 0, z: -1 },
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const result = updateClimbNormal(state, [patch], { smoothFactor: 0.5 });
+    assert.ok(
+      result.climbNormal.y > 0 && result.climbNormal.y < 1,
+      'normal.y should be partially interpolated'
+    );
+    assert.ok(
+      result.climbNormal.z > -1 && result.climbNormal.z < 0,
+      'normal.z should be partially interpolated'
+    );
+  });
+
+  it('uses default smoothFactor of 0.2 when not specified', () => {
+    const patch = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 1, z: 0 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: patch,
+      climbNormal: { x: 0, y: 0, z: -1 },
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const result = updateClimbNormal(state, [patch]);
+    const result2 = updateClimbNormal(state, [patch], { smoothFactor: 0.2 });
+    assert.ok(
+      Math.abs(result.climbNormal.x - result2.climbNormal.x) < 1e-10 &&
+      Math.abs(result.climbNormal.y - result2.climbNormal.y) < 1e-10 &&
+      Math.abs(result.climbNormal.z - result2.climbNormal.z) < 1e-10,
+      'default smoothFactor should be 0.2'
+    );
+  });
+
+  it('produces normalized output normal', () => {
+    const patch = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0.7071, y: 0.7071, z: 0 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: patch,
+      climbNormal: { x: 0, y: 0, z: -1 },
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const result = updateClimbNormal(state, [patch], { smoothFactor: 0.5 });
+    const len = Math.sqrt(
+      result.climbNormal.x ** 2 + result.climbNormal.y ** 2 + result.climbNormal.z ** 2
+    );
+    assert.ok(Math.abs(len - 1) < 1e-6, `normal length should be 1, got ${len}`);
+  });
+
+  it('updates climbSurface to nearest patch', () => {
+    const nearPatch = makeSurface({ position: { x: 0, y: 0.5, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const farPatch = makeSurface({ position: { x: 0, y: 10, z: -2 }, normal: { x: 0, y: 0, z: -1 } });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: farPatch,
+      climbNormal: farPatch.normal,
+      position: { x: 0, y: 0.3, z: -2 },
+    });
+    const result = updateClimbNormal(state, [nearPatch, farPatch], { smoothFactor: 1 });
+    assert.strictEqual(result.climbSurface, nearPatch);
+  });
+
+  it('normal update across curved surface fixes movement direction', () => {
+    const bottomPatch = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const topPatch = makeSurface({
+      position: { x: 0, y: 2, z: -2 },
+      normal: { x: 0.5, y: 0, z: 0.866 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: bottomPatch,
+      climbNormal: bottomPatch.normal,
+      position: { x: 0, y: 1.8, z: -2 },
+    });
+
+    const updated = updateClimbNormal(state, [bottomPatch, topPatch], { smoothFactor: 1 });
+    const input = makeInput({ move: { x: 0, y: 1 } });
+    const constants = { CLIMB_SPEED: 2 };
+
+    const moved = applyClimbingMovement(updated, input, 1, constants);
+    const dy = moved.position.y - updated.position.y;
+    const dz = Math.abs(moved.position.z - updated.position.z);
+    assert.ok(dy > 0, `should move upward, dy=${dy}`);
+    assert.ok(
+      dy > dz,
+      `upward movement should dominate over z movement: dy=${dy}, dz=${dz}`
+    );
   });
 });

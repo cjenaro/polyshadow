@@ -13,6 +13,7 @@ function normalizePart(part) {
     name: part.name || part.id,
     isClimbable: part.isClimbable !== undefined ? part.isClimbable : (part.type !== 'head'),
     isWeakPoint: part.isWeakPoint || false,
+    isRestSpot: part.isRestSpot || false,
     healthMultiplier: part.healthMultiplier || 1.0,
   };
 }
@@ -53,6 +54,14 @@ export function getWeakPoints(body) {
   const result = [];
   for (const part of body.parts.values()) {
     if (part.isWeakPoint) result.push(part);
+  }
+  return result;
+}
+
+export function getRestSpots(body) {
+  const result = [];
+  for (const part of body.parts.values()) {
+    if (part.isRestSpot) result.push(part);
   }
   return result;
 }

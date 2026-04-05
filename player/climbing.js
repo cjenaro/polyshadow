@@ -1,4 +1,4 @@
-import { distance3D } from '../utils/math.js';
+import { distance3D, lerp } from '../utils/math.js';
 
 const JUMP_CLIMB_COOLDOWN = 0.3;
 const BEHIND_PENALTY = 3;
@@ -159,6 +159,41 @@ export function tryJumpClimb(state, input, surfaces, maxJumpDistance, physicsCtx
     adapter.setPosition(world, playerBody, nearest.position);
   }
   return newState;
+}
+
+export function updateClimbNormal(state, surfaces, { smoothFactor = 0.2 } = {}) {
+  if (!state.isClimbing || !state.climbNormal) return state;
+
+  let nearest = null;
+  let nearestDist = Infinity;
+
+  for (const surface of surfaces) {
+    if (!surface.climbable) continue;
+    const d = distance3D(
+      state.position.x, state.position.y, state.position.z,
+      surface.position.x, surface.position.y, surface.position.z
+    );
+    if (d < nearestDist) {
+      nearestDist = d;
+      nearest = surface;
+    }
+  }
+
+  if (!nearest) return state;
+
+  const target = nearest.normal;
+  const n = state.climbNormal;
+  const nx = lerp(n.x, target.x, smoothFactor);
+  const ny = lerp(n.y, target.y, smoothFactor);
+  const nz = lerp(n.z, target.z, smoothFactor);
+  const len = Math.sqrt(nx * nx + ny * ny + nz * nz);
+  const invLen = len > 1e-10 ? 1 / len : 0;
+
+  return {
+    ...state,
+    climbSurface: nearest,
+    climbNormal: { x: nx * invLen, y: ny * invLen, z: nz * invLen },
+  };
 }
 
 export function releaseGrab(state, physicsCtx) {

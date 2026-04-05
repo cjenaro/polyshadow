@@ -48,8 +48,6 @@ function createMockCanvas(w = 800, h = 600) {
 function baseState() {
   return {
     stamina: 1.0,
-    colossusHealth: null,
-    colossusName: null,
     hints: [],
   };
 }
@@ -97,25 +95,6 @@ describe('createHUD', () => {
       assert.ok(canvas._calls.some(c => c === 'beginPath'));
     });
 
-    it('draws colossus health bar when colossusHealth is set', () => {
-      const canvas = createMockCanvas();
-      const hud = createHUD(canvas);
-      const state = baseState();
-      state.colossusHealth = 0.7;
-      state.colossusName = 'Test Colossus';
-      hud.draw(state);
-      const rects = canvas._callsFor('fillRect');
-      assert.ok(rects.length > 0, 'should draw fillRect for health bar');
-    });
-
-    it('does not throw when colossusHealth is null', () => {
-      const canvas = createMockCanvas();
-      const hud = createHUD(canvas);
-      const state = baseState();
-      state.colossusHealth = null;
-      assert.doesNotThrow(() => hud.draw(state));
-    });
-
     it('does not throw when hints array is empty', () => {
       const canvas = createMockCanvas();
       const hud = createHUD(canvas);
@@ -148,8 +127,6 @@ describe('createHUD', () => {
       const hud = createHUD(canvas);
       const state = {
         stamina: 0.4,
-        colossusHealth: 0.6,
-        colossusName: 'Valus',
         hints: [{ label: 'Argus', angle: 1.5 }],
       };
       assert.doesNotThrow(() => hud.draw(state));
@@ -168,23 +145,6 @@ describe('createHUD', () => {
       const hud = createHUD(canvas);
       const state = baseState();
       state.stamina = -0.5;
-      assert.doesNotThrow(() => hud.draw(state));
-    });
-
-    it('handles null colossusName with health set', () => {
-      const canvas = createMockCanvas();
-      const hud = createHUD(canvas);
-      const state = baseState();
-      state.colossusHealth = 0.8;
-      state.colossusName = null;
-      assert.doesNotThrow(() => hud.draw(state));
-    });
-
-    it('handles negative colossusHealth', () => {
-      const canvas = createMockCanvas();
-      const hud = createHUD(canvas);
-      const state = baseState();
-      state.colossusHealth = -0.1;
       assert.doesNotThrow(() => hud.draw(state));
     });
   });
