@@ -30,14 +30,14 @@ export function createSentinelDefinition() {
       position: { x: 0, y: torsoY, z: 0 },
       dimensions: { width: torsoW, height: torsoH, depth: torsoD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: null, isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: null, isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
     },
     {
       id: 'hips', name: 'Hips', type: 'core',
       position: { x: 0, y: torsoY - torsoH * 0.3, z: -torsoD * 0.1 },
       dimensions: { width: torsoW * 0.8, height: torsoH * 0.4, depth: torsoD * 0.7 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'torso', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: 'torso', isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
     },
     {
       id: 'head', name: 'Head', type: 'head',

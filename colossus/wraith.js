@@ -36,14 +36,14 @@ export function createWraithDefinition() {
       position: { x: 0, y: neckY, z: neckZ },
       dimensions: { width: bodyW * 0.8, height: bodyH * 0.9, depth: neckLen },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: null, isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: null, isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
     },
     {
       id: 'chest', name: 'Chest', type: 'core',
       position: { x: 0, y: S * 0.55, z: chestZ },
       dimensions: { width: bodyW, height: bodyH, depth: bodyLen * 0.4 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'neck', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: 'neck', isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
     },
     {
       id: 'tail_base', name: 'Tail Base', type: 'core',

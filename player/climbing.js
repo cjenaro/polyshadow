@@ -2,6 +2,7 @@ import { distance3D, lerp } from '../utils/math.js';
 
 const JUMP_CLIMB_COOLDOWN = 0.3;
 const BEHIND_PENALTY = 3;
+export const DISMOUNT_FORCE = 10;
 
 export function isGrabPressed(input) {
   return !!input.action;
@@ -198,10 +199,34 @@ export function updateClimbNormal(state, surfaces, { smoothFactor = 0.2 } = {}) 
 
 export function releaseGrab(state, physicsCtx) {
   if (!state.isClimbing) return state;
+
+  const n = state.climbNormal;
+  const dirX = n.x;
+  const dirY = n.y + 1;
+  const dirZ = n.z;
+  const len = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+  const nx = dirX / len;
+  const ny = dirY / len;
+  const nz = dirZ / len;
+
+  const vel = {
+    x: nx * DISMOUNT_FORCE,
+    y: ny * DISMOUNT_FORCE,
+    z: nz * DISMOUNT_FORCE,
+  };
+
+  if (physicsCtx) {
+    const { adapter, world, playerBody } = physicsCtx;
+    adapter.setVelocity(world, playerBody, vel);
+  }
+
   return {
     ...state,
     isClimbing: false,
     climbSurface: null,
     climbNormal: null,
+    velocity: vel,
+    isGrounded: false,
+    isJumping: true,
   };
 }

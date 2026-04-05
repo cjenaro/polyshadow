@@ -8,7 +8,7 @@ const PEACH_MID = createColor(0.961, 0.796, 0.655);
 const BLUE_TOP = createColor(0.529, 0.808, 0.922);
 
 export function createSky(scene) {
-  const skyDome = createMesh({ radius: 400, widthSegments: 32, heightSegments: 32, vertexColors: true, side: 2, fog: false });
+  const skyDome = createMesh({ radius: 400, widthSegments: 32, heightSegments: 32, vertexColors: true, side: 1, fog: false });
   const posAttr = skyDome.getPositionAttribute();
   const colors = [];
 

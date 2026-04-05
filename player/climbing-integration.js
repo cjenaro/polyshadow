@@ -15,30 +15,30 @@ export function isPlayerClimbing(climbingState) {
   return !!climbingState.isClimbing;
 }
 
-export function updateClimbing(playerState, climbingState, input, staminaState, surfaces, dt) {
+export function updateClimbing(playerState, climbingState, input, staminaState, surfaces, dt, physicsCtx) {
   let pState = playerState;
   let cState = climbingState;
 
   if (!cState.isClimbing) {
     if (isGrabPressed(input)) {
-      pState = tryGrab(pState, input, surfaces, CLIMB_CONFIG.MAX_GRAB_DISTANCE);
+      pState = tryGrab(pState, input, surfaces, CLIMB_CONFIG.MAX_GRAB_DISTANCE, physicsCtx);
       if (pState.isClimbing) {
         cState = { ...cState, isClimbing: true, climbGrabTime: 0 };
       }
     }
   } else {
     cState = { ...cState, climbGrabTime: cState.climbGrabTime + dt };
-    pState = applyClimbingMovement(pState, input, dt, CLIMB_CONFIG);
-    pState = tryJumpClimb(pState, input, surfaces, CLIMB_CONFIG.MAX_JUMP_DISTANCE, null, {
+    pState = applyClimbingMovement(pState, input, dt, CLIMB_CONFIG, physicsCtx);
+    pState = tryJumpClimb(pState, input, surfaces, CLIMB_CONFIG.MAX_JUMP_DISTANCE, physicsCtx, {
       now: cState.climbGrabTime,
       stamina: staminaState.current,
     });
 
     if (shouldTriggerFall(staminaState)) {
-      pState = releaseGrab(pState);
+      pState = releaseGrab(pState, physicsCtx);
       cState = { ...cState, isClimbing: false };
     } else if (input.move.x === 0 && input.move.y === 0 && !input.action) {
-      pState = releaseGrab(pState);
+      pState = releaseGrab(pState, physicsCtx);
       cState = { ...cState, isClimbing: false };
     }
   }

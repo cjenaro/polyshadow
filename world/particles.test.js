@@ -69,7 +69,7 @@ describe('createParticleSystem', () => {
 describe('updateParticleSystem', () => {
   it('decreases particle lifetime', () => {
     const sys = createParticleSystem(10);
-    const updated = updateParticleSystem(sys, { x: 0, z: 0, strength: 0 }, 0.1, 1.0);
+    const updated = updateParticleSystem(sys, { x: 0, z: 0, strength: 0 }, 0.1);
     for (let i = 0; i < sys.particles.length; i++) {
       assert.ok(updated.particles[i].lifetime <= sys.particles[i].lifetime);
     }
@@ -78,7 +78,7 @@ describe('updateParticleSystem', () => {
   it('does not modify original system', () => {
     const sys = createParticleSystem(10);
     const origLifetime = sys.particles[0].lifetime;
-    updateParticleSystem(sys, { x: 0, z: 0, strength: 0 }, 0.1, 1.0);
+    updateParticleSystem(sys, { x: 0, z: 0, strength: 0 }, 0.1);
     assert.strictEqual(sys.particles[0].lifetime, origLifetime);
   });
 
@@ -87,20 +87,26 @@ describe('updateParticleSystem', () => {
     const deadSys = {
       particles: sys.particles.map(p => ({ ...p, lifetime: -1, maxLifetime: p.maxLifetime })),
       bounds: sys.bounds,
+      elapsed: 0,
     };
-    const updated = updateParticleSystem(deadSys, { x: 0, z: 0, strength: 0 }, 0.1, 1.0);
+    const updated = updateParticleSystem(deadSys, { x: 0, z: 0, strength: 0 }, 0.1);
     const alive = updated.particles.filter(p => p.lifetime > 0);
     assert.ok(alive.length > 0, 'some particles should be respawned');
+  });
+
+  it('maxLifetime matches lifetime on creation', () => {
+    for (let i = 0; i < 20; i++) {
+      const p = createParticle();
+      assert.strictEqual(p.maxLifetime, p.lifetime);
+    }
   });
 
   it('wind moves particles', () => {
     const sys = createParticleSystem(10);
     const wind = { x: 10, z: 0, strength: 5 };
     let updated = sys;
-    let elapsed = 1.0;
     for (let i = 0; i < 30; i++) {
-      updated = updateParticleSystem(updated, wind, 0.016, elapsed);
-      elapsed += 0.016;
+      updated = updateParticleSystem(updated, wind, 0.016);
     }
     const moved = updated.particles.some(p => Math.abs(p.x) > 0.1);
     assert.ok(moved, 'wind should displace particles over time');
@@ -109,10 +115,8 @@ describe('updateParticleSystem', () => {
   it('particles have gravity effect on y', () => {
     const sys = createParticleSystem(10);
     let updated = sys;
-    let elapsed = 1.0;
     for (let i = 0; i < 60; i++) {
-      updated = updateParticleSystem(updated, { x: 0, z: 0, strength: 0 }, 0.016, elapsed);
-      elapsed += 0.016;
+      updated = updateParticleSystem(updated, { x: 0, z: 0, strength: 0 }, 0.016);
     }
     const avgY = updated.particles.reduce((s, p) => s + p.y, 0) / updated.particles.length;
     const origAvgY = sys.particles.reduce((s, p) => s + p.y, 0) / sys.particles.length;

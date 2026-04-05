@@ -1,140 +1,152 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createWindSystem,
-  updateWindSystem,
-  getWindVector,
+  createWindCurrentSystem,
+  createWindCurrent,
+  addCurrent,
+  updateCurrents,
+  getWindForce,
+  isInAnyCurrent,
 } from './wind.js';
 
-describe('createWindSystem', () => {
-  it('creates wind system with default values', () => {
-    const w = createWindSystem();
-    assert.ok('direction' in w);
-    assert.ok('strength' in w);
-    assert.ok('gustStrength' in w);
-    assert.ok('gustTimer' in w);
-    assert.ok('gustDuration' in w);
-    assert.ok('time' in w);
+describe('createWindCurrentSystem', () => {
+  it('creates empty system by default', () => {
+    const system = createWindCurrentSystem();
+    assert.ok(Array.isArray(system.currents));
+    assert.equal(system.currents.length, 0);
   });
 
-  it('direction is in [0, 2*PI]', () => {
-    const w = createWindSystem();
-    assert.ok(w.direction >= 0 && w.direction <= Math.PI * 2);
-  });
-
-  it('strength is non-negative', () => {
-    const w = createWindSystem();
-    assert.ok(w.strength >= 0);
-  });
-
-  it('gustStrength starts at zero', () => {
-    const w = createWindSystem();
-    assert.strictEqual(w.gustStrength, 0);
-  });
-
-  it('accepts initial config overrides', () => {
-    const w = createWindSystem({ direction: 1.5, strength: 8 });
-    assert.strictEqual(w.direction, 1.5);
-    assert.strictEqual(w.strength, 8);
-  });
-
-  it('does not include currents property', () => {
-    const w = createWindSystem();
-    assert.ok(!('currents' in w), 'wind system should not have currents - use wind_currents.js');
+  it('creates system from initial currents', () => {
+    const c = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      id: 'w1',
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c]);
+    assert.equal(system.currents.length, 1);
   });
 });
 
-describe('updateWindSystem', () => {
-  it('advances time', () => {
-    const w = createWindSystem();
-    const updated = updateWindSystem(w, 0.1);
-    assert.ok(updated.time > w.time);
-  });
-
-  it('does not modify original system', () => {
-    const w = createWindSystem();
-    const origTime = w.time;
-    updateWindSystem(w, 0.1);
-    assert.strictEqual(w.time, origTime);
-  });
-
-  it('gustStrength becomes positive during a gust', () => {
-    let w = createWindSystem({ gustCooldown: 0.01 });
-    for (let i = 0; i < 500; i++) {
-      w = updateWindSystem(w, 0.05);
-    }
-    assert.ok(w.gustStrength > 0, 'gust should have triggered within 500 updates');
-  });
-
-  it('direction changes slowly over time', () => {
-    let w = createWindSystem({ direction: 0, strength: 5 });
-    let dirChanged = false;
-    for (let i = 0; i < 200; i++) {
-      const next = updateWindSystem(w, 0.1);
-      if (Math.abs(next.direction - w.direction) > 0.001) {
-        dirChanged = true;
-        break;
-      }
-      w = next;
-    }
-    assert.ok(dirChanged, 'direction should drift over time');
-  });
-
-  it('gust decays to zero after duration expires', () => {
-    let w = createWindSystem({ gustCooldown: 0.01, gustMaxDuration: 0.2 });
-    let hadGust = false;
-    for (let i = 0; i < 1000; i++) {
-      w = updateWindSystem(w, 0.05);
-      if (w.gustStrength > 0) hadGust = true;
-      if (hadGust && w.gustStrength === 0) return;
-    }
-    assert.ok(hadGust, 'gust should have occurred and decayed');
+describe('addCurrent', () => {
+  it('adds a current to the system', () => {
+    const system = createWindCurrentSystem();
+    const current = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      seed: 42,
+    });
+    const updated = addCurrent(system, current);
+    assert.equal(updated.currents.length, 1);
   });
 });
 
-describe('getWindVector', () => {
-  it('returns vector with x and z components', () => {
-    const w = createWindSystem({ direction: 0, strength: 5 });
-    const v = getWindVector(w, 0, 0, 0);
-    assert.ok('x' in v);
-    assert.ok('z' in v);
+describe('getWindForce', () => {
+  it('returns zero force outside any current', () => {
+    const system = createWindCurrentSystem();
+    const force = getWindForce(system, { x: 0, y: 0, z: 0 });
+    assert.equal(force.x, 0);
+    assert.equal(force.y, 0);
+    assert.equal(force.z, 0);
   });
 
-  it('zero strength gives zero vector', () => {
-    const w = createWindSystem({ direction: 0, strength: 0 });
-    const v = getWindVector(w, 0, 0, 0);
-    assert.ok(Math.abs(v.x) < 1e-10);
-    assert.ok(Math.abs(v.z) < 1e-10);
+  it('returns non-zero force inside a current', () => {
+    const c = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 10,
+      width: 10,
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c]);
+    const force = getWindForce(system, { x: 50, y: 20, z: 0 });
+    assert.ok(Math.abs(force.x) > 0, 'should have horizontal force inside current');
   });
 
-  it('direction 0 blows primarily along +x axis', () => {
-    const w = createWindSystem({ direction: 0, strength: 5 });
-    const v = getWindVector(w, 0, 0, 0);
-    assert.ok(v.x > 0, 'should blow in +x');
-    assert.ok(Math.abs(v.x) > Math.abs(v.z), 'x component should dominate');
+  it('force direction follows path direction', () => {
+    const c = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 10,
+      width: 10,
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c]);
+    const force = getWindForce(system, { x: 50, y: 20, z: 0 });
+    assert.ok(force.x > 0, 'should push toward end (positive x)');
   });
 
-  it('direction PI/2 blows primarily along +z axis', () => {
-    const w = createWindSystem({ direction: Math.PI / 2, strength: 5 });
-    const v = getWindVector(w, 0, 0, 0);
-    assert.ok(v.z > 0, 'should blow in +z');
-    assert.ok(Math.abs(v.z) > Math.abs(v.x), 'z component should dominate');
+  it('uses cached points without regenerating', () => {
+    const c = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      width: 10,
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c]);
+    const originalPoints = c.points;
+    getWindForce(system, { x: 50, y: 20, z: 0 });
+    assert.strictEqual(c.points, originalPoints, 'should use same cached points reference');
   });
 
-  it('gust increases wind vector magnitude', () => {
-    let w = createWindSystem({ direction: 0, strength: 5, gustStrength: 0 });
-    const base = getWindVector(w, 0, 0, 0);
-    const baseMag = Math.sqrt(base.x * base.x + base.z * base.z);
-    const withGust = getWindVector({ ...w, gustStrength: 10 }, 0, 0, 0);
-    const gustMag = Math.sqrt(withGust.x * withGust.x + withGust.z * withGust.z);
-    assert.ok(gustMag > baseMag, 'gust should increase magnitude');
+  it('combines forces from multiple overlapping currents', () => {
+    const c1 = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      width: 20,
+      seed: 42,
+    });
+    const c2 = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      width: 20,
+      seed: 99,
+    });
+    const singleSystem = createWindCurrentSystem([c1]);
+    const doubleSystem = createWindCurrentSystem([c1, c2]);
+    const f1 = getWindForce(singleSystem, { x: 50, y: 20, z: 0 });
+    const f2 = getWindForce(doubleSystem, { x: 50, y: 20, z: 0 });
+    const mag1 = Math.sqrt(f1.x * f1.x + f1.y * f1.y + f1.z * f1.z);
+    const mag2 = Math.sqrt(f2.x * f2.x + f2.y * f2.y + f2.z * f2.z);
+    assert.ok(mag2 > mag1, 'two currents should produce more force than one');
+  });
+});
+
+describe('updateCurrents', () => {
+  it('advances all currents without regenerating paths', () => {
+    const c = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c]);
+    const updated = updateCurrents(system, 0.1);
+    assert.ok(updated.currents[0].time > 0);
+    assert.ok(Array.isArray(updated.currents[0].points), 'cached points preserved');
+  });
+});
+
+describe('isInAnyCurrent', () => {
+  it('returns true inside a current', () => {
+    const c = createWindCurrent({
+      start: { x: 0, y: 20, z: 0 },
+      end: { x: 100, y: 20, z: 0 },
+      strength: 5,
+      width: 10,
+      seed: 42,
+    });
+    const system = createWindCurrentSystem([c]);
+    assert.ok(isInAnyCurrent(system, { x: 50, y: 20, z: 0 }));
   });
 
-  it('position affects wind via turbulence', () => {
-    const w = createWindSystem({ direction: 0, strength: 5 });
-    const v1 = getWindVector(w, 0, 0, 0);
-    const v2 = getWindVector(w, 100, 0, 100);
-    const diff = Math.abs(v1.x - v2.x) + Math.abs(v1.z - v2.z);
-    assert.ok(diff > 0.01, 'different positions should give different wind');
+  it('returns false outside all currents', () => {
+    const system = createWindCurrentSystem();
+    assert.ok(!isInAnyCurrent(system, { x: 50, y: 20, z: 0 }));
   });
 });

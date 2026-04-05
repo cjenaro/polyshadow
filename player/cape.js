@@ -41,9 +41,9 @@ export function applyChainForces(particles, dt, wind) {
     const vy = (p.y - p.py) * damping;
     const vz = (p.z - p.pz) * damping;
 
-    const nx = p.x + vx + wx * dt * dt;
+    const nx = p.x + vx + wx * dt;
     const ny = p.y + vy + grav * dt * dt;
-    const nz = p.z + vz + wz * dt * dt;
+    const nz = p.z + vz + wz * dt;
 
     return {
       x: nx, y: ny, z: nz,
@@ -71,9 +71,10 @@ export function solveChainConstraints(particles, iterations) {
       if (dist === 0) continue;
 
       const diff = (len - dist) / dist;
-      const ox = dx * 0.5 * diff;
-      const oy = dy * 0.5 * diff;
-      const oz = dz * 0.5 * diff;
+      const correctionScale = (a.pinned === b.pinned) ? 0.5 : 1.0;
+      const ox = dx * correctionScale * diff;
+      const oy = dy * correctionScale * diff;
+      const oz = dz * correctionScale * diff;
 
       if (!a.pinned) {
         pts[i] = { ...pts[i], x: a.x - ox, y: a.y - oy, z: a.z - oz };

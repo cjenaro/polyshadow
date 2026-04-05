@@ -8,6 +8,7 @@ import {
   releaseGrab,
   isGrabPressed,
   updateClimbNormal,
+  DISMOUNT_FORCE,
 } from './climbing.js';
 import { createSentinelDefinition, generateSentinelSurfacePatches } from '../colossus/sentinel.js';
 
@@ -758,7 +759,9 @@ describe('tryJumpClimb with physics adapter', () => {
 
 describe('releaseGrab with physics adapter', () => {
   it('still works when physicsCtx provided', () => {
-    const adapter = {};
+    const adapter = {
+      setVelocity: (w, b, v) => { adapter._velCall = { world: w, body: b, vel: v }; },
+    };
     const world = Symbol('world');
     const playerBody = Symbol('body');
     const state = makeState({ isClimbing: true, climbSurface: makeSurface(), climbNormal: { x: 0, y: 0, z: 1 } });
@@ -766,6 +769,81 @@ describe('releaseGrab with physics adapter', () => {
     assert.strictEqual(result.isClimbing, false);
     assert.strictEqual(result.climbSurface, null);
     assert.strictEqual(result.climbNormal, null);
+    assert.ok(adapter._velCall.vel.y > 0, 'should set upward velocity via adapter');
+    assert.ok(adapter._velCall.vel.z > 0, 'should set horizontal velocity via adapter');
+  });
+});
+
+describe('releaseGrab jump-dismount', () => {
+  it('sets velocity away from surface normal and upward', () => {
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: makeSurface(),
+      climbNormal: { x: 0, y: 0, z: 1 },
+    });
+    const newState = releaseGrab(state);
+    assert.ok(newState.velocity.z > 0, 'should have velocity away from surface');
+    assert.ok(newState.velocity.y > 0, 'should have upward velocity');
+  });
+
+  it('sets isJumping to true', () => {
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: makeSurface(),
+      climbNormal: { x: 0, y: 0, z: 1 },
+    });
+    const newState = releaseGrab(state);
+    assert.strictEqual(newState.isJumping, true);
+  });
+
+  it('velocity magnitude equals DISMOUNT_FORCE', () => {
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: makeSurface(),
+      climbNormal: { x: 0, y: 0, z: 1 },
+    });
+    const newState = releaseGrab(state);
+    const mag = Math.sqrt(newState.velocity.x ** 2 + newState.velocity.y ** 2 + newState.velocity.z ** 2);
+    assert.ok(
+      Math.abs(mag - DISMOUNT_FORCE) < 1e-6,
+      `magnitude ${mag} should equal DISMOUNT_FORCE ${DISMOUNT_FORCE}`
+    );
+  });
+
+  it('on top surface (normal up), launches purely upward', () => {
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: makeSurface(),
+      climbNormal: { x: 0, y: 1, z: 0 },
+    });
+    const newState = releaseGrab(state);
+    assert.ok(newState.velocity.y > 0);
+    assert.ok(Math.abs(newState.velocity.x) < 1e-6, 'should have no x velocity');
+    assert.ok(Math.abs(newState.velocity.z) < 1e-6, 'should have no z velocity');
+  });
+
+  it('on slanted surface, velocity is blend of normal and up', () => {
+    const normalLen = Math.sqrt(0.5 * 0.5 + 0.5 * 0.5);
+    const nx = 0.5 / normalLen;
+    const nz = 0.5 / normalLen;
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: makeSurface(),
+      climbNormal: { x: nx, y: 0, z: nz },
+    });
+    const newState = releaseGrab(state);
+    assert.ok(newState.velocity.x > 0, 'should have x component from normal');
+    assert.ok(newState.velocity.y > 0, 'should have upward component');
+    assert.ok(newState.velocity.z > 0, 'should have z component from normal');
+  });
+
+  it('does not set velocity when not climbing', () => {
+    const state = makeState({ isClimbing: false, velocity: { x: 3, y: 4, z: 5 } });
+    const newState = releaseGrab(state);
+    assert.strictEqual(newState, state);
+    assert.strictEqual(newState.velocity.x, 3);
+    assert.strictEqual(newState.velocity.y, 4);
+    assert.strictEqual(newState.velocity.z, 5);
   });
 });
 

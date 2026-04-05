@@ -11,7 +11,7 @@ export const PARTICLE_DEFAULTS = {
   windInfluence: 1.5,
   thermalStrength: 0.4,
   turbulenceScale: 0.02,
-  drag: 0.98,
+  dragPerSecond: Math.pow(0.98, 60),
 };
 
 export const DEFAULT_BOUNDS = {
@@ -21,6 +21,7 @@ export const DEFAULT_BOUNDS = {
 };
 
 export function createParticle(bounds = DEFAULT_BOUNDS) {
+  const lifetime = randomRange(PARTICLE_DEFAULTS.minLifetime, PARTICLE_DEFAULTS.maxLifetime);
   return {
     x: randomRange(bounds.xMin, bounds.xMax),
     y: randomRange(bounds.yMin, bounds.yMax),
@@ -28,8 +29,8 @@ export function createParticle(bounds = DEFAULT_BOUNDS) {
     vx: 0,
     vy: 0,
     vz: 0,
-    lifetime: randomRange(PARTICLE_DEFAULTS.minLifetime, PARTICLE_DEFAULTS.maxLifetime),
-    maxLifetime: PARTICLE_DEFAULTS.maxLifetime,
+    lifetime,
+    maxLifetime: lifetime,
     size: randomRange(PARTICLE_DEFAULTS.minSize, PARTICLE_DEFAULTS.maxSize),
   };
 }
@@ -39,21 +40,21 @@ export function createParticleSystem(count, bounds = DEFAULT_BOUNDS) {
   for (let i = 0; i < count; i++) {
     particles.push(createParticle(bounds));
   }
-  return { particles, bounds };
+  return { particles, bounds, elapsed: 0 };
 }
 
 function respawnParticle(bounds) {
   return createParticle(bounds);
 }
 
-export function updateParticleSystem(system, wind, dt, elapsed) {
+export function updateParticleSystem(system, wind, dt) {
   const { particles, bounds } = system;
   const windInfluence = PARTICLE_DEFAULTS.windInfluence;
   const gravity = PARTICLE_DEFAULTS.gravity;
-  const drag = PARTICLE_DEFAULTS.drag;
+  const dragPerSecond = PARTICLE_DEFAULTS.dragPerSecond;
   const thermalStrength = PARTICLE_DEFAULTS.thermalStrength;
   const turbScale = PARTICLE_DEFAULTS.turbulenceScale;
-  const time = elapsed;
+  const time = system.elapsed;
 
   const updated = particles.map(p => {
     const dead = p.lifetime <= 0;
@@ -66,9 +67,9 @@ export function updateParticleSystem(system, wind, dt, elapsed) {
     const tx = noise3D(current.x * turbScale, current.y * turbScale, time * 0.5) * 0.5;
     const tz = noise3D(current.x * turbScale + 50, current.y * turbScale + 50, time * 0.5) * 0.5;
 
-    const nvx = current.vx * Math.pow(drag, dt * 60) + (wfx + tx) * dt;
-    const nvy = current.vy * Math.pow(drag, dt * 60) + (gravity + thermal) * dt;
-    const nvz = current.vz * Math.pow(drag, dt * 60) + (wfz + tz) * dt;
+    const nvx = current.vx * Math.pow(dragPerSecond, dt) + (wfx + tx) * dt;
+    const nvy = current.vy * Math.pow(dragPerSecond, dt) + (gravity + thermal) * dt;
+    const nvz = current.vz * Math.pow(dragPerSecond, dt) + (wfz + tz) * dt;
 
     return {
       x: current.x + nvx * dt,
@@ -83,7 +84,7 @@ export function updateParticleSystem(system, wind, dt, elapsed) {
     };
   });
 
-  return { particles: updated, bounds };
+  return { particles: updated, bounds, elapsed: system.elapsed + dt };
 }
 
 export function calculateWindForce(x, y, z, strength, elapsed) {

@@ -14,6 +14,7 @@ import { setTHREE as setSentinelTHREE } from '../colossus/sentinel.js';
 import { setTHREE as setWraithTHREE } from '../colossus/wraith.js';
 import { setTHREE as setTitanTHREE } from '../colossus/titan.js';
 import * as THREE from 'three';
+import { createMockAdapter } from '../engine/physics-adapter.js';
 import { createClimbingState, isPlayerClimbing, updateClimbing } from '../player/climbing-integration.js';
 import { createIntegratedStamina, updateIntegratedStamina, getStaminaForUI } from '../player/stamina-integration.js';
 import { createIntegratedCombat, updateIntegratedCombat, handleShakeOff, getCombatStats } from '../player/combat-integration.js';
@@ -39,15 +40,14 @@ import {
 } from './arena-transition.js';
 import { createParticleSystem, updateParticleSystem, DEFAULT_BOUNDS } from '../world/particles.js';
 import { createFogSystem, updateFogSystem, DEFAULT_LAYERS } from '../world/fog.js';
-import { createWindSystem, updateWindSystem, getWindVector } from '../world/wind.js';
 import {
   createWindCurrent,
   createWindCurrentSystem,
   addCurrent,
   updateCurrents,
-  getForceAt,
+  getWindForce,
   isInAnyCurrent,
-} from '../world/wind_currents.js';
+} from '../world/wind.js';
 import {
   createAudioState, initAudio, getEffectiveVolume, registerSound, cleanupSounds,
   getFootstepParams, shouldPlayFootstep,
@@ -102,6 +102,18 @@ window.addEventListener('resize', () => {
 });
 let endingState = null;
 let arenaTransition = createArenaTransitionManager();
+
+const physicsAdapter = createMockAdapter();
+const physicsWorld = physicsAdapter.createPhysicsWorld();
+const playerPhysicsBody = physicsAdapter.createBody(physicsWorld, {
+  type: 'dynamic',
+  shape: { type: 'capsule', radius: 0.3, height: 1.6 },
+  mass: 1,
+  position: player.state.position,
+});
+physicsAdapter.addBody(physicsWorld, playerPhysicsBody);
+const physicsCtx = { adapter: physicsAdapter, world: physicsWorld, playerBody: playerPhysicsBody };
+
 let hasTeleported = false;
 
 function ensureAudio() {
@@ -379,6 +391,43 @@ const arenaIslandMeshes = arenaConfigs.map(({ type, center }) => {
 
 const allIslands = [hubIsland, ...arenaIslands];
 
+function buildIslandTrimesh(island) {
+  const { center, radius, resolution, heightData } = island;
+  const vertices = [];
+  const indices = [];
+  const cols = resolution + 1;
+  for (let iz = 0; iz <= resolution; iz++) {
+    for (let ix = 0; ix <= resolution; ix++) {
+      const cix = Math.min(ix, resolution - 1);
+      const ciz = Math.min(iz, resolution - 1);
+      vertices.push(
+        center.x + (cix - radius),
+        heightData[ciz * resolution + cix] || 0,
+        center.z + (ciz - radius),
+      );
+    }
+  }
+  for (let iz = 0; iz < resolution; iz++) {
+    for (let ix = 0; ix < resolution; ix++) {
+      const a = iz * cols + ix;
+      const b = a + 1;
+      const c = a + cols;
+      const d = c + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+  return { vertices: new Float32Array(vertices), indices: new Uint16Array(indices) };
+}
+
+for (const island of allIslands) {
+  const trimesh = buildIslandTrimesh(island);
+  physicsAdapter.createTrimeshCollider(physicsWorld, {
+    position: { x: island.center.x, y: 0, z: island.center.z },
+    vertices: trimesh.vertices,
+    indices: trimesh.indices,
+  });
+}
+
 const pathDefs = arenaConfigs.map(({ center }) =>
   createSteppingStonesPath({ x: 0, y: 0, z: 0 }, { x: center.x, y: 0, z: center.z }, 5, { stoneRadius: 2 })
 );
@@ -421,6 +470,17 @@ const colossi = arenaConfigs.map(({ type, center }) => {
   c.aiState.arenaCenter = { x: center.x, z: center.z };
   scene.add(c.mesh);
   return c;
+});
+
+const colossusBodies = colossi.map(c => {
+  const body = physicsAdapter.createBody(physicsWorld, {
+    type: 'kinematic',
+    shape: { type: 'box', halfExtents: { x: 5, y: 10, z: 5 } },
+    position: { x: c.aiState.position.x, y: c.aiState.position.y + 5, z: c.aiState.position.z },
+    userData: { colossusType: c.type },
+  });
+  physicsAdapter.addBody(physicsWorld, body);
+  return body;
 });
 
 const deathIntegrations = new Map();
@@ -506,9 +566,7 @@ const fogPlanes = fogSystem.layers.map(layer => {
   return mesh;
 });
 
-let windSystem = createWindSystem();
-
-let windCurrentSystem = createWindCurrentSystem();
+let windSystem = createWindCurrentSystem();
 
 const windCurrentConfigs = arenaConfigs.map((cfg, i) => ({
   start: { x: cfg.center.x * 0.1, y: 3, z: cfg.center.z * 0.1 },
@@ -521,11 +579,11 @@ const windCurrentConfigs = arenaConfigs.map((cfg, i) => ({
 
 for (const cfg of windCurrentConfigs) {
   const current = createWindCurrent(cfg);
-  windCurrentSystem = addCurrent(windCurrentSystem, current);
+  windSystem = addCurrent(windSystem, current);
 }
 
 const windCurrentVisuals = [];
-for (const current of windCurrentSystem.currents) {
+for (const current of windSystem.currents) {
   const pts = current.points;
   const count = 80;
   const tArr = [];
@@ -570,6 +628,9 @@ function getGroundHeight(x, z) {
 }
 
 ui.showTitleScreen();
+
+const loadingScreen = document.getElementById('loading-screen');
+if (loadingScreen) loadingScreen.remove();
 
 document.addEventListener('keydown', (e) => {
   ensureAudio();
@@ -685,6 +746,15 @@ function animate(now) {
   if (gameState.isPlaying()) {
     windSystem = updateWindSystem(windSystem, dt);
     windCurrentSystem = updateCurrents(windCurrentSystem, dt);
+
+    for (let i = 0; i < colossi.length; i++) {
+      const pos = colossi[i].aiState.position || colossi[i].position;
+      physicsAdapter.setPosition(physicsWorld, colossusBodies[i], pos);
+    }
+    physicsAdapter.setPosition(physicsWorld, playerPhysicsBody, player.state.position);
+    physicsAdapter.setVelocity(physicsWorld, playerPhysicsBody, player.state.velocity);
+    physicsAdapter.step(physicsWorld, dt);
+
     if (inputState.start) {
       if (document.pointerLockElement === canvas) {
         input.keyboard.unlockPointer();
@@ -696,7 +766,7 @@ function animate(now) {
     const playerPos = player.state.position;
     const prevClimbingThisFrame = isPlayerClimbing(climbing);
 
-    const climbResult = updateClimbing(player.state, climbing, inputState, stamina, surfaces, dt);
+    const climbResult = updateClimbing(player.state, climbing, inputState, stamina, surfaces, dt, physicsCtx);
     player.state = climbResult.playerState;
     climbing.isClimbing = climbResult.climbingState.isClimbing;
     climbing.climbGrabTime = climbResult.climbingState.climbGrabTime;
@@ -713,6 +783,7 @@ function animate(now) {
       isClimbing,
       isSprinting: inputState.sprint && !isClimbing,
       isGrounded: player.state.isGrounded,
+      isOnRestSpot: isClimbing && !!(player.state.climbSurface?.isRestSpot),
     }, dt);
     Object.assign(stamina, staminaResult.staminaState);
 
@@ -735,31 +806,27 @@ function animate(now) {
     const fallCheck = checkFall(player.state, stamina);
     if (fallCheck.shouldFall && !player.state.isFalling) {
       preFallCameraDistance = orbit.distance;
-      player.state = enterFall(player.state);
+      player.state = enterFall(player.state, physicsCtx);
     }
     if (player.state.isFalling) {
-      player.state = updateFall(player.state, dt, FALL_CONSTANTS);
+      player.state = updateFall(player.state, dt, FALL_CONSTANTS, physicsCtx);
     }
     if (fallCheck.shouldRespawn) {
-      player.state = respawn(player.state, respawnPoints);
+      player.state = respawn(player.state, respawnPoints, physicsCtx);
     }
 
     if (!isPlayerClimbing(climbing) && !player.state.isFalling && !player.state.justRespawned && !isPlayerDodging(dodge)) {
       const moveInput = { x: inputState.move.x, y: inputState.move.y, jump: inputState.jump, sprint: inputState.sprint && !staminaResult.shouldPreventSprint };
-      player.state = updatePlayer(player.state, moveInput, orbit.yaw, dt, player);
+      player.state = updatePlayer(player.state, moveInput, orbit.yaw, dt, player, physicsCtx);
     }
     if (player.state.justRespawned) {
       player.state = { ...player.state, justRespawned: false };
     }
 
-    const wv = getWindVector(windSystem, player.state.position.x, player.state.position.y, player.state.position.z);
-    player.state.position.x += wv.x * 0.15 * dt;
-    player.state.position.z += wv.z * 0.15 * dt;
-
-    const currentForce = getForceAt(windCurrentSystem, player.state.position);
-    player.state.position.x += currentForce.x * 0.1 * dt;
-    player.state.position.y += currentForce.y * 0.1 * dt;
-    player.state.position.z += currentForce.z * 0.1 * dt;
+    const windForce = getWindForce(windSystem, player.state.position);
+    player.state.position.x += windForce.x * 0.1 * dt;
+    player.state.position.y += windForce.y * 0.1 * dt;
+    player.state.position.z += windForce.z * 0.1 * dt;
 
     const groundY = getGroundHeight(player.state.position.x, player.state.position.z);
     player.GROUND_Y = groundY;
@@ -773,6 +840,9 @@ function animate(now) {
         isJumping: false,
       };
     }
+
+    physicsAdapter.setPosition(physicsWorld, playerPhysicsBody, player.state.position);
+    physicsAdapter.setVelocity(physicsWorld, playerPhysicsBody, player.state.velocity);
 
     const isMoving = player.state.isGrounded && !isPlayerClimbing(climbing) &&
       (Math.abs(inputState.move.x) > 0.1 || Math.abs(inputState.move.y) > 0.1);
@@ -873,6 +943,7 @@ function animate(now) {
         const spawn = getArenaSpawnPoint(config.center);
         player.state = { ...player.state, position: spawn, velocity: { x: 0, y: 0, z: 0 }, isGrounded: true, isFalling: false, isJumping: false };
       }
+      orbit.snapToTarget(player.state.position);
     }
 
     if (arenaTransition.state === TRANSITION_STATES.IN_ARENA) {
@@ -925,7 +996,7 @@ function animate(now) {
     playerMesh.setPosition(pos.x, pos.y, pos.z);
 
     const wind = { x: 0, z: 0, strength: 1 };
-    particleSystem.particles = updateParticleSystem(particleSystem, wind, dt, now * 0.001).particles;
+    particleSystem.particles = updateParticleSystem(particleSystem, wind, dt).particles;
     const posAttr = particleGeometry.attributes.position;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const p = particleSystem.particles[i];
@@ -951,7 +1022,18 @@ function animate(now) {
     }
     wasFalling = player.state.isFalling;
     const adjustedTarget = { x: pos.x, y: pos.y + 1 + fallCamData.offsetY, z: pos.z };
-    const orbitResult = orbit.update(dt, inputState.look, adjustedTarget);
+    const orbitResult = orbit.update(dt, inputState.look, adjustedTarget, {
+      raycastFn: (origin, dir) => {
+        const dist = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+        if (dist === 0) return null;
+        const to = {
+          x: origin.x + dir.x,
+          y: origin.y + dir.y,
+          z: origin.z + dir.z,
+        };
+        return physicsAdapter.raycast(physicsWorld, origin, to);
+      },
+    });
     camera.syncFromOrbit(orbitResult);
 
     audioState = cleanupSounds(audioState, now * 0.001);
