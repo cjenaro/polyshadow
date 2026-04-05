@@ -744,8 +744,7 @@ function animate(now) {
   prevGamepadConnected = gamepadConnected;
 
   if (gameState.isPlaying()) {
-    windSystem = updateWindSystem(windSystem, dt);
-    windCurrentSystem = updateCurrents(windCurrentSystem, dt);
+    windSystem = updateCurrents(windSystem, dt);
 
     for (let i = 0; i < colossi.length; i++) {
       const pos = colossi[i].aiState.position || colossi[i].position;
