@@ -14,7 +14,8 @@ import {
   applyDamageToWeakPoint,
   updateCombat,
 } from "./combat.js";
-import { drainStamina, shouldTriggerFall } from "./stamina.js";
+
+
 
 function makeWeakPoint(overrides = {}) {
   return {

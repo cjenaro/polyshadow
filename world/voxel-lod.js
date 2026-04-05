@@ -27,7 +27,7 @@ function chunkCenterDist(cx, cy, cz, playerPos) {
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-export function shouldRenderChunk(cx, cy, cz, playerPos, lodLevel) {
+export function shouldRenderChunk(cx, cy, cz, playerPos, _lodLevel) {
   const dist = chunkCenterDist(cx, cy, cz, playerPos);
   return dist <= VIEW_DISTANCE;
 }
@@ -94,7 +94,6 @@ function buildMergedMesh(chunk, mergeSize) {
   const emissives = [];
   let vertexCount = 0;
 
-  const superSize = mergeSize;
   const FACE_DIRS = [
     { dx: 1, dy: 0, dz: 0, nx: 1, ny: 0, nz: 0 },
     { dx: -1, dy: 0, dz: 0, nx: -1, ny: 0, nz: 0 },

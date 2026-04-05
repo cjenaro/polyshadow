@@ -1,4 +1,4 @@
-import { vec3Add, vec3Scale, distance3D, randomRange, clamp } from "../utils/math.js";
+import { vec3Add, vec3Scale, distance3D, randomRange } from "../utils/math.js";
 import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from "./base.js";
 import { ColossusState } from "./behavior.js";
 import { moveToward2D } from "./steering.js";

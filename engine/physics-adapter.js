@@ -21,9 +21,6 @@ export function createMockAdapter() {
 
     createBody(world, opts) {
       const pos = opts.position || { x: 0, y: 0, z: 0 };
-      const vel = { x: 0, y: 0, z: 0 };
-      const forceAccum = { x: 0, y: 0, z: 0 };
-      const impulseAccum = { x: 0, y: 0, z: 0 };
       const mass = opts.type === "static" ? 0 : opts.mass || 1;
 
       const body = {

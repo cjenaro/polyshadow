@@ -1,7 +1,7 @@
 import { BlockType } from "../world/block-types.js";
-import { createSentinelDefinition, STONE_SENTINEL_SCALE } from "./sentinel.js";
-import { createWraithDefinition, WIND_WRAITH_SCALE } from "./wraith.js";
-import { createTitanDefinition, TIDE_TITAN_SCALE } from "./titan.js";
+import { createSentinelDefinition } from "./sentinel.js";
+import { createWraithDefinition } from "./wraith.js";
+import { createTitanDefinition } from "./titan.js";
 import { voxelBox, voxelSphere, voxelCylinder } from "./voxel-templates.js";
 
 function round3(v) {
@@ -9,22 +9,6 @@ function round3(v) {
     x: Math.round(v.x),
     y: Math.round(v.y),
     z: Math.round(v.z),
-  };
-}
-
-function buildPart(definition) {
-  const { dimensions: dim } = definition;
-  const blockType = definition.isWeakPoint ? BlockType.RUNE_GLOW : BlockType.STONE;
-  const voxels = voxelBox(
-    Math.max(1, Math.round(dim.width)),
-    Math.max(1, Math.round(dim.height)),
-    Math.max(1, Math.round(dim.depth)),
-    blockType,
-  );
-  return {
-    voxels,
-    offset: round3(definition.position),
-    transparent: definition.transparent || false,
   };
 }
 

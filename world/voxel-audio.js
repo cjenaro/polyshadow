@@ -50,6 +50,6 @@ export function getBlockBreakSound(blockType) {
   return name && BREAK_SOUNDS[name] ? { ...BREAK_SOUNDS[name] } : { ...DEFAULT_BREAK };
 }
 
-export function getBlockPlaceSound(blockType) {
+export function getBlockPlaceSound(_blockType) {
   return { ...PLACE_SOUND };
 }

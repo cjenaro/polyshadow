@@ -1,4 +1,3 @@
-import { vec3Add, vec3Scale } from "../utils/math.js";
 import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from "./base.js";
 import { generateNormalMapData } from "../utils/normal-map.js";
 

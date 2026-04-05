@@ -1,4 +1,4 @@
-import { vec3Add, vec3Scale, distance3D, lerp } from "../utils/math.js";
+import { distance3D, lerp } from "../utils/math.js";
 import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from "./base.js";
 import { moveToward2D, moveToward3D } from "./steering.js";
 import { generateNormalMapData } from "../utils/normal-map.js";

@@ -13,8 +13,6 @@ import { setTHREE as setWraithTHREE, WRAITH_STUN_DAMAGE_THRESHOLD } from "./wrai
 import { setTHREE as setTitanTHREE, TITAN_STUN_DAMAGE_THRESHOLD } from "./titan.js";
 import { SENTINEL_STUN_DAMAGE_THRESHOLD } from "./behavior.js";
 
-const mockMesh = { position: { x: 0, y: 0, z: 0 }, set() {}, add() {}, scale: { set() {} } };
-
 const mockTHREE = {
   Group: class {
     constructor() {
@@ -158,7 +156,6 @@ describe("updateColossi", () => {
 
   it("updates aiState for each colossus", () => {
     const colossi = [createColossus("sentinel", { x: 0, y: 0, z: 0 })];
-    const prevState = colossi[0].aiState.state;
     updateColossi(colossi, { x: 100, y: 0, z: 100 }, 0.1);
     assert.ok(colossi[0].aiState);
   });
@@ -172,7 +169,6 @@ describe("updateColossi", () => {
       currentWaypointIndex: 0,
       stateTimer: 0,
     };
-    const initialX = colossi[0].mesh.impl.position.x;
     updateColossi(colossi, { x: 100, y: 0, z: 100 }, 0.1);
     assert.ok(typeof colossi[0].mesh.impl.position.x === "number");
   });

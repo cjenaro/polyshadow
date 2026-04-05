@@ -18,7 +18,6 @@ describe("arena-transition", () => {
     { type: "titan", center: { x: -100, z: 80 } },
     { type: "wraith", center: { x: -60, z: -110 } },
   ];
-  const hubCenter = { x: 0, z: 0 };
   const defeated = new Set();
 
   describe("createArenaTransitionManager", () => {
