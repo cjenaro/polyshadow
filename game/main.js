@@ -21,6 +21,7 @@ import { createDeathIntegration, triggerDeathSequence, updateDeathIntegration, a
 import { createSteppingStonesPath, generatePathPoints, isOnPath } from '../world/paths.js';
 import { createDirectionIndicator, updateIndicators, isIndicatorVisible } from '../world/indicators.js';
 import { MusicSystem } from '../engine/music.js';
+import { createPostProcessState, updatePostProcessState, getActiveColorGrading, shouldEnableBloom } from '../engine/post-processing.js';
 import { createParticleSystem, updateParticleSystem, DEFAULT_BOUNDS } from '../world/particles.js';
 import { createFogSystem, updateFogSystem, DEFAULT_LAYERS } from '../world/fog.js';
 import { createWindSystem, updateWindSystem, getWindVector } from '../world/wind.js';
@@ -61,6 +62,7 @@ let audioState = createAudioState();
 let prevClimbing = false;
 let ambientWindNode = null;
 let ambientWindGain = null;
+let postProcess = createPostProcessState();
 
 function ensureAudio() {
   if (audioCtx) return;
@@ -695,6 +697,17 @@ function animate(now) {
     } else {
       music.setState('exploration');
     }
+
+    const ppConfig = ui.getPostProcessConfig(colossusDist < 50 ? 'combat' : 'exploration', colossusDist);
+    postProcess = updatePostProcessState(postProcess, ppConfig, dt);
+    const grading = getActiveColorGrading(postProcess);
+
+    const baseFogDensity = 0.02;
+    const fogDensity = baseFogDensity + postProcess.vignetteAmount * 0.02;
+    const warmR = grading.type === 'warm' ? 0.06 + grading.warmTint * 0.04 : 0.04;
+    const warmG = grading.type === 'warm' ? 0.05 + grading.warmTint * 0.02 : 0.04;
+    const warmB = grading.type === 'desaturated' ? 0.1 + grading.desaturationFactor * 0.03 : 0.07;
+    scene.setFog(new THREE.Color(warmR, warmG, warmB), fogDensity);
 
     for (const vis of windCurrentVisuals) {
       for (let i = 0; i < vis.count; i++) {
