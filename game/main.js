@@ -115,8 +115,20 @@ function animate(now) {
     }
 
     const moveInput = { x: state.move.x, y: state.move.y, jump: state.jump, sprint: state.sprint };
-    player.GROUND_Y = getGroundHeight(player.state.position.x, player.state.position.z);
     player.state = updatePlayer(player.state, moveInput, orbit.yaw, dt, player);
+
+    const groundY = getGroundHeight(player.state.position.x, player.state.position.z);
+    player.GROUND_Y = groundY;
+
+    if (player.state.velocity.y <= 0 && player.state.position.y <= groundY + 0.1) {
+      player.state = {
+        ...player.state,
+        position: { ...player.state.position, y: groundY },
+        velocity: { ...player.state.velocity, y: 0 },
+        isGrounded: true,
+        isJumping: false,
+      };
+    }
 
     const pos = player.state.position;
     playerMesh.setPosition(pos.x, pos.y + 0.6, pos.z);

@@ -38,21 +38,32 @@ export function getIslandSurfaceHeight(island, x, z) {
 
   if (dist >= island.radius) return 0;
 
-  const normalizedDist = dist / island.radius;
-  const noiseScale = 0.05;
-  const offsetX = island.seed * 0.137 + 0.5;
-  const offsetY = island.seed * 0.259 + 0.5;
+  const { heightData, resolution, radius } = island;
+  const side = resolution;
+  const step = (radius * 2) / resolution;
 
-  const ix = Math.floor((x - island.center.x + island.radius) * noiseScale * 20 + offsetX);
-  const iz = Math.floor((z - island.center.z + island.radius) * noiseScale * 20 + offsetY);
+  const gx = (x - island.center.x + radius) / step;
+  const gz = (z - island.center.z + radius) / step;
 
-  const hash = ((ix * 374761393 + iz * 668265263) & 0x7fffffff) / 0x7fffffff;
-  const noiseVal = (hash * 2 - 1) * 0.3 + 0.7;
+  const ix = Math.floor(gx);
+  const iz = Math.floor(gz);
+  const fx = gx - ix;
+  const fz = gz - iz;
 
-  let falloff = 1 - normalizedDist;
-  falloff = falloff * falloff;
+  const ix0 = Math.max(0, Math.min(resolution, ix));
+  const ix1 = Math.max(0, Math.min(resolution, ix + 1));
+  const iz0 = Math.max(0, Math.min(resolution, iz));
+  const iz1 = Math.max(0, Math.min(resolution, iz + 1));
 
-  return noiseVal * falloff * island.maxHeight;
+  const h00 = heightData[iz0 * side + ix0] || 0;
+  const h10 = heightData[iz0 * side + ix1] || 0;
+  const h01 = heightData[iz1 * side + ix0] || 0;
+  const h11 = heightData[iz1 * side + ix1] || 0;
+
+  const h0 = h00 * (1 - fx) + h10 * fx;
+  const h1 = h01 * (1 - fx) + h11 * fx;
+
+  return h0 * (1 - fz) + h1 * fz;
 }
 
 export function isOnIsland(island, x, z) {
