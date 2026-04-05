@@ -32,7 +32,7 @@ describe("voxel-init", () => {
     it("returns callable update function", () => {
       const ctx = initVoxelSystems();
       ctx.storage.setBlock(5, 5, 5, BlockType.STONE);
-      const result = updateVoxelFrame(ctx, { x: 5, y: 5, z: 5 }, 0.016);
+      updateVoxelFrame(ctx, { x: 5, y: 5, z: 5 }, 0.016);
       assert.strictEqual(ctx.chunkManager.getDirtyQueueLength(), 0);
       assert.strictEqual(ctx.chunkManager.getMeshCount(), 1);
     });

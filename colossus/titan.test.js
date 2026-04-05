@@ -1,7 +1,6 @@
 import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 import {
-  TIDE_TITAN_SCALE,
   TITAN_BEHAVIOR_CONFIG,
   createTitanDefinition,
   generateTitanSurfacePatches,
@@ -22,7 +21,7 @@ import {
   animateTitan,
   setTHREE,
 } from "./titan.js";
-import { createColossusBody, getWeakPoints, getAllClimbableParts, getBodyBounds } from "./base.js";
+import { createColossusBody, getWeakPoints, getBodyBounds } from "./base.js";
 import { ColossusState } from "./behavior.js";
 import { SENTINEL_STUN_DAMAGE_THRESHOLD } from "./behavior.js";
 
@@ -858,13 +857,13 @@ function createMockTHREE() {
       return m;
     },
     MeshStandardMaterial: createMockMaterial,
-    SphereGeometry: function (...args) {
+    SphereGeometry: function (..._args) {
       return { scale() {} };
     },
-    BoxGeometry: function (...args) {
+    BoxGeometry: function (..._args) {
       return {};
     },
-    CylinderGeometry: function (...args) {
+    CylinderGeometry: function (..._args) {
       return {};
     },
     Color: function (c) {

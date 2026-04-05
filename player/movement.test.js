@@ -182,7 +182,7 @@ describe("applyMovement air control with adapter", () => {
     adapter.setVelocity(world, playerBody, { x: 0, y: 3, z: 0 });
 
     const state = makeState({ isGrounded: false, velocity: { x: 0, y: 3, z: 0 } });
-    const newState = applyMovement(
+    applyMovement(
       state,
       { x: 0, y: -1 },
       0,

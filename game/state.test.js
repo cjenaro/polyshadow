@@ -106,8 +106,8 @@ describe("GameState", () => {
   it("onTransition supports multiple callbacks", () => {
     const state = new GameState();
     const results = [];
-    state.onTransition((from, to) => results.push("a"));
-    state.onTransition((from, to) => results.push("b"));
+    state.onTransition((_from, _to) => results.push("a"));
+    state.onTransition((_from, _to) => results.push("b"));
     state.transition("playing");
     assert.deepStrictEqual(results, ["a", "b"]);
   });
