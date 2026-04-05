@@ -9,8 +9,9 @@ import {
   getColossusByType,
 } from './integration.js';
 import { setTHREE as setSentinelTHREE } from './sentinel.js';
-import { setTHREE as setWraithTHREE } from './wraith.js';
-import { setTHREE as setTitanTHREE } from './titan.js';
+import { setTHREE as setWraithTHREE, WRAITH_STUN_DAMAGE_THRESHOLD } from './wraith.js';
+import { setTHREE as setTitanTHREE, TITAN_STUN_DAMAGE_THRESHOLD } from './titan.js';
+import { SENTINEL_STUN_DAMAGE_THRESHOLD } from './behavior.js';
 
 const mockMesh = { position: { x: 0, y: 0, z: 0 }, set() {}, add() {}, scale: { set() {} } };
 
@@ -236,6 +237,66 @@ describe('getColossusSurfaces', () => {
     assert.ok(Math.abs(topPatch.normal.y - 1) < 1e-10);
     assert.ok(Math.abs(topPatch.normal.z) < 1e-10);
   });
+
+  it('propagates isRestSpot to surfaces from rest spot body parts', () => {
+    const c = createColossus('sentinel', { x: 0, y: 0, z: 0 });
+    const surfaces = getColossusSurfaces([c]);
+    const torsoSurfaces = surfaces.filter(s => s.bodyPartId === 'torso');
+    assert.ok(torsoSurfaces.length > 0, 'sentinel should have torso surfaces');
+    for (const s of torsoSurfaces) {
+      assert.strictEqual(s.isRestSpot, true, `torso surface should be rest spot`);
+    }
+  });
+
+  it('sets isRestSpot false for non-rest-spot body parts', () => {
+    const c = createColossus('sentinel', { x: 0, y: 0, z: 0 });
+    const surfaces = getColossusSurfaces([c]);
+    const legSurfaces = surfaces.filter(s => s.bodyPartId.startsWith('front_left_upper'));
+    assert.ok(legSurfaces.length > 0, 'sentinel should have leg surfaces');
+    for (const s of legSurfaces) {
+      assert.strictEqual(s.isRestSpot, false, `${s.bodyPartId} should not be rest spot`);
+    }
+  });
+
+  it('each surface has isRestSpot field', () => {
+    const colossi = [
+      createColossus('sentinel', { x: 0, y: 0, z: 0 }),
+      createColossus('wraith', { x: 50, y: 0, z: 50 }),
+      createColossus('titan', { x: -50, y: 0, z: 0 }),
+    ];
+    const surfaces = getColossusSurfaces(colossi);
+    assert.ok(surfaces.length > 0);
+    for (const s of surfaces) {
+      assert.ok(typeof s.isRestSpot === 'boolean', `${s.bodyPartId} missing boolean isRestSpot`);
+    }
+  });
+
+  it('wraith has rest spot surfaces on chest and neck', () => {
+    const c = createColossus('wraith', { x: 0, y: 0, z: 0 });
+    const surfaces = getColossusSurfaces([c]);
+    const chestSurfaces = surfaces.filter(s => s.bodyPartId === 'chest');
+    const neckSurfaces = surfaces.filter(s => s.bodyPartId === 'neck');
+    assert.ok(chestSurfaces.length > 0, 'wraith should have chest surfaces');
+    assert.ok(neckSurfaces.length > 0, 'wraith should have neck surfaces');
+    for (const s of chestSurfaces) {
+      assert.strictEqual(s.isRestSpot, true);
+    }
+    for (const s of neckSurfaces) {
+      assert.strictEqual(s.isRestSpot, true);
+    }
+  });
+
+  it('titan has rest spot surfaces on shell parts', () => {
+    const c = createColossus('titan', { x: 0, y: 0, z: 0 });
+    const surfaces = getColossusSurfaces([c]);
+    for (const partId of ['shell_main', 'shell_front', 'shell_rear']) {
+      const partSurfaces = surfaces.filter(s => s.bodyPartId === partId);
+      assert.ok(partSurfaces.length > 0, `titan should have ${partId} surfaces`);
+      for (const s of partSurfaces) {
+        assert.strictEqual(s.isRestSpot, true, `${partId} should be rest spot`);
+      }
+    }
+  });
 });
 
 describe('getColossusWeakPoints', () => {
@@ -315,6 +376,42 @@ describe('damageColossus', () => {
       damageColossus([c], 'sentinel', wp.id, wp.health);
     }
     assert.equal(c.aiState.state, 'dying');
+  });
+
+  it('stuns sentinel when enough damage is dealt', () => {
+    const c = createColossus('sentinel', { x: 0, y: 0, z: 0 });
+    c.aiState = { ...c.aiState, state: 'aggro' };
+    const wpId = c.weakPoints[0].id;
+    const result = damageColossus([c], 'sentinel', wpId, SENTINEL_STUN_DAMAGE_THRESHOLD);
+    assert.equal(result.stunned, true);
+    assert.equal(c.aiState.state, 'stunned');
+  });
+
+  it('stuns titan when enough damage is dealt', () => {
+    const c = createColossus('titan', { x: 0, y: 0, z: 0 });
+    c.aiState = { ...c.aiState, state: 'aggro' };
+    const wpId = c.weakPoints[0].id;
+    const result = damageColossus([c], 'titan', wpId, TITAN_STUN_DAMAGE_THRESHOLD);
+    assert.equal(result.stunned, true);
+    assert.equal(c.aiState.state, 'stunned');
+  });
+
+  it('stuns wraith when enough damage is dealt', () => {
+    const c = createColossus('wraith', { x: 0, y: 0, z: 0 });
+    c.aiState = { ...c.aiState, state: 'circling', altitude: 25 };
+    const wpId = c.weakPoints[0].id;
+    const result = damageColossus([c], 'wraith', wpId, WRAITH_STUN_DAMAGE_THRESHOLD);
+    assert.equal(result.stunned, true);
+    assert.equal(c.aiState.state, 'stunned');
+  });
+
+  it('does not stun if damage is below threshold', () => {
+    const c = createColossus('sentinel', { x: 0, y: 0, z: 0 });
+    c.aiState = { ...c.aiState, state: 'aggro' };
+    const wpId = c.weakPoints[0].id;
+    const result = damageColossus([c], 'sentinel', wpId, 5);
+    assert.equal(result.stunned, false);
+    assert.equal(c.aiState.state, 'aggro');
   });
 });
 

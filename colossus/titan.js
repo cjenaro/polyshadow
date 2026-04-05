@@ -67,21 +67,21 @@ export function createTitanDefinition() {
       position: { x: 0, y: shellY, z: 0 },
       dimensions: { width: shellW, height: shellH, depth: shellD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: null, isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: null, isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
     },
     {
       id: 'shell_front', name: 'Shell Front', type: 'core',
       position: { x: 0, y: shellY - shellH * 0.1, z: shellFrontZ },
       dimensions: { width: shellFrontW, height: shellFrontH, depth: shellFrontD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'shell_main', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: 'shell_main', isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
     },
     {
       id: 'shell_rear', name: 'Shell Rear', type: 'core',
       position: { x: 0, y: shellY - shellH * 0.1, z: shellRearZ },
       dimensions: { width: shellRearW, height: shellRearH, depth: shellRearD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'shell_main', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: 'shell_main', isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
     },
     {
       id: 'underbelly', name: 'Underbelly', type: 'core',
@@ -291,6 +291,7 @@ export function getTitanWeakPointPositions(definition, colossusPosition, colossu
 }
 
 export const WEAK_POINT_BASE_HEALTH = 50;
+export const TITAN_STUN_DAMAGE_THRESHOLD = 80;
 
 export function buildCombatWeakPoints(definition, colossusPosition, colossusRotation, isStunned = false) {
   const body = definition.parts instanceof Map ? definition : createColossusBody(definition);
@@ -381,6 +382,7 @@ export function createTitanBehaviorState(overrides = {}) {
     tiltAngle: 0,
     tiltDirection: { x: 0, z: 1 },
     isSubmerged: false,
+    stunDamageAccumulator: 0,
     ...overrides,
   };
 }
@@ -559,6 +561,34 @@ export function triggerTitanPhase2(aiState) {
     ...aiState,
     phase: 2,
   };
+}
+
+export function applyTitanDamage(aiState, config, damage) {
+  if (aiState.state === ColossusState.STUNNED || aiState.state === ColossusState.DYING) {
+    return { ...aiState };
+  }
+
+  const newAccumulator = (aiState.stunDamageAccumulator || 0) + damage;
+
+  if (newAccumulator >= TITAN_STUN_DAMAGE_THRESHOLD) {
+    return {
+      ...aiState,
+      state: ColossusState.STUNNED,
+      stunTimer: config.stunDuration,
+      stateTimer: 0,
+      stunDamageAccumulator: 0,
+    };
+  }
+
+  return {
+    ...aiState,
+    stunDamageAccumulator: newAccumulator,
+  };
+}
+
+export function getTitanStunProgress(aiState) {
+  const acc = aiState.stunDamageAccumulator || 0;
+  return Math.min(1, acc / TITAN_STUN_DAMAGE_THRESHOLD);
 }
 
 export function getShockwaveForce(aiState, config, playerPosition, colossusPosition) {

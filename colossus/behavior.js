@@ -22,6 +22,8 @@ export const SENTINEL_BEHAVIOR_CONFIG = {
   maxHealth: 100,
 };
 
+export const SENTINEL_STUN_DAMAGE_THRESHOLD = 40;
+
 function generatePatrolWaypoints(center, radius, count = 4) {
   const waypoints = [];
   for (let i = 0; i < count; i++) {
@@ -51,6 +53,7 @@ export function createBehaviorState(overrides = {}) {
     arenaCenter: { x: 0, z: 0 },
     shakeOffTimer: 0,
     lastShakeOffTime: 0,
+    stunDamageAccumulator: 0,
     ...overrides,
   };
 }
@@ -190,6 +193,34 @@ export function isClimbable(aiState) {
   return aiState.state === ColossusState.PATROL ||
          aiState.state === ColossusState.AGGRO ||
          aiState.state === ColossusState.STUNNED;
+}
+
+export function applySentinelDamage(aiState, config, damage) {
+  if (aiState.state === ColossusState.STUNNED || aiState.state === ColossusState.DYING) {
+    return { ...aiState };
+  }
+
+  const newAccumulator = (aiState.stunDamageAccumulator || 0) + damage;
+
+  if (newAccumulator >= SENTINEL_STUN_DAMAGE_THRESHOLD) {
+    return {
+      ...aiState,
+      state: ColossusState.STUNNED,
+      stunTimer: config.stunDuration,
+      stateTimer: 0,
+      stunDamageAccumulator: 0,
+    };
+  }
+
+  return {
+    ...aiState,
+    stunDamageAccumulator: newAccumulator,
+  };
+}
+
+export function getSentinelStunProgress(aiState) {
+  const acc = aiState.stunDamageAccumulator || 0;
+  return Math.min(1, acc / SENTINEL_STUN_DAMAGE_THRESHOLD);
 }
 
 export function getFacingDirection(rotation) {

@@ -10,6 +10,9 @@ import {
   isClimbable,
   getFacingDirection,
   shouldShakeOff,
+  applySentinelDamage,
+  getSentinelStunProgress,
+  SENTINEL_STUN_DAMAGE_THRESHOLD,
 } from './behavior.js';
 
 function makeAIState(overrides = {}) {
@@ -478,5 +481,113 @@ describe('Health and death', () => {
     assert.strictEqual(state.health, 0);
     const dying = triggerDeath(state);
     assert.strictEqual(dying.state, ColossusState.DYING);
+  });
+});
+
+describe('applySentinelDamage', () => {
+  it('returns updated state with damage accumulated', () => {
+    const state = makeAIState({ state: ColossusState.AGGRO });
+    const result = applySentinelDamage(state, config, 10);
+    assert.strictEqual(result.stunDamageAccumulator, 10);
+  });
+
+  it('accumulates damage across multiple hits', () => {
+    const state = makeAIState({ state: ColossusState.AGGRO });
+    let result = applySentinelDamage(state, config, 15);
+    result = applySentinelDamage(result, config, 10);
+    assert.strictEqual(result.stunDamageAccumulator, 25);
+  });
+
+  it('auto-stuns when accumulated damage reaches threshold', () => {
+    const state = makeAIState({ state: ColossusState.AGGRO });
+    const damage = SENTINEL_STUN_DAMAGE_THRESHOLD;
+    const result = applySentinelDamage(state, config, damage);
+    assert.strictEqual(result.state, ColossusState.STUNNED);
+    assert.strictEqual(result.stunTimer, config.stunDuration);
+  });
+
+  it('resets accumulator after triggering stun', () => {
+    const state = makeAIState({
+      state: ColossusState.AGGRO,
+      stunDamageAccumulator: SENTINEL_STUN_DAMAGE_THRESHOLD - 1,
+    });
+    const result = applySentinelDamage(state, config, 2);
+    assert.strictEqual(result.stunDamageAccumulator, 0);
+  });
+
+  it('does not accumulate damage while already stunned', () => {
+    const state = makeAIState({
+      state: ColossusState.STUNNED,
+      stunTimer: 1.0,
+      stunDamageAccumulator: 0,
+    });
+    const result = applySentinelDamage(state, config, 50);
+    assert.strictEqual(result.stunDamageAccumulator, 0);
+    assert.strictEqual(result.stunTimer, 1.0);
+  });
+
+  it('does not accumulate damage while dying', () => {
+    const state = makeAIState({
+      state: ColossusState.DYING,
+      stunDamageAccumulator: 0,
+    });
+    const result = applySentinelDamage(state, config, 50);
+    assert.strictEqual(result.stunDamageAccumulator, 0);
+  });
+
+  it('does not stun if damage does not reach threshold', () => {
+    const state = makeAIState({ state: ColossusState.AGGRO });
+    const result = applySentinelDamage(state, config, SENTINEL_STUN_DAMAGE_THRESHOLD - 1);
+    assert.strictEqual(result.state, ColossusState.AGGRO);
+    assert.strictEqual(result.stunDamageAccumulator, SENTINEL_STUN_DAMAGE_THRESHOLD - 1);
+  });
+});
+
+describe('getSentinelStunProgress', () => {
+  it('returns 0 when no damage accumulated', () => {
+    const state = makeAIState({ state: ColossusState.AGGRO });
+    assert.strictEqual(getSentinelStunProgress(state), 0);
+  });
+
+  it('returns 0.5 when half the threshold is accumulated', () => {
+    const state = makeAIState({
+      state: ColossusState.AGGRO,
+      stunDamageAccumulator: SENTINEL_STUN_DAMAGE_THRESHOLD / 2,
+    });
+    assert.ok(Math.abs(getSentinelStunProgress(state) - 0.5) < 0.001);
+  });
+
+  it('returns 1.0 when at threshold', () => {
+    const state = makeAIState({
+      state: ColossusState.AGGRO,
+      stunDamageAccumulator: SENTINEL_STUN_DAMAGE_THRESHOLD,
+    });
+    assert.strictEqual(getSentinelStunProgress(state), 1.0);
+  });
+
+  it('clamps to 1.0 when over threshold', () => {
+    const state = makeAIState({
+      state: ColossusState.AGGRO,
+      stunDamageAccumulator: SENTINEL_STUN_DAMAGE_THRESHOLD + 50,
+    });
+    assert.strictEqual(getSentinelStunProgress(state), 1.0);
+  });
+});
+
+describe('SENTINEL_STUN_DAMAGE_THRESHOLD', () => {
+  it('is a positive number', () => {
+    assert.ok(typeof SENTINEL_STUN_DAMAGE_THRESHOLD === 'number');
+    assert.ok(SENTINEL_STUN_DAMAGE_THRESHOLD > 0);
+  });
+
+  it('is less than maxHealth', () => {
+    assert.ok(SENTINEL_STUN_DAMAGE_THRESHOLD < SENTINEL_BEHAVIOR_CONFIG.maxHealth);
+  });
+});
+
+describe('createBehaviorState stun fields', () => {
+  it('initializes stunDamageAccumulator to 0', () => {
+    const state = createBehaviorState();
+    assert.strictEqual(state.stunDamageAccumulator, 0);
   });
 });

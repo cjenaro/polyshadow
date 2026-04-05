@@ -14,6 +14,9 @@ import {
   isArenaSubmerged,
   getSubmergeWarning,
   triggerTitanPhase2,
+  applyTitanDamage,
+  getTitanStunProgress,
+  TITAN_STUN_DAMAGE_THRESHOLD,
   getShockwaveForce,
   createTitanMesh,
   animateTitan,
@@ -21,6 +24,7 @@ import {
 } from './titan.js';
 import { createColossusBody, getWeakPoints, getAllClimbableParts, getBodyBounds } from './base.js';
 import { ColossusState } from './behavior.js';
+import { SENTINEL_STUN_DAMAGE_THRESHOLD } from './behavior.js';
 
 describe('createTitanDefinition', () => {
   it('returns a valid body definition', () => {
@@ -882,5 +886,131 @@ describe('animateTitan', () => {
       assert.ok(drift <= maxDrift + 0.001,
         `${id} Y drifted by ${drift} after 1000 frames (expected max ${maxDrift})`);
     }
+  });
+});
+
+describe('applyTitanDamage', () => {
+  it('returns updated state with damage accumulated', () => {
+    const state = createTitanBehaviorState({ state: ColossusState.AGGRO });
+    const result = applyTitanDamage(state, TITAN_BEHAVIOR_CONFIG, 20);
+    assert.strictEqual(result.stunDamageAccumulator, 20);
+  });
+
+  it('accumulates damage across multiple hits', () => {
+    const state = createTitanBehaviorState({ state: ColossusState.AGGRO });
+    let result = applyTitanDamage(state, TITAN_BEHAVIOR_CONFIG, 30);
+    result = applyTitanDamage(result, TITAN_BEHAVIOR_CONFIG, 25);
+    assert.strictEqual(result.stunDamageAccumulator, 55);
+  });
+
+  it('auto-stuns when accumulated damage reaches threshold', () => {
+    const state = createTitanBehaviorState({ state: ColossusState.AGGRO });
+    const result = applyTitanDamage(state, TITAN_BEHAVIOR_CONFIG, TITAN_STUN_DAMAGE_THRESHOLD);
+    assert.strictEqual(result.state, ColossusState.STUNNED);
+    assert.strictEqual(result.stunTimer, TITAN_BEHAVIOR_CONFIG.stunDuration);
+  });
+
+  it('resets accumulator after triggering stun', () => {
+    const state = createTitanBehaviorState({
+      state: ColossusState.AGGRO,
+      stunDamageAccumulator: TITAN_STUN_DAMAGE_THRESHOLD - 1,
+    });
+    const result = applyTitanDamage(state, TITAN_BEHAVIOR_CONFIG, 2);
+    assert.strictEqual(result.stunDamageAccumulator, 0);
+  });
+
+  it('does not accumulate damage while already stunned', () => {
+    const state = createTitanBehaviorState({
+      state: ColossusState.STUNNED,
+      stunTimer: 1.0,
+      stunDamageAccumulator: 0,
+    });
+    const result = applyTitanDamage(state, TITAN_BEHAVIOR_CONFIG, 100);
+    assert.strictEqual(result.stunDamageAccumulator, 0);
+    assert.strictEqual(result.stunTimer, 1.0);
+  });
+
+  it('does not accumulate damage while dying', () => {
+    const state = createTitanBehaviorState({
+      state: ColossusState.DYING,
+      stunDamageAccumulator: 0,
+    });
+    const result = applyTitanDamage(state, TITAN_BEHAVIOR_CONFIG, 100);
+    assert.strictEqual(result.stunDamageAccumulator, 0);
+  });
+
+  it('does not stun if damage does not reach threshold', () => {
+    const state = createTitanBehaviorState({ state: ColossusState.AGGRO });
+    const result = applyTitanDamage(state, TITAN_BEHAVIOR_CONFIG, TITAN_STUN_DAMAGE_THRESHOLD - 1);
+    assert.strictEqual(result.state, ColossusState.AGGRO);
+    assert.strictEqual(result.stunDamageAccumulator, TITAN_STUN_DAMAGE_THRESHOLD - 1);
+  });
+
+  it('works during phase 2', () => {
+    const state = createTitanBehaviorState({ state: ColossusState.AGGRO, phase: 2 });
+    const result = applyTitanDamage(state, TITAN_BEHAVIOR_CONFIG, 20);
+    assert.strictEqual(result.stunDamageAccumulator, 20);
+    assert.strictEqual(result.phase, 2);
+  });
+});
+
+describe('getTitanStunProgress', () => {
+  it('returns 0 when no damage accumulated', () => {
+    const state = createTitanBehaviorState({ state: ColossusState.AGGRO });
+    assert.strictEqual(getTitanStunProgress(state), 0);
+  });
+
+  it('returns 0.5 when half the threshold is accumulated', () => {
+    const state = createTitanBehaviorState({
+      state: ColossusState.AGGRO,
+      stunDamageAccumulator: TITAN_STUN_DAMAGE_THRESHOLD / 2,
+    });
+    assert.ok(Math.abs(getTitanStunProgress(state) - 0.5) < 0.001);
+  });
+
+  it('returns 1.0 when at threshold', () => {
+    const state = createTitanBehaviorState({
+      state: ColossusState.AGGRO,
+      stunDamageAccumulator: TITAN_STUN_DAMAGE_THRESHOLD,
+    });
+    assert.strictEqual(getTitanStunProgress(state), 1.0);
+  });
+
+  it('clamps to 1.0 when over threshold', () => {
+    const state = createTitanBehaviorState({
+      state: ColossusState.AGGRO,
+      stunDamageAccumulator: TITAN_STUN_DAMAGE_THRESHOLD + 100,
+    });
+    assert.strictEqual(getTitanStunProgress(state), 1.0);
+  });
+
+  it('returns 0 when stunned (accumulator was reset)', () => {
+    const state = createTitanBehaviorState({
+      state: ColossusState.STUNNED,
+      stunDamageAccumulator: 0,
+    });
+    assert.strictEqual(getTitanStunProgress(state), 0);
+  });
+});
+
+describe('TITAN_STUN_DAMAGE_THRESHOLD', () => {
+  it('is a positive number', () => {
+    assert.ok(typeof TITAN_STUN_DAMAGE_THRESHOLD === 'number');
+    assert.ok(TITAN_STUN_DAMAGE_THRESHOLD > 0);
+  });
+
+  it('is less than maxHealth', () => {
+    assert.ok(TITAN_STUN_DAMAGE_THRESHOLD < TITAN_BEHAVIOR_CONFIG.maxHealth);
+  });
+
+  it('is higher than sentinel threshold (titan is tankier)', () => {
+    assert.ok(TITAN_STUN_DAMAGE_THRESHOLD > SENTINEL_STUN_DAMAGE_THRESHOLD);
+  });
+});
+
+describe('createTitanBehaviorState stun fields', () => {
+  it('initializes stunDamageAccumulator to 0', () => {
+    const state = createTitanBehaviorState();
+    assert.strictEqual(state.stunDamageAccumulator, 0);
   });
 });
