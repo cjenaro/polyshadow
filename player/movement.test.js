@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import { PlayerCharacter } from './character.js';
+import { createMockAdapter } from '../engine/physics-adapter.js';
 import {
   calculateMovementDirection,
   applyMovement,
@@ -138,6 +139,29 @@ describe('updatePlayer', () => {
     assert.ok(Math.abs(state.position.y - constants.GROUND_Y) < 0.1, 'should be on ground');
   });
 
+  it('passes physicsCtx through to sub-functions', () => {
+    const adapter = createMockAdapter();
+    const world = adapter.createPhysicsWorld();
+    const playerBody = adapter.createBody(world, { type: 'dynamic', mass: 1, position: { x: 0, y: 0, z: 0 } });
+    adapter.addBody(world, playerBody);
+    adapter.setPosition(world, playerBody, { x: 0, y: 0, z: 0 });
+
+    const state = makeState({ position: { x: 0, y: 5, z: 0 }, velocity: { x: 0, y: 0, z: 0 }, isGrounded: false });
+    const input = { x: 0, y: -1, jump: false, sprint: false };
+    const physicsCtx = { adapter, world, playerBody };
+
+    const newState = updatePlayer(state, input, 0, 0.016, constants, physicsCtx);
+
+    assert.strictEqual(typeof newState.isGrounded, 'boolean');
+  });
+
+  it('backward compatible: works without physicsCtx', () => {
+    const state = makeState();
+    const input = { x: 0, y: -1, jump: false, sprint: false };
+    const newState = updatePlayer(state, input, 0, 0.016, constants);
+    assert.ok(newState.position.z < 0);
+  });
+
   it('walking state sets isSprinting=false and isJumping=false when appropriate', () => {
     let state = makeState({ isSprinting: true, isJumping: true, isGrounded: true });
     const input = { x: 0, y: -1, jump: false, sprint: false };
@@ -146,5 +170,94 @@ describe('updatePlayer', () => {
 
     assert.strictEqual(state.isSprinting, false);
     assert.strictEqual(state.isJumping, false);
+  });
+});
+
+describe('applyMovement with adapter', () => {
+  it('calls adapter.setVelocity when adapter is provided', () => {
+    const adapter = createMockAdapter();
+    const world = adapter.createPhysicsWorld();
+    const playerBody = adapter.createBody(world, { type: 'dynamic', mass: 1, position: { x: 0, y: 0, z: 0 } });
+    adapter.addBody(world, playerBody);
+    adapter.setPosition(world, playerBody, { x: 5, y: 10, z: 5 });
+    adapter.setVelocity(world, playerBody, { x: 0, y: 3, z: 0 });
+
+    const state = makeState({ velocity: { x: 0, y: 3, z: 0 } });
+    const newState = applyMovement(state, { x: 0, y: -1 }, 0, 0.016, false, constants, adapter, world, playerBody);
+
+    const vel = adapter.getVelocity(world, playerBody);
+    assert.ok(vel.z !== 0, 'adapter velocity z should be set');
+    assert.strictEqual(vel.y, 3, 'adapter should preserve currentVy');
+    assert.strictEqual(newState.velocity.x, vel.x, 'returned state velocity matches adapter');
+    assert.strictEqual(newState.velocity.z, vel.z, 'returned state velocity.z matches adapter');
+  });
+
+  it('backward compatible: works without adapter', () => {
+    const state = makeState();
+    const newState = applyMovement(state, { x: 0, y: -1 }, 0, 1, false, constants);
+    assert.ok(newState.position.z < 0);
+  });
+});
+
+describe('applyJump with adapter', () => {
+  it('calls adapter.applyImpulse when adapter is provided', () => {
+    const adapter = createMockAdapter();
+    const world = adapter.createPhysicsWorld();
+    const playerBody = adapter.createBody(world, { type: 'dynamic', mass: 1, position: { x: 0, y: 0, z: 0 } });
+    adapter.addBody(world, playerBody);
+    adapter.setVelocity(world, playerBody, { x: 0, y: 0, z: 0 });
+
+    const state = makeState({ isGrounded: true });
+    const newState = applyJump(state, constants, adapter, world, playerBody);
+
+    assert.strictEqual(newState.isGrounded, false);
+    assert.strictEqual(newState.isJumping, true);
+
+    adapter.step(world, 0.016);
+    const vel = adapter.getVelocity(world, playerBody);
+    assert.ok(vel.y > 0, 'impulse should cause upward velocity');
+  });
+
+  it('does not call adapter.applyImpulse when not grounded', () => {
+    const adapter = createMockAdapter();
+    const world = adapter.createPhysicsWorld();
+    const playerBody = adapter.createBody(world, { type: 'dynamic', mass: 1, position: { x: 0, y: 10, z: 0 } });
+    adapter.addBody(world, playerBody);
+
+    const state = makeState({ isGrounded: false });
+    const newState = applyJump(state, constants, adapter, world, playerBody);
+
+    assert.strictEqual(newState, state);
+  });
+
+  it('backward compatible: works without adapter', () => {
+    const state = makeState({ isGrounded: true });
+    const newState = applyJump(state, constants);
+    assert.ok(newState.velocity.y > 0);
+    assert.strictEqual(newState.isGrounded, false);
+  });
+});
+
+describe('applyGravity with adapter', () => {
+  it('skips manual gravity when adapter is provided', () => {
+    const adapter = createMockAdapter();
+    const world = adapter.createPhysicsWorld();
+    const playerBody = adapter.createBody(world, { type: 'dynamic', mass: 1, position: { x: 0, y: 0, z: 0 } });
+    adapter.addBody(world, playerBody);
+    adapter.setPosition(world, playerBody, { x: 0, y: 0, z: 0 });
+    adapter.setVelocity(world, playerBody, { x: 0, y: 0, z: 0 });
+
+    const state = makeState({ position: { x: 0, y: 5, z: 0 }, velocity: { x: 0, y: -10, z: 0 }, isGrounded: false });
+
+    const newState = applyGravity(state, 0.016, constants, adapter, world, playerBody);
+
+    assert.ok(newState.velocity.y !== state.velocity.y + constants.GRAVITY * 0.016, 'should NOT do manual Euler integration');
+  });
+
+  it('backward compatible: manual gravity without adapter', () => {
+    const state = makeState({ position: { x: 0, y: 5, z: 0 }, isGrounded: false });
+    const newState = applyGravity(state, 0.1, constants);
+    assert.ok(newState.velocity.y < 0);
+    assert.ok(newState.position.y < 5);
   });
 });

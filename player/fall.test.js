@@ -330,3 +330,118 @@ describe('checkFall', () => {
     assert.strictEqual(result.shouldRespawn, false);
   });
 });
+
+describe('enterFall with physics adapter', () => {
+  it('calls adapter.setVelocity when physicsCtx provided', () => {
+    const adapter = { setVelocity: (w, b, v) => { adapter._calledWith = { world: w, body: b, vel: v }; } };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const state = makeState({ velocity: { x: 3, y: 5, z: -2 } });
+    const physicsCtx = { adapter, world, playerBody };
+    enterFall(state, physicsCtx);
+    assert.strictEqual(adapter._calledWith.world, world);
+    assert.strictEqual(adapter._calledWith.body, playerBody);
+    assert.strictEqual(adapter._calledWith.vel.x, 3);
+    assert.strictEqual(adapter._calledWith.vel.y, 0);
+    assert.strictEqual(adapter._calledWith.vel.z, -2);
+  });
+
+  it('still returns correct state when physicsCtx provided', () => {
+    const adapter = { setVelocity: () => {} };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const state = makeState({ velocity: { x: 1, y: 10, z: 0 } });
+    const result = enterFall(state, { adapter, world, playerBody });
+    assert.strictEqual(result.isFalling, true);
+    assert.strictEqual(result.isGrounded, false);
+    assert.strictEqual(result.isClimbing, false);
+    assert.strictEqual(result.velocity.y, 0);
+    assert.strictEqual(result.velocity.x, 1);
+  });
+});
+
+describe('updateFall with physics adapter', () => {
+  it('calls adapter.applyForce and reads position/velocity from adapter', () => {
+    const forces = [];
+    const adapter = {
+      applyForce: (w, b, f) => { forces.push({ world: w, body: b, force: f }); },
+      getPosition: () => ({ x: 1.0, y: -5.0, z: 2.0 }),
+      getVelocity: () => ({ x: 0, y: -3.0, z: 0 }),
+    };
+    const world = Symbol('world');
+    const playerBody = { mass: 2 };
+    const state = makeState({ isFalling: true, fallTime: 0, velocity: { x: 0, y: 0, z: 0 }, position: { x: 0, y: 10, z: 0 } });
+    const result = updateFall(state, 0.1, FALL_CONSTANTS, { adapter, world, playerBody });
+    assert.strictEqual(forces.length, 1);
+    assert.strictEqual(forces[0].world, world);
+    assert.strictEqual(forces[0].body, playerBody);
+    const expectedForceY = -20 * FALL_CONSTANTS.FALL_GRAVITY_MULTIPLIER * 2;
+    assert.strictEqual(forces[0].force.x, 0);
+    assert.strictEqual(forces[0].force.z, 0);
+    assert.ok(Math.abs(forces[0].force.y - expectedForceY) < 1e-6);
+    assert.strictEqual(result.position.x, 1.0);
+    assert.strictEqual(result.position.y, -5.0);
+    assert.strictEqual(result.velocity.y, -3.0);
+  });
+
+  it('increments fallTime when adapter provided', () => {
+    const adapter = { applyForce: () => {}, getPosition: () => ({ x: 0, y: 0, z: 0 }), getVelocity: () => ({ x: 0, y: 0, z: 0 }) };
+    const world = Symbol('world');
+    const playerBody = { mass: 1 };
+    const state = makeState({ isFalling: true, fallTime: 0.5 });
+    const result = updateFall(state, 0.2, FALL_CONSTANTS, { adapter, world, playerBody });
+    assert.strictEqual(result.fallTime, 0.7);
+  });
+
+  it('does not apply manual gravity when adapter provided', () => {
+    const adapter = { applyForce: () => {}, getPosition: () => ({ x: 0, y: 100, z: 0 }), getVelocity: () => ({ x: 0, y: 0, z: 0 }) };
+    const world = Symbol('world');
+    const playerBody = { mass: 1 };
+    const state = makeState({ isFalling: true, fallTime: 0, position: { x: 0, y: 100, z: 0 }, velocity: { x: 0, y: 0, z: 0 } });
+    const result = updateFall(state, 0.1, FALL_CONSTANTS, { adapter, world, playerBody });
+    assert.strictEqual(result.position.y, 100, 'position should come from adapter, not manual integration');
+  });
+});
+
+describe('respawn with physics adapter', () => {
+  it('calls adapter.setPosition and setVelocity when physicsCtx provided', () => {
+    const adapter = {
+      setPosition: (w, b, p) => { adapter._posCall = { world: w, body: b, pos: p }; },
+      setVelocity: (w, b, v) => { adapter._velCall = { world: w, body: b, vel: v }; },
+    };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const respawnPoints = [{ position: { x: 10, y: 5, z: 0 } }];
+    const state = makeState({ position: { x: 8, y: -100, z: 0 } });
+    respawn(state, respawnPoints, { adapter, world, playerBody });
+    assert.strictEqual(adapter._posCall.world, world);
+    assert.strictEqual(adapter._posCall.body, playerBody);
+    assert.strictEqual(adapter._posCall.pos.x, 10);
+    assert.strictEqual(adapter._velCall.vel.x, 0);
+    assert.strictEqual(adapter._velCall.vel.y, 0);
+    assert.strictEqual(adapter._velCall.vel.z, 0);
+  });
+
+  it('still returns correct state when physicsCtx provided', () => {
+    const adapter = { setPosition: () => {}, setVelocity: () => {} };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const respawnPoints = [{ position: { x: 10, y: 5, z: 0 } }];
+    const state = makeState({ position: { x: 8, y: -100, z: 0 }, isFalling: true });
+    const result = respawn(state, respawnPoints, { adapter, world, playerBody });
+    assert.strictEqual(result.isFalling, false);
+    assert.strictEqual(result.isGrounded, true);
+    assert.strictEqual(result.position.x, 10);
+  });
+
+  it('does not call adapter when no respawn points found', () => {
+    let called = false;
+    const adapter = { setPosition: () => { called = true; }, setVelocity: () => { called = true; } };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const state = makeState({ position: { x: 0, y: -100, z: 0 } });
+    const result = respawn(state, [], { adapter, world, playerBody });
+    assert.strictEqual(called, false);
+    assert.strictEqual(result, state);
+  });
+});

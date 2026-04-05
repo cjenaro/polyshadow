@@ -15,17 +15,24 @@ export function calculateMovementDirection(inputMove, cameraYaw) {
   };
 }
 
-export function applyMovement(state, inputMove, cameraYaw, dt, isSprinting, constants) {
+export function applyMovement(state, inputMove, cameraYaw, dt, isSprinting, constants, adapter, world, playerBody) {
   const dir = calculateMovementDirection(inputMove, cameraYaw);
   const speed = isSprinting ? constants.RUN_SPEED : constants.WALK_SPEED;
+  const newVelX = dir.x * speed;
+  const newVelZ = dir.z * speed;
+
+  if (adapter && world && playerBody) {
+    const currentVel = adapter.getVelocity(world, playerBody);
+    adapter.setVelocity(world, playerBody, { x: newVelX, y: currentVel.y, z: newVelZ });
+    return {
+      ...state,
+      velocity: { x: newVelX, y: currentVel.y, z: newVelZ },
+    };
+  }
 
   return {
     ...state,
-    velocity: {
-      ...state.velocity,
-      x: dir.x * speed,
-      z: dir.z * speed,
-    },
+    velocity: { ...state.velocity, x: newVelX, z: newVelZ },
     position: {
       ...state.position,
       x: state.position.x + dir.x * speed * dt,
@@ -34,17 +41,34 @@ export function applyMovement(state, inputMove, cameraYaw, dt, isSprinting, cons
   };
 }
 
-export function applyJump(state, constants) {
+export function applyJump(state, constants, adapter, world, playerBody) {
   if (!state.isGrounded) return state;
-  return {
-    ...state,
-    velocity: { ...state.velocity, y: constants.JUMP_FORCE },
-    isGrounded: false,
-    isJumping: true,
-  };
+
+  if (adapter && world && playerBody) {
+    adapter.applyImpulse(world, playerBody, { x: 0, y: constants.JUMP_FORCE, z: 0 });
+    return { ...state, isGrounded: false, isJumping: true };
+  }
+
+  return { ...state, velocity: { ...state.velocity, y: constants.JUMP_FORCE }, isGrounded: false, isJumping: true };
 }
 
-export function applyGravity(state, dt, constants) {
+export function applyGravity(state, dt, constants, adapter, world, playerBody) {
+  if (adapter && world && playerBody) {
+    const pos = adapter.getPosition(world, playerBody);
+    const vel = adapter.getVelocity(world, playerBody);
+    const isGrounded = pos.y <= constants.GROUND_Y + 0.01;
+    const result = {
+      ...state,
+      position: { ...pos },
+      velocity: { ...vel },
+      isGrounded,
+    };
+    if (isGrounded) {
+      result.isJumping = false;
+    }
+    return result;
+  }
+
   let vy = state.velocity.y + constants.GRAVITY * dt;
   let newY = state.position.y + vy * dt;
 
@@ -68,17 +92,19 @@ export function applyGravity(state, dt, constants) {
   };
 }
 
-export function updatePlayer(state, input, cameraYaw, dt, constants) {
+export function updatePlayer(state, input, cameraYaw, dt, constants, physicsCtx) {
   let newState = { ...state };
   newState.isSprinting = !!input.sprint;
 
-  newState = applyMovement(newState, input, cameraYaw, dt, newState.isSprinting, constants);
+  const { adapter, world, playerBody } = physicsCtx || {};
+
+  newState = applyMovement(newState, input, cameraYaw, dt, newState.isSprinting, constants, adapter, world, playerBody);
 
   if (input.jump) {
-    newState = applyJump(newState, constants);
+    newState = applyJump(newState, constants, adapter, world, playerBody);
   }
 
-  newState = applyGravity(newState, dt, constants);
+  newState = applyGravity(newState, dt, constants, adapter, world, playerBody);
 
   return newState;
 }

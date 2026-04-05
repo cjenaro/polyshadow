@@ -527,6 +527,115 @@ describe('releaseGrab', () => {
   });
 });
 
+describe('tryGrab with physics adapter', () => {
+  it('calls adapter.setPosition and setVelocity when physicsCtx provided', () => {
+    const adapter = {
+      setPosition: (w, b, p) => { adapter._posCall = { world: w, body: b, pos: p }; },
+      setVelocity: (w, b, v) => { adapter._velCall = { world: w, body: b, vel: v }; },
+    };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const surface = makeSurface({ position: { x: 5, y: 10, z: 3 } });
+    const state = makeState({ position: { x: 4.5, y: 9.5, z: 3.5 } });
+    const input = makeInput({ action: true });
+    tryGrab(state, input, [surface], 5, { adapter, world, playerBody });
+    assert.strictEqual(adapter._posCall.pos.x, 5);
+    assert.strictEqual(adapter._posCall.pos.y, 10);
+    assert.strictEqual(adapter._posCall.pos.z, 3);
+    assert.strictEqual(adapter._velCall.vel.x, 0);
+    assert.strictEqual(adapter._velCall.vel.y, 0);
+    assert.strictEqual(adapter._velCall.vel.z, 0);
+  });
+
+  it('does not call adapter when grab fails (no action)', () => {
+    let called = false;
+    const adapter = { setPosition: () => { called = true; }, setVelocity: () => { called = true; } };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const state = makeState();
+    const input = makeInput({ action: false });
+    tryGrab(state, input, [], 5, { adapter, world, playerBody });
+    assert.strictEqual(called, false);
+  });
+});
+
+describe('applyClimbingMovement with physics adapter', () => {
+  const constants = { CLIMB_SPEED: 2 };
+
+  it('calls adapter.setPosition when physicsCtx provided', () => {
+    const adapter = { setPosition: (w, b, p) => { adapter._posCall = { world: w, body: b, pos: p }; } };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const state = makeState({ isClimbing: true, climbSurface: surface, climbNormal: surface.normal, position: { x: 0, y: 0, z: -2 } });
+    const input = makeInput({ move: { x: 0, y: 1 } });
+    applyClimbingMovement(state, input, 1, constants, { adapter, world, playerBody });
+    assert.ok(adapter._posCall.pos.y > 0, 'should have moved upward');
+  });
+
+  it('does not call adapter when not climbing', () => {
+    let called = false;
+    const adapter = { setPosition: () => { called = true; } };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const state = makeState({ isClimbing: false });
+    const input = makeInput({ move: { x: 0, y: 1 } });
+    applyClimbingMovement(state, input, 0.1, constants, { adapter, world, playerBody });
+    assert.strictEqual(called, false);
+  });
+});
+
+describe('tryJumpClimb with physics adapter', () => {
+  it('calls adapter.setPosition when physicsCtx provided', () => {
+    const adapter = { setPosition: (w, b, p) => { adapter._posCall = { world: w, body: b, pos: p }; } };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const oldSurface = makeSurface({ position: { x: 0, y: 0, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const newSurface = makeSurface({ position: { x: 0, y: 3, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const state = makeState({ isClimbing: true, climbSurface: oldSurface, climbNormal: oldSurface.normal, position: { x: 0, y: 0, z: -2 } });
+    const input = makeInput({ jump: true });
+    tryJumpClimb(state, input, [newSurface], 5, { adapter, world, playerBody });
+    assert.strictEqual(adapter._posCall.pos.x, 0);
+    assert.strictEqual(adapter._posCall.pos.y, 3);
+    assert.strictEqual(adapter._posCall.pos.z, -2);
+  });
+
+  it('does not call adapter when not climbing', () => {
+    let called = false;
+    const adapter = { setPosition: () => { called = true; } };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const state = makeState({ isClimbing: false });
+    const input = makeInput({ jump: true });
+    tryJumpClimb(state, input, [], 5, { adapter, world, playerBody });
+    assert.strictEqual(called, false);
+  });
+
+  it('does not call adapter when no surfaces in range', () => {
+    let called = false;
+    const adapter = { setPosition: () => { called = true; } };
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const state = makeState({ isClimbing: true, climbSurface: makeSurface(), climbNormal: { x: 0, y: 0, z: 1 }, position: { x: 0, y: 0, z: -2 } });
+    const input = makeInput({ jump: true });
+    tryJumpClimb(state, input, [makeSurface({ position: { x: 0, y: 100, z: -2 } })], 5, { adapter, world, playerBody });
+    assert.strictEqual(called, false);
+  });
+});
+
+describe('releaseGrab with physics adapter', () => {
+  it('still works when physicsCtx provided', () => {
+    const adapter = {};
+    const world = Symbol('world');
+    const playerBody = Symbol('body');
+    const state = makeState({ isClimbing: true, climbSurface: makeSurface(), climbNormal: { x: 0, y: 0, z: 1 } });
+    const result = releaseGrab(state, { adapter, world, playerBody });
+    assert.strictEqual(result.isClimbing, false);
+    assert.strictEqual(result.climbSurface, null);
+    assert.strictEqual(result.climbNormal, null);
+  });
+});
+
 describe('climbing + sentinel surface patches integration', () => {
   it('sentinel patches are valid input for findNearestClimbableSurface', () => {
     const def = createSentinelDefinition();

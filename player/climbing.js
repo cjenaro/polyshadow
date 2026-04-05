@@ -23,14 +23,14 @@ export function findNearestClimbableSurface(playerPos, surfaces, maxGrabDistance
   return nearest;
 }
 
-export function tryGrab(state, input, surfaces, maxGrabDistance) {
+export function tryGrab(state, input, surfaces, maxGrabDistance, physicsCtx) {
   if (!isGrabPressed(input)) return state;
   if (state.isClimbing) return state;
 
   const surface = findNearestClimbableSurface(state.position, surfaces, maxGrabDistance);
   if (!surface) return state;
 
-  return {
+  const newState = {
     ...state,
     position: {
       x: surface.position.x,
@@ -47,9 +47,15 @@ export function tryGrab(state, input, surfaces, maxGrabDistance) {
       z: surface.normal.z,
     },
   };
+  if (physicsCtx) {
+    const { adapter, world, playerBody } = physicsCtx;
+    adapter.setPosition(world, playerBody, surface.position);
+    adapter.setVelocity(world, playerBody, { x: 0, y: 0, z: 0 });
+  }
+  return newState;
 }
 
-export function applyClimbingMovement(state, input, dt, constants) {
+export function applyClimbingMovement(state, input, dt, constants, physicsCtx) {
   if (!state.isClimbing) return state;
 
   const mx = input.move.x;
@@ -88,17 +94,22 @@ export function applyClimbingMovement(state, input, dt, constants) {
   const moveY = (nx * tangentY + ny * binormalY) * speed * dt;
   const moveZ = (nx * tangentZ + ny * binormalZ) * speed * dt;
 
+  const newPosition = {
+    x: state.position.x + moveX,
+    y: state.position.y + moveY,
+    z: state.position.z + moveZ,
+  };
+  if (physicsCtx) {
+    const { adapter, world, playerBody } = physicsCtx;
+    adapter.setPosition(world, playerBody, newPosition);
+  }
   return {
     ...state,
-    position: {
-      x: state.position.x + moveX,
-      y: state.position.y + moveY,
-      z: state.position.z + moveZ,
-    },
+    position: newPosition,
   };
 }
 
-export function tryJumpClimb(state, input, surfaces, maxJumpDistance) {
+export function tryJumpClimb(state, input, surfaces, maxJumpDistance, physicsCtx) {
   if (!state.isClimbing) return state;
   if (!input.jump) return state;
 
@@ -120,7 +131,7 @@ export function tryJumpClimb(state, input, surfaces, maxJumpDistance) {
 
   if (!nearest) return state;
 
-  return {
+  const newState = {
     ...state,
     position: {
       x: nearest.position.x,
@@ -135,9 +146,14 @@ export function tryJumpClimb(state, input, surfaces, maxJumpDistance) {
       z: nearest.normal.z,
     },
   };
+  if (physicsCtx) {
+    const { adapter, world, playerBody } = physicsCtx;
+    adapter.setPosition(world, playerBody, nearest.position);
+  }
+  return newState;
 }
 
-export function releaseGrab(state) {
+export function releaseGrab(state, physicsCtx) {
   if (!state.isClimbing) return state;
   return {
     ...state,

@@ -8,7 +8,11 @@ export const FALL_CONSTANTS = {
   FREEFALL_CAMERA_OFFSET: 3.0,
 };
 
-export function enterFall(state) {
+export function enterFall(state, physicsCtx) {
+  if (physicsCtx) {
+    const { adapter, world, playerBody } = physicsCtx;
+    adapter.setVelocity(world, playerBody, { x: state.velocity.x, y: 0, z: state.velocity.z });
+  }
   return {
     ...state,
     isFalling: true,
@@ -21,13 +25,24 @@ export function enterFall(state) {
   };
 }
 
-export function updateFall(state, dt, constants) {
+export function updateFall(state, dt, constants, physicsCtx) {
   if (!state.isFalling) return state;
-
+  if (physicsCtx) {
+    const { adapter, world, playerBody } = physicsCtx;
+    const bodyMass = playerBody.mass || 1;
+    adapter.applyForce(world, playerBody, { x: 0, y: -20 * constants.FALL_GRAVITY_MULTIPLIER * bodyMass, z: 0 });
+    const pos = adapter.getPosition(world, playerBody);
+    const vel = adapter.getVelocity(world, playerBody);
+    return {
+      ...state,
+      fallTime: state.fallTime + dt,
+      velocity: { x: vel.x, y: vel.y, z: vel.z },
+      position: { x: pos.x, y: pos.y, z: pos.z },
+    };
+  }
   const gravity = -20 * constants.FALL_GRAVITY_MULTIPLIER;
   const newVy = state.velocity.y + gravity * dt;
   const newY = state.position.y + newVy * dt;
-
   return {
     ...state,
     fallTime: state.fallTime + dt,
@@ -69,10 +84,14 @@ export function findNearestRespawnPoint(position, respawnPoints) {
   return nearest;
 }
 
-export function respawn(state, respawnPoints) {
+export function respawn(state, respawnPoints, physicsCtx) {
   const point = findNearestRespawnPoint(state.position, respawnPoints);
   if (!point) return state;
-
+  if (physicsCtx) {
+    const { adapter, world, playerBody } = physicsCtx;
+    adapter.setPosition(world, playerBody, point.position);
+    adapter.setVelocity(world, playerBody, { x: 0, y: 0, z: 0 });
+  }
   return {
     ...state,
     position: { x: point.position.x, y: point.position.y, z: point.position.z },
