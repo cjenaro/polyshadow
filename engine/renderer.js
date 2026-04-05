@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildIslandGeometryData } from './island-mesh.js';
 
 export function createRenderer(canvas) {
   const impl = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -124,4 +125,42 @@ export function lerpColors(c1, c2, t) {
   const c = new THREE.Color();
   c.lerpColors(c1, c2, t);
   return c;
+}
+
+export function createIslandMesh(island) {
+  const { positions, colors, vertCount } = buildIslandGeometryData(island);
+  const resolution = island.resolution;
+
+  const indices = [];
+  for (let z = 0; z < resolution; z++) {
+    for (let x = 0; x < resolution; x++) {
+      const a = z * (resolution + 1) + x;
+      const b = a + 1;
+      const c = a + (resolution + 1);
+      const d = c + 1;
+      indices.push(a, c, b);
+      indices.push(b, c, d);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+
+  const material = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    flatShading: false,
+    roughness: 0.9,
+    metalness: 0.0,
+  });
+
+  const impl = new THREE.Mesh(geometry, material);
+  impl.receiveShadow = true;
+
+  return {
+    impl,
+    setPosition(x, y, z) { impl.position.set(x, y, z); },
+  };
 }

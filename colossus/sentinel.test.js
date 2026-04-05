@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   STONE_SENTINEL_SCALE,
@@ -6,6 +6,9 @@ import {
   generateSentinelSurfacePatches,
   getSentinelWeakPointPositions,
   buildCombatWeakPoints,
+  setTHREE,
+  createSentinelMesh,
+  animateSentinel,
 } from './sentinel.js';
 import { getBodyHeight, getAllClimbableParts, getWeakPoints } from './base.js';
 
@@ -280,5 +283,174 @@ describe('buildCombatWeakPoints', () => {
     assert.ok(ids.includes('back_rune_left'));
     assert.ok(ids.includes('back_rune_right'));
     assert.ok(ids.includes('head'));
+  });
+});
+
+function makeVec3(initX = 0, initY = 0, initZ = 0) {
+  const v = { x: initX, y: initY, z: initZ };
+  v.set = function(x, y, z) { v.x = x; v.y = y; v.z = z; };
+  return v;
+}
+
+function createMockTHREE() {
+  const createdMeshes = [];
+  const createdGroups = [];
+  const T = {
+    Group: function() {
+      const g = { children: [], add: function(c) { g.children.push(c); } };
+      createdGroups.push(g);
+      return g;
+    },
+    Mesh: function(geo, mat) {
+      const m = {
+        geometry: geo,
+        material: mat,
+        position: makeVec3(),
+        rotation: makeVec3(),
+        scale: makeVec3(1, 1, 1),
+        castShadow: false,
+        receiveShadow: false,
+        userData: {},
+        children: [],
+        add: function(c) { m.children.push(c); },
+      };
+      createdMeshes.push(m);
+      return m;
+    },
+    BoxGeometry: function(w, h, d) { return { type: 'box', width: w, height: h, depth: d }; },
+    CylinderGeometry: function(rTop, rBottom, h, seg) { return { type: 'cylinder', radiusTop: rTop, radiusBottom: rBottom, height: h, segments: seg }; },
+    MeshStandardMaterial: function(opts) { return { ...opts }; },
+    Color: function(val) { return { value: val }; },
+  };
+  return { T, createdMeshes, createdGroups };
+}
+
+describe('createSentinelMesh', () => {
+  let T, createdMeshes, createdGroups;
+
+  beforeEach(() => {
+    ({ T, createdMeshes, createdGroups } = createMockTHREE());
+    setTHREE(T);
+  });
+
+  it('returns an object with impl (group) and meshByPart map', () => {
+    const def = createSentinelDefinition();
+    const result = createSentinelMesh(def);
+    assert.ok(result.impl !== undefined);
+    assert.ok(result.meshByPart instanceof Map);
+  });
+
+  it('creates a mesh for every part in the definition', () => {
+    const def = createSentinelDefinition();
+    const result = createSentinelMesh(def);
+    assert.equal(result.meshByPart.size, def.parts.length);
+  });
+
+  it('stores partId in each mesh userData', () => {
+    const def = createSentinelDefinition();
+    const result = createSentinelMesh(def);
+    for (const [partId, mesh] of result.meshByPart) {
+      assert.equal(mesh.userData.partId, partId);
+    }
+  });
+
+  it('uses BoxGeometry for core parts and CylinderGeometry for limbs', () => {
+    const def = createSentinelDefinition();
+    createSentinelMesh(def);
+    const torsoMesh = createdMeshes.find(m => m.userData.partId === 'torso');
+    const legMesh = createdMeshes.find(m => m.userData.partId === 'front_left_upper');
+    const lowerLegMesh = createdMeshes.find(m => m.userData.partId === 'back_right_lower');
+    assert.equal(torsoMesh.geometry.type, 'box');
+    assert.equal(legMesh.geometry.type, 'cylinder');
+    assert.equal(lowerLegMesh.geometry.type, 'cylinder');
+  });
+
+  it('adds root parts (no parent) to the group directly', () => {
+    const def = createSentinelDefinition();
+    const result = createSentinelMesh(def);
+    const torso = result.meshByPart.get('torso');
+    assert.ok(result.impl.children.includes(torso));
+  });
+
+  it('adds child parts to their parent mesh', () => {
+    const def = createSentinelDefinition();
+    const result = createSentinelMesh(def);
+    const torso = result.meshByPart.get('torso');
+    const hips = result.meshByPart.get('hips');
+    const head = result.meshByPart.get('head');
+    assert.ok(torso.children.includes(hips), 'hips should be child of torso');
+    assert.ok(torso.children.includes(head), 'head should be child of torso');
+  });
+
+  it('nested children are added to correct parent', () => {
+    const def = createSentinelDefinition();
+    const result = createSentinelMesh(def);
+    const upperLeg = result.meshByPart.get('front_left_upper');
+    const lowerLeg = result.meshByPart.get('front_left_lower');
+    assert.ok(upperLeg.children.includes(lowerLeg), 'lower leg should be child of upper leg');
+  });
+
+  it('uses dark gray material with roughness 0.85 and flatShading for non-weak body parts', () => {
+    const def = createSentinelDefinition();
+    createSentinelMesh(def);
+    const torsoMesh = createdMeshes.find(m => m.userData.partId === 'torso');
+    assert.equal(torsoMesh.material.roughness, 0.85);
+    assert.equal(torsoMesh.material.flatShading, true);
+  });
+
+  it('weak point parts get emissive material', () => {
+    const def = createSentinelDefinition();
+    createSentinelMesh(def);
+    const headMesh = createdMeshes.find(m => m.userData.partId === 'head');
+    assert.ok(headMesh.material.emissive !== undefined);
+    assert.equal(headMesh.material.emissiveIntensity, 0.5);
+  });
+});
+
+describe('animateSentinel', () => {
+  let T;
+
+  beforeEach(() => {
+    ({ T } = createMockTHREE());
+    setTHREE(T);
+  });
+
+  it('applies breathing pulse to torso scale', () => {
+    const def = createSentinelDefinition();
+    const meshData = createSentinelMesh(def);
+    const torso = meshData.meshByPart.get('torso');
+
+    animateSentinel(meshData, Math.PI / 3);
+    assert.ok(Math.abs(torso.scale.x - 1.015) < 0.001);
+    assert.equal(torso.scale.x, torso.scale.y);
+    assert.equal(torso.scale.x, torso.scale.z);
+  });
+
+  it('breathing pulse oscillates symmetrically', () => {
+    const def = createSentinelDefinition();
+    const meshData = createSentinelMesh(def);
+    const torso = meshData.meshByPart.get('torso');
+
+    animateSentinel(meshData, Math.PI / 3);
+    const maxScale = torso.scale.x;
+
+    animateSentinel(meshData, Math.PI);
+    const minScale = torso.scale.x;
+
+    assert.ok(maxScale > 1, `max scale ${maxScale} should be > 1`);
+    assert.ok(minScale < 1, `min scale ${minScale} should be < 1`);
+    assert.ok(Math.abs(maxScale - 1.015) < 0.001);
+    assert.ok(Math.abs(minScale - 0.985) < 0.001);
+  });
+
+  it('does not affect non-torso parts', () => {
+    const def = createSentinelDefinition();
+    const meshData = createSentinelMesh(def);
+    const head = meshData.meshByPart.get('head');
+    const leg = meshData.meshByPart.get('front_left_upper');
+
+    animateSentinel(meshData, 1.5);
+    assert.equal(head.scale.x, 1);
+    assert.equal(leg.scale.x, 1);
   });
 });

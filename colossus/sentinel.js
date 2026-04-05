@@ -232,6 +232,16 @@ export function getSentinelWeakPointPositions(definition, colossusPosition, colo
   return positions;
 }
 
+let _THREE = null;
+
+export function setTHREE(threeModule) {
+  _THREE = threeModule;
+}
+
+function getTHREE() {
+  return _THREE;
+}
+
 export const WEAK_POINT_BASE_HEALTH = 50;
 
 export function buildCombatWeakPoints(definition, colossusPosition, colossusRotation) {
@@ -255,4 +265,75 @@ export function buildCombatWeakPoints(definition, colossusPosition, colossusRota
   }
 
   return combatWeakPoints;
+}
+
+function getGeometryType(partId) {
+  if (partId.includes('_upper') || partId.includes('_lower')) {
+    return 'cylinder';
+  }
+  return 'box';
+}
+
+function createSentinelMaterial(part) {
+  const T = getTHREE();
+  if (part.isWeakPoint) {
+    return new T.MeshStandardMaterial({
+      color: 0x00ccff,
+      roughness: 0.3,
+      metalness: 0.8,
+      emissive: new T.Color(0x00ccff),
+      emissiveIntensity: 0.5,
+    });
+  }
+  return new T.MeshStandardMaterial({
+    color: 0x444444,
+    roughness: 0.85,
+    metalness: 0.1,
+    flatShading: true,
+  });
+}
+
+export function createSentinelMesh(definition) {
+  const T = getTHREE();
+  const group = new T.Group();
+  const meshByPart = new Map();
+
+  for (const part of definition.parts) {
+    const { dimensions: dim, id, position: pos, rotation: rot } = part;
+    const geoType = getGeometryType(id);
+    let geometry;
+
+    if (geoType === 'cylinder') {
+      geometry = new T.CylinderGeometry(dim.width / 2, dim.width / 2, dim.height, 8);
+    } else {
+      geometry = new T.BoxGeometry(dim.width, dim.height, dim.depth);
+    }
+
+    const material = createSentinelMaterial(part);
+    const mesh = new T.Mesh(geometry, material);
+    mesh.position.set(pos.x, pos.y, pos.z);
+    mesh.rotation.set(rot.x, rot.y, rot.z);
+    mesh.userData.partId = id;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    const parentNode = part.parent ? meshByPart.get(part.parent) : null;
+    if (parentNode) {
+      parentNode.add(mesh);
+    } else {
+      group.add(mesh);
+    }
+    meshByPart.set(id, mesh);
+  }
+
+  return { impl: group, meshByPart };
+}
+
+export function animateSentinel(mesh, time) {
+  const { meshByPart } = mesh;
+  const torso = meshByPart.get('torso');
+  if (!torso) return;
+
+  const pulse = 1 + Math.sin(time * 1.5) * 0.015;
+  torso.scale.set(pulse, pulse, pulse);
 }

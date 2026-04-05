@@ -470,3 +470,216 @@ export function isWraithClimbable(aiState) {
   return aiState.state === WraithState.CIRCLING ||
          aiState.state === WraithState.STUNNED;
 }
+
+let _THREE = null;
+
+export function setTHREE(threeModule) {
+  _THREE = threeModule;
+}
+
+function getTHREE() {
+  return _THREE;
+}
+
+function createWraithMaterial(type) {
+  const T = getTHREE();
+  const base = {
+    color: 0xccddee,
+    transparent: true,
+    opacity: 0.75,
+    roughness: 0.4,
+    metalness: 0.2,
+    side: T.DoubleSide,
+  };
+
+  if (type === 'wing') {
+    return new T.MeshStandardMaterial({ ...base, color: 0xbbccdd, opacity: 0.65 });
+  }
+  if (type === 'horn') {
+    return new T.MeshStandardMaterial({ ...base, color: 0x99aabb, opacity: 0.85 });
+  }
+  if (type === 'rune') {
+    return new T.MeshStandardMaterial({
+      ...base,
+      color: 0x88ccff,
+      emissive: new T.Color(0x88ccff),
+      emissiveIntensity: 0.5,
+    });
+  }
+  return new T.MeshStandardMaterial(base);
+}
+
+function createBodySegment(part) {
+  const T = getTHREE();
+  const { position: pos, dimensions: dim, id, rotation: rot } = part;
+
+  const radius = Math.max(dim.width, dim.depth) / 2;
+  const heightScale = dim.height / radius;
+  const geometry = new T.SphereGeometry(radius, 16, 12, 0, Math.PI * 2, 0, Math.PI);
+  geometry.scale(1, heightScale, 1);
+
+  const matType = id === 'neck_rune' ? 'rune' : 'body';
+  const material = createWraithMaterial(matType);
+  const mesh = new T.Mesh(geometry, material);
+  mesh.position.set(pos.x, pos.y, pos.z);
+  mesh.rotation.set(rot.x, rot.y, rot.z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  return mesh;
+}
+
+function createHeadMesh(part) {
+  const T = getTHREE();
+  const { position: pos, dimensions: dim } = part;
+
+  const radius = dim.width / 2;
+  const geometry = new T.SphereGeometry(radius, 16, 12);
+  const material = createWraithMaterial('body');
+  const mesh = new T.Mesh(geometry, material);
+  mesh.position.set(pos.x, pos.y, pos.z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  return mesh;
+}
+
+function createWingGeometry(dimensions) {
+  const T = getTHREE();
+  const hw = dimensions.width / 2;
+  const hd = dimensions.depth / 2;
+
+  const vertices = new Float32Array([
+    0, 0, -hd,
+    0, 0, hd,
+    hw * 0.5, dimensions.height * 0.2, -hd * 0.9,
+    hw * 0.5, dimensions.height * 0.2, hd * 0.9,
+    hw, dimensions.height * 0.5, -hd * 0.7,
+    hw, dimensions.height * 0.5, hd * 0.7,
+  ]);
+
+  const indices = [0, 1, 2, 1, 3, 2, 2, 3, 4, 3, 5, 4, 2, 4, 0];
+
+  const geometry = new T.BufferGeometry();
+  geometry.setAttribute('position', new T.BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+
+  return geometry;
+}
+
+function createWingMesh(part) {
+  const T = getTHREE();
+  const { position: pos, dimensions: dim, id } = part;
+
+  const geometry = createWingGeometry(dim);
+  const material = createWraithMaterial('wing');
+  const mesh = new T.Mesh(geometry, material);
+  mesh.position.set(pos.x, pos.y, pos.z);
+  mesh.castShadow = true;
+
+  if (id === 'left_wing') {
+    mesh.scale.x = -1;
+  }
+
+  return mesh;
+}
+
+function createHornMeshes(headPart) {
+  const T = getTHREE();
+  const hornRadius = WIND_WRAITH_SCALE * 0.02;
+  const hornHeight = WIND_WRAITH_SCALE * 0.12;
+
+  const geometry = new T.ConeGeometry(hornRadius, hornHeight, 6);
+  const material = createWraithMaterial('horn');
+
+  const leftHorn = new T.Mesh(geometry, material);
+  leftHorn.position.set(
+    headPart.position.x - headPart.dimensions.width * 0.3,
+    headPart.position.y + headPart.dimensions.height * 0.4,
+    headPart.position.z + headPart.dimensions.depth * 0.2
+  );
+  leftHorn.rotation.z = 0.3;
+  leftHorn.castShadow = true;
+
+  const rightHorn = new T.Mesh(geometry, material);
+  rightHorn.position.set(
+    headPart.position.x + headPart.dimensions.width * 0.3,
+    headPart.position.y + headPart.dimensions.height * 0.4,
+    headPart.position.z + headPart.dimensions.depth * 0.2
+  );
+  rightHorn.rotation.z = -0.3;
+  rightHorn.castShadow = true;
+
+  return { leftHorn, rightHorn };
+}
+
+export function createWraithMesh(definition) {
+  const T = getTHREE();
+  const group = new T.Group();
+  const children = [];
+  const meshByPart = new Map();
+  const originalPositions = new Map();
+
+  for (const part of definition.parts) {
+    let mesh;
+
+    if (part.type === 'head') {
+      mesh = createHeadMesh(part);
+      const { leftHorn, rightHorn } = createHornMeshes(part);
+      group.add(leftHorn);
+      group.add(rightHorn);
+      meshByPart.set('left_horn', leftHorn);
+      meshByPart.set('right_horn', rightHorn);
+      children.push(
+        { partId: 'left_horn', geometryType: 'cone' },
+        { partId: 'right_horn', geometryType: 'cone' }
+      );
+    } else if (part.type === 'limb_upper') {
+      mesh = createWingMesh(part);
+    } else {
+      mesh = createBodySegment(part);
+    }
+
+    group.add(mesh);
+    meshByPart.set(part.id, mesh);
+    originalPositions.set(part.id, { x: part.position.x, y: part.position.y, z: part.position.z });
+    children.push({
+      partId: part.id,
+      geometryType: part.type === 'limb_upper' ? 'wing' : 'sphere',
+      position: { x: part.position.x, y: part.position.y, z: part.position.z },
+      rotation: { x: part.rotation.x, y: part.rotation.y, z: part.rotation.z },
+      material: {
+        transparent: mesh.material.transparent,
+        opacity: mesh.material.opacity,
+      },
+    });
+  }
+
+  return { impl: group, children, meshByPart, originalPositions };
+}
+
+export function animateWraith(mesh, time) {
+  const { meshByPart, originalPositions } = mesh;
+
+  const leftWing = meshByPart.get('left_wing');
+  const rightWing = meshByPart.get('right_wing');
+
+  if (leftWing) {
+    leftWing.rotation.z = Math.sin(time * 2.5) * 0.4;
+  }
+  if (rightWing) {
+    rightWing.rotation.z = -Math.sin(time * 2.5) * 0.4;
+  }
+
+  const bodySegments = ['neck', 'chest', 'tail_base', 'tail_mid', 'tail_tip'];
+  for (let i = 0; i < bodySegments.length; i++) {
+    const id = bodySegments[i];
+    const segment = meshByPart.get(id);
+    const orig = originalPositions.get(id);
+    if (!segment || !orig) continue;
+    const phase = time * 1.5 + i * 0.8;
+    segment.position.x = orig.x + Math.sin(phase) * 0.5;
+    segment.position.y = orig.y + Math.cos(phase) * 0.2;
+  }
+}

@@ -1,4 +1,4 @@
-import { createRenderer, initScene, resize, createBoxMesh } from '../engine/renderer.js';
+import { createRenderer, initScene, resize, createBoxMesh, createIslandMesh } from '../engine/renderer.js';
 import { createSky } from '../world/sky.js';
 import { InputManager } from '../engine/input.js';
 import { OrbitCamera } from '../engine/camera.js';
@@ -6,6 +6,7 @@ import { updatePlayer } from '../player/movement.js';
 import { PlayerCharacter } from '../player/character.js';
 import { GameState } from './state.js';
 import { UISystem } from '../engine/ui.js';
+import { createHubIsland, createArenaIsland, generateIslandGeometry, getIslandSurfaceHeight } from '../world/island.js';
 
 const canvas = document.getElementById('game-canvas');
 const renderer = createRenderer(canvas);
@@ -21,6 +22,38 @@ scene.add(playerMesh);
 
 const gameState = new GameState();
 const ui = new UISystem();
+
+const hubIsland = generateIslandGeometry(createHubIsland());
+const hubMesh = createIslandMesh(hubIsland);
+hubMesh.setPosition(hubIsland.center.x, 0, hubIsland.center.z);
+scene.add(hubMesh);
+
+const arenaConfigs = [
+  { type: 'sentinel', center: { x: 120, z: 0 } },
+  { type: 'minotaur', center: { x: -100, z: 80 } },
+  { type: 'wraith', center: { x: -60, z: -110 } },
+];
+
+const arenaIslands = arenaConfigs.map(({ type, center }) => {
+  const arena = createArenaIsland(type);
+  arena.center = center;
+  const generated = generateIslandGeometry(arena);
+  const mesh = createIslandMesh(generated);
+  mesh.setPosition(center.x, 0, center.z);
+  scene.add(mesh);
+  return generated;
+});
+
+const allIslands = [hubIsland, ...arenaIslands];
+
+function getGroundHeight(x, z) {
+  let maxH = 0;
+  for (const island of allIslands) {
+    const h = getIslandSurfaceHeight(island, x, z);
+    if (h > maxH) maxH = h;
+  }
+  return maxH;
+}
 
 ui.showTitleScreen();
 
@@ -71,6 +104,7 @@ function animate(now) {
     }
 
     const moveInput = { x: state.move.x, y: state.move.y, jump: state.jump, sprint: state.sprint };
+    player.GROUND_Y = getGroundHeight(player.state.position.x, player.state.position.z);
     player.state = updatePlayer(player.state, moveInput, orbit.yaw, dt, player);
 
     const pos = player.state.position;

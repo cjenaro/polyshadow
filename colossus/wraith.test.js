@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   WIND_WRAITH_SCALE,
@@ -12,6 +12,9 @@ import {
   updateWraithBehavior,
   getWraithWindForce,
   isWraithClimbable,
+  setTHREE,
+  createWraithMesh,
+  animateWraith,
 } from './wraith.js';
 import { getBodyHeight, getAllClimbableParts, getWeakPoints } from './base.js';
 
@@ -654,5 +657,217 @@ describe('isWraithClimbable', () => {
   it('returns false for Dying', () => {
     const state = createWraithBehaviorState({ state: WraithState.DYING });
     assert.strictEqual(isWraithClimbable(state), false);
+  });
+});
+
+function createMockTHREE() {
+  class Group {
+    constructor() { this.children = []; this.isGroup = true; }
+    add(child) { this.children.push(child); }
+  }
+  class Mesh {
+    constructor(geometry, material) {
+      this.geometry = geometry;
+      this.material = material;
+      this.position = { x: 0, y: 0, z: 0 };
+      this.position.set = (x, y, z) => { this.position.x = x; this.position.y = y; this.position.z = z; };
+      this.rotation = { x: 0, y: 0, z: 0 };
+      this.rotation.set = (x, y, z) => { this.rotation.x = x; this.rotation.y = y; this.rotation.z = z; };
+      this.scale = { x: 1, y: 1, z: 1 };
+      this.castShadow = false;
+      this.receiveShadow = false;
+    }
+  }
+  class SphereGeometry {
+    constructor(...args) { this.type = 'sphere'; this.args = args; }
+    scale() {}
+  }
+  class ConeGeometry {
+    constructor(...args) { this.type = 'cone'; this.args = args; }
+  }
+  class BufferGeometry {
+    constructor() { this.type = 'buffer'; this.attributes = {}; }
+    setAttribute(name, attr) { this.attributes[name] = attr; }
+    setIndex() {}
+    computeVertexNormals() {}
+  }
+  class BufferAttribute {
+    constructor(array, itemSize) { this.array = array; this.itemSize = itemSize; }
+  }
+  class MeshStandardMaterial {
+    constructor(opts = {}) { Object.assign(this, opts); }
+  }
+  class Color {
+    constructor(value) { this.value = value; }
+  }
+  return {
+    Group, Mesh, SphereGeometry, ConeGeometry,
+    BufferGeometry, BufferAttribute, MeshStandardMaterial, Color,
+    DoubleSide: 2,
+  };
+}
+
+describe('createWraithMesh', () => {
+  let mockTHREE;
+  beforeEach(() => { mockTHREE = createMockTHREE(); setTHREE(mockTHREE); });
+
+  it('returns an object with impl (Group), children, meshByPart, and originalPositions', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    assert.ok(mesh.impl !== undefined);
+    assert.ok(mesh.impl.isGroup);
+    assert.ok(Array.isArray(mesh.children));
+    assert.ok(mesh.children.length > 0);
+    assert.ok(mesh.meshByPart instanceof Map);
+    assert.ok(mesh.originalPositions instanceof Map);
+  });
+
+  it('has body segment meshes for neck, chest, tail_base, tail_mid, tail_tip', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    const ids = [...mesh.meshByPart.keys()];
+    for (const id of ['neck', 'chest', 'tail_base', 'tail_mid', 'tail_tip']) {
+      assert.ok(ids.includes(id), `missing ${id}`);
+    }
+  });
+
+  it('has wing meshes for left_wing and right_wing', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    assert.ok(mesh.meshByPart.has('left_wing'));
+    assert.ok(mesh.meshByPart.has('right_wing'));
+  });
+
+  it('has head mesh', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    assert.ok(mesh.meshByPart.has('head'));
+  });
+
+  it('has horn meshes (left_horn, right_horn) with ConeGeometry', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    assert.ok(mesh.meshByPart.has('left_horn'));
+    assert.ok(mesh.meshByPart.has('right_horn'));
+    assert.strictEqual(mesh.meshByPart.get('left_horn').geometry.type, 'cone');
+    assert.strictEqual(mesh.meshByPart.get('right_horn').geometry.type, 'cone');
+  });
+
+  it('materials are transparent', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    for (const child of mesh.children) {
+      if (!child.material) continue;
+      assert.strictEqual(child.material.transparent, true, `${child.partId} should be transparent`);
+    }
+  });
+
+  it('body material has opacity approximately 0.75', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    const body = mesh.children.find(c => c.partId === 'chest');
+    assert.ok(body !== undefined);
+    assert.ok(Math.abs(body.material.opacity - 0.75) < 0.01, `opacity was ${body.material.opacity}`);
+  });
+
+  it('all material opacities are within valid range', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    for (const child of mesh.children) {
+      if (!child.material) continue;
+      assert.ok(
+        child.material.opacity >= 0.5 && child.material.opacity <= 1.0,
+        `${child.partId} opacity ${child.material.opacity} out of range`
+      );
+    }
+  });
+
+  it('wing meshes use BufferGeometry', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    assert.strictEqual(mesh.meshByPart.get('left_wing').geometry.type, 'buffer');
+    assert.strictEqual(mesh.meshByPart.get('right_wing').geometry.type, 'buffer');
+  });
+
+  it('body segments use SphereGeometry', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    assert.strictEqual(mesh.meshByPart.get('neck').geometry.type, 'sphere');
+    assert.strictEqual(mesh.meshByPart.get('chest').geometry.type, 'sphere');
+    assert.strictEqual(mesh.meshByPart.get('tail_tip').geometry.type, 'sphere');
+  });
+
+  it('left_wing is mirrored (scale.x = -1)', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    assert.strictEqual(mesh.meshByPart.get('left_wing').scale.x, -1);
+  });
+
+  it('group has all parts as children (at least 11)', () => {
+    const def = createWraithDefinition();
+    const mesh = createWraithMesh(def);
+    assert.ok(mesh.impl.children.length >= 11, `got ${mesh.impl.children.length} children`);
+  });
+});
+
+describe('animateWraith', () => {
+  let mockTHREE, wraithMesh;
+  beforeEach(() => {
+    mockTHREE = createMockTHREE();
+    setTHREE(mockTHREE);
+    wraithMesh = createWraithMesh(createWraithDefinition());
+  });
+
+  it('left_wing rotation.z changes with time', () => {
+    const lw = wraithMesh.meshByPart.get('left_wing');
+    animateWraith(wraithMesh, 0);
+    const r0 = lw.rotation.z;
+    animateWraith(wraithMesh, 1.0);
+    const r1 = lw.rotation.z;
+    assert.notStrictEqual(r0, r1);
+  });
+
+  it('right_wing rotation.z is opposite sign of left_wing', () => {
+    animateWraith(wraithMesh, 0.5);
+    const lw = wraithMesh.meshByPart.get('left_wing');
+    const rw = wraithMesh.meshByPart.get('right_wing');
+    assert.ok(Math.abs(lw.rotation.z + rw.rotation.z) < 0.001,
+      `left ${lw.rotation.z} should oppose right ${rw.rotation.z}`);
+  });
+
+  it('wing rotation is zero at time=0 (sin(0)=0)', () => {
+    animateWraith(wraithMesh, 0);
+    const lw = wraithMesh.meshByPart.get('left_wing');
+    assert.ok(Math.abs(lw.rotation.z) < 0.001, `expected ~0, got ${lw.rotation.z}`);
+  });
+
+  it('body segments undulate with phase offset', () => {
+    animateWraith(wraithMesh, 1.0);
+    const neck = wraithMesh.meshByPart.get('neck');
+    const chest = wraithMesh.meshByPart.get('chest');
+    const origNeck = wraithMesh.originalPositions.get('neck');
+    const origChest = wraithMesh.originalPositions.get('chest');
+    const neckOff = neck.position.x - origNeck.x;
+    const chestOff = chest.position.x - origChest.x;
+    assert.ok(Math.abs(neckOff - chestOff) > 0.001,
+      `neck offset ${neckOff} should differ from chest offset ${chestOff}`);
+  });
+
+  it('body positions match expected wave formula at time=0', () => {
+    animateWraith(wraithMesh, 0);
+    const chest = wraithMesh.meshByPart.get('chest');
+    const orig = wraithMesh.originalPositions.get('chest');
+    const phase = 0 * 1.5 + 1 * 0.8;
+    const expected = orig.x + Math.sin(phase) * 0.5;
+    assert.ok(Math.abs(chest.position.x - expected) < 0.001,
+      `expected x=${expected}, got ${chest.position.x}`);
+  });
+
+  it('calling animateWraith twice with same time is idempotent', () => {
+    animateWraith(wraithMesh, 2.0);
+    const px1 = wraithMesh.meshByPart.get('neck').position.x;
+    animateWraith(wraithMesh, 2.0);
+    const px2 = wraithMesh.meshByPart.get('neck').position.x;
+    assert.strictEqual(px1, px2);
   });
 });
