@@ -14,7 +14,7 @@ import { setTHREE as setSentinelTHREE } from '../colossus/sentinel.js';
 import { setTHREE as setWraithTHREE } from '../colossus/wraith.js';
 import { setTHREE as setTitanTHREE } from '../colossus/titan.js';
 import * as THREE from 'three';
-import { createMockAdapter } from '../engine/physics-adapter.js';
+import { createCannonAdapter } from '../engine/cannon-adapter.js';
 import { createClimbingState, isPlayerClimbing, updateClimbing } from '../player/climbing-integration.js';
 import { createIntegratedStamina, updateIntegratedStamina, getStaminaForUI } from '../player/stamina-integration.js';
 import { createIntegratedCombat, updateIntegratedCombat, handleShakeOff, getCombatStats } from '../player/combat-integration.js';
@@ -103,7 +103,7 @@ window.addEventListener('resize', () => {
 let endingState = null;
 let arenaTransition = createArenaTransitionManager();
 
-const physicsAdapter = createMockAdapter();
+const physicsAdapter = createCannonAdapter();
 const physicsWorld = physicsAdapter.createPhysicsWorld();
 const playerPhysicsBody = physicsAdapter.createBody(physicsWorld, {
   type: 'dynamic',
