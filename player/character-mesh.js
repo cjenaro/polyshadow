@@ -57,6 +57,8 @@ export function createCharacterMesh() {
   swordGroup.position.set(-0.45, 0.9, 0.1);
   group.add(swordGroup);
 
+  group.scale.set(1.5, 1.5, 1.5);
+
   return {
     impl: group,
     setPosition(x, y, z) { group.position.set(x, y, z); },

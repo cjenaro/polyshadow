@@ -3,6 +3,7 @@ import { distance3D, lerp } from '../utils/math.js';
 const JUMP_CLIMB_COOLDOWN = 0.3;
 const BEHIND_PENALTY = 3;
 export const DISMOUNT_FORCE = 10;
+export const DISMOUNT_MOMENTUM_FACTOR = 0.5;
 
 export function isGrabPressed(input) {
   return !!input.action;
@@ -107,9 +108,19 @@ export function applyClimbingMovement(state, input, dt, constants, physicsCtx) {
   const binormalY = n.z * tangentX - n.x * tangentZ;
   const binormalZ = n.x * tangentY - n.y * tangentX;
 
-  const moveX = (nx * tangentX + ny * binormalX) * speed * dt;
-  const moveY = (nx * tangentY + ny * binormalY) * speed * dt;
-  const moveZ = (nx * tangentZ + ny * binormalZ) * speed * dt;
+  const dirX = nx * tangentX + ny * binormalX;
+  const dirY = nx * tangentY + ny * binormalY;
+  const dirZ = nx * tangentZ + ny * binormalZ;
+  const dirLen = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+  const climbMoveDir = {
+    x: dirLen > 1e-10 ? dirX / dirLen : 0,
+    y: dirLen > 1e-10 ? dirY / dirLen : 0,
+    z: dirLen > 1e-10 ? dirZ / dirLen : 0,
+  };
+
+  const moveX = dirX * speed * dt;
+  const moveY = dirY * speed * dt;
+  const moveZ = dirZ * speed * dt;
 
   const newPosition = {
     x: state.position.x + moveX,
@@ -123,6 +134,7 @@ export function applyClimbingMovement(state, input, dt, constants, physicsCtx) {
   return {
     ...state,
     position: newPosition,
+    climbMoveDir,
   };
 }
 
@@ -209,11 +221,18 @@ export function releaseGrab(state, physicsCtx) {
   const ny = dirY / len;
   const nz = dirZ / len;
 
-  const vel = {
-    x: nx * DISMOUNT_FORCE,
-    y: ny * DISMOUNT_FORCE,
-    z: nz * DISMOUNT_FORCE,
-  };
+  let velX = nx * DISMOUNT_FORCE;
+  let velY = ny * DISMOUNT_FORCE;
+  let velZ = nz * DISMOUNT_FORCE;
+
+  if (state.climbMoveDir) {
+    const m = state.climbMoveDir;
+    velX += m.x * DISMOUNT_FORCE * DISMOUNT_MOMENTUM_FACTOR;
+    velY += m.y * DISMOUNT_FORCE * DISMOUNT_MOMENTUM_FACTOR;
+    velZ += m.z * DISMOUNT_FORCE * DISMOUNT_MOMENTUM_FACTOR;
+  }
+
+  const vel = { x: velX, y: velY, z: velZ };
 
   if (physicsCtx) {
     const { adapter, world, playerBody } = physicsCtx;
@@ -225,6 +244,7 @@ export function releaseGrab(state, physicsCtx) {
     isClimbing: false,
     climbSurface: null,
     climbNormal: null,
+    climbMoveDir: null,
     velocity: vel,
     isGrounded: false,
     isJumping: true,

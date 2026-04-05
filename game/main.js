@@ -17,6 +17,7 @@ import { setTHREE as setTitanTHREE } from '../colossus/titan.js';
 import * as THREE from 'three';
 import { createCannonAdapter } from '../engine/cannon-adapter.js';
 import { createClimbingState, isPlayerClimbing, updateClimbing } from '../player/climbing-integration.js';
+import { createChain, updateChain, getChainSegmentPositions, CAPE_CONSTANTS } from '../player/cape.js';
 import { createIntegratedStamina, updateIntegratedStamina, getStaminaForUI } from '../player/stamina-integration.js';
 import { createIntegratedCombat, updateIntegratedCombat, handleShakeOff, getCombatStats } from '../player/combat-integration.js';
 import { createDodgeState, tryStartDodge, updateDodge, applyDodgeMovement, getDodgeStaminaCost, isDodging as isPlayerDodging } from '../player/dodge.js';
@@ -79,6 +80,12 @@ let wasFalling = false;
 const player = new PlayerCharacter();
 const playerMesh = createCharacterMesh();
 scene.add(playerMesh);
+
+let capeChain = createChain({ x: 0, y: 0, z: 0 });
+const capeGeo = playerMesh.cape.geometry;
+const capeRestPositions = new Float32Array(capeGeo.attributes.position.array);
+const CAPE_COLS = 5;
+const CAPE_ROWS = 7;
 
 const gameState = new GameState();
 const ui = new UISystem();
@@ -347,6 +354,9 @@ gameState.onTransition((from, to) => {
       tutorialDismissTimer = 0;
       showTutorialOverlay();
     }
+    controlHintsVisible = true;
+    controlHintsTimer = 0;
+    hud.showControlHints();
   }
   if (to === 'paused') {
     ui.showPauseOverlay();
@@ -477,7 +487,7 @@ const respawnPoints = [
 ];
 
 const colossi = arenaConfigs.map(({ type, center }) => {
-  const c = createColossus(type, { x: center.x, y: 0, z: center.z });
+  const c = createColossus(type, { x: center.x, y: getGroundHeight(center.x, center.z), z: center.z });
   c.aiState.arenaCenter = { x: center.x, z: center.z };
   scene.add(c.mesh);
   return c;
@@ -659,6 +669,20 @@ function showTutorialOverlay() {
 
 let tutorialDismissTimer = 0;
 let tutorialShown = false;
+let controlHintsVisible = false;
+let controlHintsTimer = 0;
+const CONTROL_HINTS_MOVE_DISMISS = 1.5;
+
+const CONTROL_HINTS_LIST = [
+  { keys: 'WASD / Arrows', action: 'Move' },
+  { keys: 'Space', action: 'Jump' },
+  { keys: 'Shift', action: 'Sprint' },
+  { keys: 'Left Click / E', action: 'Attack' },
+  { keys: 'Right Click / E (near colossus)', action: 'Grab / Climb' },
+  { keys: 'C', action: 'Dodge' },
+  { keys: 'Mouse', action: 'Look around' },
+  { keys: 'Escape', action: 'Pause' },
+];
 
 function dismissTutorial() {
   if (!tutorialShown) return;
@@ -884,6 +908,35 @@ function animate(now) {
     player.state.position.y += windForce.y * 0.1 * dt;
     player.state.position.z += windForce.z * 0.1 * dt;
 
+    const capeAnchor = {
+      x: player.state.position.x,
+      y: player.state.position.y + 1.3,
+      z: player.state.position.z + 0.2,
+    };
+    const capeWind = {
+      windX: Math.sin(now * 0.001) * 0.3 + windForce.x * 0.1,
+      windZ: Math.cos(now * 0.0007) * 0.5 + windForce.z * 0.1,
+      windStrength: 1 + Math.sqrt(windForce.x * windForce.x + windForce.z * windForce.z),
+    };
+    capeChain = updateChain(capeChain, capeAnchor, dt, capeWind);
+    const chainPos = getChainSegmentPositions(capeChain);
+    const capePosArr = capeGeo.attributes.position.array;
+    for (let iy = 0; iy < CAPE_ROWS; iy++) {
+      const ci = Math.min(Math.round(iy * (CAPE_CONSTANTS.NUM_NODES - 1) / 6), CAPE_CONSTANTS.NUM_NODES - 1);
+      const cdx = chainPos[ci].x - capeAnchor.x;
+      const cdz = chainPos[ci].z - capeAnchor.z;
+      const flutter = Math.sin(now * 0.003 + iy * 0.8) * 0.02;
+      for (let ix = 0; ix < CAPE_COLS; ix++) {
+        const vi = (iy * CAPE_COLS + ix) * 3;
+        const edgeDist = Math.abs(ix - 2) / 2;
+        const edgeFactor = edgeDist * edgeDist;
+        capePosArr[vi] = capeRestPositions[vi] + cdx * (1 - edgeFactor * 0.5) + flutter * edgeFactor;
+        capePosArr[vi + 2] = capeRestPositions[vi + 2] + cdz + flutter * edgeFactor * 0.5;
+      }
+    }
+    capeGeo.attributes.position.needsUpdate = true;
+    capeGeo.computeVertexNormals();
+
     if (!isPlayerClimbing(climbing) && !player.state.isFalling) {
       const collision = resolveCollisions(
         player.state.position,
@@ -892,20 +945,20 @@ function animate(now) {
         physicsWorld,
       );
 
-      if (collision.groundY !== null) {
-        player.GROUND_Y = collision.groundY;
-      }
-
       player.state = {
         ...player.state,
         position: collision.position,
         velocity: collision.velocity,
       };
 
-      if (collision.isGrounded && player.state.velocity.y <= 0) {
+      const groundY = getGroundHeight(player.state.position.x, player.state.position.z);
+      player.GROUND_Y = groundY;
+
+      const distToGround = player.state.position.y - groundY;
+      if (distToGround >= -0.5 && distToGround < 0.5 && player.state.velocity.y <= 0) {
         player.state = {
           ...player.state,
-          position: { ...player.state.position, y: collision.groundY },
+          position: { ...player.state.position, y: groundY },
           velocity: { ...player.state.velocity, y: 0 },
           isGrounded: true,
           isJumping: false,
@@ -921,6 +974,13 @@ function animate(now) {
 
     const isMoving = player.state.isGrounded && !isPlayerClimbing(climbing) &&
       (Math.abs(inputState.move.x) > 0.1 || Math.abs(inputState.move.y) > 0.1);
+    if (controlHintsVisible) {
+      controlHintsTimer += dt;
+      if (isMoving || controlHintsTimer >= CONTROL_HINTS_MOVE_DISMISS) {
+        controlHintsVisible = false;
+        hud.hideControlHints();
+      }
+    }
     const isSprinting = inputState.sprint && !staminaResult.shouldPreventSprint;
     if (shouldPlayFootstep(audioState, isMoving, isSprinting, now * 0.001)) {
       const fsParams = getFootstepParams(isSprinting);
@@ -990,6 +1050,9 @@ function animate(now) {
     for (const [type, deathInt] of deathIntegrations) {
       if (deathInt.active) {
         const result = updateDeathIntegration(deathInt, dt);
+        if (result.cameraShake > 0) {
+          combatFeedback.triggerScreenShake(result.cameraShake);
+        }
         const entity = getColossusByType(colossi, type);
         if (entity) {
           applyDeathToMesh(deathInt, entity.mesh);
@@ -1210,6 +1273,7 @@ function animate(now) {
     const hudState = {
       stamina: showStamina ? staminaForUI.percent : 1,
       hints: [],
+      controlHints: controlHintsVisible ? CONTROL_HINTS_LIST : [],
     };
     hud.draw(hudState);
   } else if (gameState.getState() === 'paused') {

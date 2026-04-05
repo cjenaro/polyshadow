@@ -420,6 +420,61 @@ describe('applyClimbingMovement', () => {
       'should move CLIMB_SPEED * dt'
     );
   });
+
+  it('stores climbMoveDir when moving', () => {
+    const surface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: surface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ move: { x: 0, y: 1 } });
+    const newState = applyClimbingMovement(state, input, 1, constants);
+    assert.ok(newState.climbMoveDir !== undefined, 'should have climbMoveDir');
+    assert.ok(newState.climbMoveDir.y > 0, 'climbMoveDir y should be positive when moving up');
+  });
+
+  it('climbMoveDir is normalized', () => {
+    const surface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: surface.normal,
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const input = makeInput({ move: { x: 1, y: 1 } });
+    const newState = applyClimbingMovement(state, input, 1, constants);
+    const len = Math.sqrt(
+      newState.climbMoveDir.x ** 2 +
+      newState.climbMoveDir.y ** 2 +
+      newState.climbMoveDir.z ** 2
+    );
+    assert.ok(Math.abs(len - 1) < 1e-6, `climbMoveDir should be normalized, got length ${len}`);
+  });
+
+  it('clears climbMoveDir when no movement input', () => {
+    const surface = makeSurface({
+      position: { x: 0, y: 0, z: -2 },
+      normal: { x: 0, y: 0, z: 1 },
+    });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: surface.normal,
+      position: { x: 0, y: 0, z: -2 },
+      climbMoveDir: { x: 0, y: 1, z: 0 },
+    });
+    const input = makeInput({ move: { x: 0, y: 0 } });
+    const newState = applyClimbingMovement(state, input, 1, constants);
+    assert.strictEqual(newState, state, 'should return same state when no input');
+  });
 });
 
 describe('tryJumpClimb', () => {
@@ -844,6 +899,59 @@ describe('releaseGrab jump-dismount', () => {
     assert.strictEqual(newState.velocity.x, 3);
     assert.strictEqual(newState.velocity.y, 4);
     assert.strictEqual(newState.velocity.z, 5);
+  });
+
+  it('includes climbing momentum in dismount velocity', () => {
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: { x: 0, y: 0, z: 1 },
+      position: { x: 0, y: 0, z: -2 },
+      climbMoveDir: { x: 1, y: 0, z: 0 },
+    });
+    const newState = releaseGrab(state);
+    assert.ok(
+      newState.velocity.x > 0,
+      'should have positive x velocity from climbing momentum'
+    );
+    const mag = Math.sqrt(newState.velocity.x ** 2 + newState.velocity.y ** 2 + newState.velocity.z ** 2);
+    assert.ok(
+      mag > DISMOUNT_FORCE,
+      `magnitude ${mag} should exceed DISMOUNT_FORCE due to momentum`
+    );
+  });
+
+  it('includes upward climbing momentum in dismount velocity', () => {
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: { x: 0, y: 0, z: 1 },
+      position: { x: 0, y: 0, z: -2 },
+      climbMoveDir: { x: 0, y: 1, z: 0 },
+    });
+    const newState = releaseGrab(state);
+    assert.ok(
+      newState.velocity.y > DISMOUNT_FORCE * 0.6,
+      'should have extra upward velocity from climbing momentum'
+    );
+  });
+
+  it('no climbMoveDir gives same velocity as before (no momentum)', () => {
+    const surface = makeSurface({ position: { x: 0, y: 0, z: -2 }, normal: { x: 0, y: 0, z: 1 } });
+    const state = makeState({
+      isClimbing: true,
+      climbSurface: surface,
+      climbNormal: { x: 0, y: 0, z: 1 },
+      position: { x: 0, y: 0, z: -2 },
+    });
+    const newState = releaseGrab(state);
+    const mag = Math.sqrt(newState.velocity.x ** 2 + newState.velocity.y ** 2 + newState.velocity.z ** 2);
+    assert.ok(
+      Math.abs(mag - DISMOUNT_FORCE) < 1e-6,
+      `magnitude ${mag} should equal DISMOUNT_FORCE when no momentum`
+    );
   });
 });
 
