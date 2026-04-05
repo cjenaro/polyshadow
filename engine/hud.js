@@ -4,6 +4,8 @@ const STAMINA_BG = '#333333';
 const HINT_COLOR = 'rgba(255, 255, 255, 0.5)';
 const CONTROL_HINT_COLOR = 'rgba(255, 255, 255, 0.75)';
 const CONTROL_HINT_FADE_TIME = 1.5;
+const COLOSSUS_HEALTH_COLOR = '#c44040';
+const COLOSSUS_HEALTH_BG = '#222222';
 
 export function createHUD(canvas) {
   const ctx = canvas.getContext('2d');
@@ -37,6 +39,9 @@ export function createHUD(canvas) {
     ctx.clearRect(0, 0, w, h);
 
     drawStaminaArc(state.stamina, w, h);
+    if (state.colossusHealth != null && state.colossusHealth < 1) {
+      drawColossusHealthBar(state.colossusHealth, w, h);
+    }
     if (state.hints && state.hints.length > 0) {
       drawHints(state.hints, w, h);
     }
@@ -72,6 +77,55 @@ export function createHUD(canvas) {
     ctx.arc(cx, cy, radius, startAngle, endAngle);
     ctx.strokeStyle = STAMINA_COLOR;
     ctx.stroke();
+  }
+
+  function drawColossusHealthBar(health, w, h) {
+    const ratio = Math.max(0, Math.min(1, health));
+    const barW = 200;
+    const barH = 6;
+    const barX = w / 2 - barW / 2;
+    const barY = 30;
+    const r = 3;
+
+    ctx.fillStyle = COLOSSUS_HEALTH_BG;
+    ctx.beginPath();
+    ctx.moveTo(barX + r, barY);
+    ctx.lineTo(barX + barW - r, barY);
+    ctx.quadraticCurveTo(barX + barW, barY, barX + barW, barY + r);
+    ctx.lineTo(barX + barW, barY + barH - r);
+    ctx.quadraticCurveTo(barX + barW, barY + barH, barX + barW - r, barY + barH);
+    ctx.lineTo(barX + r, barY + barH);
+    ctx.quadraticCurveTo(barX, barY + barH, barX, barY + barH - r);
+    ctx.lineTo(barX, barY + r);
+    ctx.quadraticCurveTo(barX, barY, barX + r, barY);
+    ctx.closePath();
+    ctx.fill();
+
+    const fillW = barW * ratio;
+    if (fillW > 0) {
+      ctx.fillStyle = COLOSSUS_HEALTH_COLOR;
+      ctx.beginPath();
+      const fillR = Math.min(r, fillW / 2);
+      ctx.moveTo(barX + fillR, barY);
+      ctx.lineTo(barX + fillW - fillR, barY);
+      ctx.quadraticCurveTo(barX + fillW, barY, barX + fillW, barY + fillR);
+      ctx.lineTo(barX + fillW, barY + barH - fillR);
+      ctx.quadraticCurveTo(barX + fillW, barY + barH, barX + fillW - fillR, barY + barH);
+      ctx.lineTo(barX + fillR, barY + barH);
+      ctx.quadraticCurveTo(barX, barY + barH, barX, barY + barH - fillR);
+      ctx.lineTo(barX, barY + fillR);
+      ctx.quadraticCurveTo(barX, barY, barX + fillR, barY);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('COLOSSUS', w / 2, barY + barH + 14);
+    ctx.restore();
   }
 
   function drawHints(hints, w, h) {

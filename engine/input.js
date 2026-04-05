@@ -106,10 +106,6 @@ class InputManager {
       this.justPressed.delete('Mouse' + e.button);
     };
 
-    this._onMouseUp = () => {
-    this.pressedMouseButtons = new Set();
-    };
-
     document.addEventListener('keydown', this._onKeyDown);
     document.addEventListener('keyup', this._onKeyUp);
     document.addEventListener('mousemove', this._onMouseMove);

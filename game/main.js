@@ -134,6 +134,10 @@ const playerPhysicsBody = physicsAdapter.createBody(physicsWorld, {
 physicsAdapter.addBody(physicsWorld, playerPhysicsBody);
 const physicsCtx = { adapter: physicsAdapter, world: physicsWorld, playerBody: playerPhysicsBody };
 
+let physicsGrounded = false;
+
+const islandPhysicsBodies = [];
+
 let hasTeleported = false;
 
 function ensureAudio() {
@@ -499,10 +503,14 @@ function buildIslandTrimesh(island) {
 
 for (const island of allIslands) {
   const trimesh = buildIslandTrimesh(island);
-  physicsAdapter.createTrimeshCollider(physicsWorld, {
+  const body = physicsAdapter.createTrimeshCollider(physicsWorld, {
     position: { x: island.center.x, y: 0, z: island.center.z },
     vertices: trimesh.vertices,
     indices: trimesh.indices,
+  });
+  islandPhysicsBodies.push(body);
+  physicsAdapter.onCollision(physicsWorld, playerPhysicsBody, body, ({ normal }) => {
+    if (normal.y > 0.3) physicsGrounded = true;
   });
 }
 
@@ -962,6 +970,7 @@ function animate(now) {
     }
     physicsAdapter.setPosition(physicsWorld, playerPhysicsBody, player.state.position);
     physicsAdapter.setVelocity(physicsWorld, playerPhysicsBody, player.state.velocity);
+    physicsGrounded = false;
     physicsAdapter.step(physicsWorld, dt);
 
     if (inputState.start) {
@@ -1083,7 +1092,7 @@ function animate(now) {
       };
 
       const distToGround = player.state.position.y - groundY;
-      if (distToGround >= -0.5 && distToGround < 0.5 && player.state.velocity.y <= 0) {
+      if ((physicsGrounded || (distToGround >= -0.5 && distToGround < 0.5)) && player.state.velocity.y <= 0) {
         player.state = {
           ...player.state,
           position: { ...player.state.position, y: groundY },
@@ -1418,6 +1427,7 @@ function animate(now) {
 
     const hudState = {
       stamina: showStamina ? staminaForUI.percent : 1,
+      colossusHealth: colossusHealth,
       hints: [],
       controlHints: controlHintsVisible ? CONTROL_HINTS_LIST : [],
     };
