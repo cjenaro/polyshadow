@@ -116,6 +116,9 @@ function topoSort(files) {
   }
 
   visit(ENTRY);
+  for (const relPath of files.keys()) {
+    visit(relPath);
+  }
   return order;
 }
 

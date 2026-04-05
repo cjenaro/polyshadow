@@ -323,7 +323,7 @@
   <div id="arena-name"></div>
 <script type="module">
 import * as THREE from 'three';
-import * as CANNON from 'https://esm.sh/cannon-es@0.20.0';
+import * as CANNON from 'cannon-es';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -611,18 +611,16 @@ function createRenderer(canvas) {
   };
 }
 
-function initScene() {
+function initScene(renderer) {
   const impl = new THREE.Scene();
   impl.background = new THREE.Color(0x0a0a12);
   impl.fog = new THREE.FogExp2(0x0a0a12, 0.02);
 
-  const pmremGenerator = new THREE.PMREMGenerator(impl);
-  pmremGenerator.compileEquirectangularShader();
+  const pmremGenerator = new THREE.PMREMGenerator(renderer.impl);
 
   const envScene = new THREE.Scene();
   envScene.background = new THREE.Color(0x0a0a12);
   envScene.add(new THREE.HemisphereLight(0x334466, 0x221100, 2));
-  const envCamera = new THREE.PerspectiveCamera();
   const envRT = pmremGenerator.fromScene(envScene);
   impl.environment = envRT.texture;
   pmremGenerator.dispose();
@@ -1031,6 +1029,7 @@ class InputManager {
     };
 
     this._onMouseDown = (e) => {
+      if (document.pointerLockElement !== this.canvas) return;
       if (!this.pressedMouseButtons.has(e.button)) {
         this.justPressed.add('Mouse' + e.button);
       }
@@ -1038,6 +1037,7 @@ class InputManager {
     };
 
     this._onMouseUp = (e) => {
+      if (document.pointerLockElement !== this.canvas) return;
       this.pressedMouseButtons.delete(e.button);
       this.justPressed.delete('Mouse' + e.button);
     };
@@ -4051,10 +4051,12 @@ function getWraithWindForce(aiState, config, targetPosition) {
   }
 
   const strength = config.windPushForce * (1 - dist / config.windPushRadius);
+  const pushX = dx / dist;
+  const pushZ = dz / dist;
   return {
-    x: (dx / dist) * strength,
-    y: (dy / dist) * strength + strength * 0.3,
-    z: (dz / dist) * strength,
+    x: pushX * strength * 1.5,
+    y: -strength * 0.5,
+    z: pushZ * strength * 1.5,
   };
 }
 
@@ -5835,6 +5837,7 @@ const STAMINA_CONSTANTS = {
   MAX: 100,
   SPRINT_DRAIN_RATE: 15,
   CLIMB_DRAIN_RATE: 12,
+  GRIP_DRAIN_RATE: 3,
   REGEN_RATE: 20,
   REST_REGEN_RATE: 15,
   LOW_THRESHOLD: 25,
@@ -5911,7 +5914,10 @@ function updateStamina(state, flags, dt) {
       );
       next.current = newCurrent;
     } else {
-      next = drainStamina(next, STAMINA_CONSTANTS.CLIMB_DRAIN_RATE * dt);
+      const rate = flags.isActivelyClimbing
+        ? STAMINA_CONSTANTS.CLIMB_DRAIN_RATE
+        : STAMINA_CONSTANTS.GRIP_DRAIN_RATE;
+      next = drainStamina(next, rate * dt);
     }
   } else if (flags.isSprinting) {
     next = drainStamina(next, STAMINA_CONSTANTS.SPRINT_DRAIN_RATE * dt);
@@ -6198,80 +6204,112 @@ function findHitWeakPoint(playerPosition, weakPoints, range) {
   return nearest;
 }
 
-function trySlash(combatState, playerPosition, playerRotation, weakPoints, colossusPosition) {
-  if (combatState.slashCooldown > 0) return { attacked: false };
+function applyDamageToWeakPointObj(weakPoint, damage) {
+  const newHealth = Math.max(0, weakPoint.health - damage);
+  const isDestroyed = newHealth <= 0;
+  return {
+    ...weakPoint,
+    health: newHealth,
+    isDestroyed,
+  };
+}
+
+function trySlash(combatState, playerPosition, playerRotation, weakPoints) {
+  if (combatState.slashCooldown > 0) return { attacked: false, combatState };
 
   const slashOrigin = getSlashAttackOrigin(playerPosition, playerRotation);
-  const hit = findHitWeakPoint(slashOrigin, weakPoints, COMBAT_CONFIG.SLASH_RANGE);
+  const hitIndex = weakPoints.findIndex(wp => wp === findHitWeakPoint(slashOrigin, weakPoints, COMBAT_CONFIG.SLASH_RANGE));
 
-  if (!hit) return { attacked: false };
+  if (hitIndex === -1) return { attacked: false, combatState };
 
   const damage = COMBAT_CONFIG.SLASH_DAMAGE;
-  hit.health = Math.max(0, hit.health - damage);
-  hit.isDestroyed = hit.health <= 0;
-
-  combatState.slashCooldown = COMBAT_CONFIG.SLASH_COOLDOWN;
-  combatState.totalDamageDealt += damage;
-  combatState.hitsLanded += 1;
+  const updatedWeakPoints = weakPoints.map((wp, i) =>
+    i === hitIndex ? applyDamageToWeakPointObj(wp, damage) : wp
+  );
 
   return {
     attacked: true,
     hitWeakPoint: true,
     damage,
-    weakPointId: hit.id,
+    weakPointId: weakPoints[hitIndex].id,
+    weakPoints: updatedWeakPoints,
+    combatState: {
+      ...combatState,
+      slashCooldown: COMBAT_CONFIG.SLASH_COOLDOWN,
+      totalDamageDealt: combatState.totalDamageDealt + damage,
+      hitsLanded: combatState.hitsLanded + 1,
+    },
   };
 }
 
 function startStabCharge(combatState) {
-  combatState.isChargingStab = true;
-  combatState.stabChargeProgress = 0;
+  return {
+    ...combatState,
+    isChargingStab: true,
+    stabChargeProgress: 0,
+  };
 }
 
 function updateStabCharge(combatState, dt) {
-  if (!combatState.isChargingStab) return;
-  combatState.stabChargeProgress = clamp(
-    combatState.stabChargeProgress + dt / COMBAT_CONFIG.STAB_CHARGE_TIME,
-    0,
-    1
-  );
+  if (!combatState.isChargingStab) return combatState;
+  return {
+    ...combatState,
+    stabChargeProgress: clamp(
+      combatState.stabChargeProgress + dt / COMBAT_CONFIG.STAB_CHARGE_TIME,
+      0,
+      1
+    ),
+  };
 }
 
 function cancelStabCharge(combatState) {
-  combatState.isChargingStab = false;
-  combatState.stabChargeProgress = 0;
+  return {
+    ...combatState,
+    isChargingStab: false,
+    stabChargeProgress: 0,
+  };
 }
 
 function tryStab(combatState, chargeProgress, playerPosition, weakPoints) {
-  if (chargeProgress < 0.8) return { attacked: false };
+  if (chargeProgress < 0.8) return { attacked: false, combatState };
 
-  const hit = findHitWeakPoint(playerPosition, weakPoints, COMBAT_CONFIG.STAB_RANGE);
+  const hitIndex = weakPoints.findIndex(wp => wp === findHitWeakPoint(playerPosition, weakPoints, COMBAT_CONFIG.STAB_RANGE));
 
-  if (!hit) return { attacked: false };
+  if (hitIndex === -1) return { attacked: false, combatState };
 
   const damage = chargeProgress * COMBAT_CONFIG.STAB_DAMAGE;
-  hit.health = Math.max(0, hit.health - damage);
-  hit.isDestroyed = hit.health <= 0;
-
-  combatState.isChargingStab = false;
-  combatState.stabChargeProgress = 0;
-  combatState.totalDamageDealt += damage;
-  combatState.hitsLanded += 1;
+  const updatedWeakPoints = weakPoints.map((wp, i) =>
+    i === hitIndex ? applyDamageToWeakPointObj(wp, damage) : wp
+  );
 
   return {
     attacked: true,
     hitWeakPoint: true,
     damage,
-    weakPointId: hit.id,
+    weakPointId: weakPoints[hitIndex].id,
+    weakPoints: updatedWeakPoints,
+    combatState: {
+      ...combatState,
+      isChargingStab: false,
+      stabChargeProgress: 0,
+      totalDamageDealt: combatState.totalDamageDealt + damage,
+      hitsLanded: combatState.hitsLanded + 1,
+    },
   };
 }
 
 function applyDamageToWeakPoint(weakPoint, damage) {
-  weakPoint.health = Math.max(0, weakPoint.health - damage);
-  weakPoint.isDestroyed = weakPoint.health <= 0;
+  const newHealth = Math.max(0, weakPoint.health - damage);
+  const isDestroyed = newHealth <= 0;
   return {
+    weakPoint: {
+      ...weakPoint,
+      health: newHealth,
+      isDestroyed,
+    },
     damaged: true,
-    remainingHealth: weakPoint.health,
-    isDestroyed: weakPoint.isDestroyed,
+    remainingHealth: newHealth,
+    isDestroyed,
   };
 }
 
@@ -6291,19 +6329,25 @@ function applyShakeOff(staminaState, dt, isHoldingOn, combatConfig) {
 }
 
 function updateCombat(combatState, dt) {
-  combatState.slashCooldown = Math.max(0, combatState.slashCooldown - dt);
+  let next = { ...combatState };
+  next.slashCooldown = Math.max(0, next.slashCooldown - dt);
 
-  if (combatState.isShakingOff) {
-    combatState.shakeOffTimer -= dt;
-    if (combatState.shakeOffTimer <= 0) {
-      combatState.isShakingOff = false;
-      combatState.shakeOffTimer = 0;
+  if (next.isShakingOff) {
+    next.shakeOffTimer -= dt;
+    if (next.shakeOffTimer <= 0) {
+      next = {
+        ...next,
+        isShakingOff: false,
+        shakeOffTimer: 0,
+      };
     }
   }
 
-  if (combatState.isChargingStab) {
-    updateStabCharge(combatState, dt);
+  if (next.isChargingStab) {
+    next = updateStabCharge(next, dt);
   }
+
+  return next;
 }
 
 return { createCombatState: createCombatState, getSlashAttackOrigin: getSlashAttackOrigin, findHitWeakPoint: findHitWeakPoint, trySlash: trySlash, startStabCharge: startStabCharge, updateStabCharge: updateStabCharge, cancelStabCharge: cancelStabCharge, tryStab: tryStab, applyDamageToWeakPoint: applyDamageToWeakPoint, applyShakeOff: applyShakeOff, updateCombat: updateCombat, COMBAT_CONFIG: COMBAT_CONFIG };
@@ -6316,7 +6360,7 @@ function createIntegratedCombat(overrides = {}) {
 }
 
 function updateIntegratedCombat(combatState, input, playerPosition, playerRotation, weakPoints, isClimbing, dt) {
-  updateCombat(combatState, dt);
+  combatState = updateCombat(combatState, dt);
 
   let hitResult = {
     attacked: false,
@@ -6329,13 +6373,13 @@ function updateIntegratedCombat(combatState, input, playerPosition, playerRotati
   }
 
   if (input.attackJustPressed && combatState.slashCooldown <= 0) {
-    const slashResult = trySlash(combatState, playerPosition, playerRotation, weakPoints, { x: 0, y: 0, z: 0 });
+    const slashResult = trySlash(combatState, playerPosition, playerRotation, weakPoints);
     hitResult = {
       ...slashResult,
       isSlash: true,
       isStab: false,
     };
-    return { combatState, hitResult };
+    return { combatState: slashResult.combatState, hitResult };
   }
 
   if (combatState.isChargingStab) {
@@ -6347,8 +6391,9 @@ function updateIntegratedCombat(combatState, input, playerPosition, playerRotati
           isSlash: false,
           isStab: true,
         };
+        return { combatState: stabResult.combatState, hitResult };
       } else {
-        cancelStabCharge(combatState);
+        combatState = cancelStabCharge(combatState);
         hitResult = {
           attacked: false,
           isSlash: false,
@@ -6360,17 +6405,21 @@ function updateIntegratedCombat(combatState, input, playerPosition, playerRotati
   }
 
   if (input.attack && !input.attackJustPressed) {
-    startStabCharge(combatState);
+    combatState = startStabCharge(combatState);
   }
 
   return { combatState, hitResult };
 }
 
 function handleShakeOff(combatState, staminaState, dt, isHoldingOn) {
-  combatState.isShakingOff = true;
-  combatState.shakeOffTimer = COMBAT_CONFIG.SHAKE_OFF_DURATION;
-  const newStamina = applyShakeOff(staminaState, dt, isHoldingOn, COMBAT_CONFIG);
-  return { combatState, staminaState: newStamina };
+  return {
+    combatState: {
+      ...combatState,
+      isShakingOff: true,
+      shakeOffTimer: COMBAT_CONFIG.SHAKE_OFF_DURATION,
+    },
+    staminaState: applyShakeOff(staminaState, dt, isHoldingOn, COMBAT_CONFIG),
+  };
 }
 
 function getCombatStats(combatState) {
@@ -8299,8 +8348,18 @@ const DEFAULT_BOUNDS = {
   zMin: -30, zMax: 30,
 };
 
+const EMBER_COLORS = [
+  [1.0, 0.4, 0.1],
+  [1.0, 0.55, 0.15],
+  [1.0, 0.3, 0.05],
+  [1.0, 0.65, 0.2],
+  [0.9, 0.25, 0.05],
+  [1.0, 0.75, 0.3],
+];
+
 function createParticle(bounds = DEFAULT_BOUNDS) {
   const lifetime = randomRange(PARTICLE_DEFAULTS.minLifetime, PARTICLE_DEFAULTS.maxLifetime);
+  const color = EMBER_COLORS[Math.floor(Math.random() * EMBER_COLORS.length)];
   return {
     x: randomRange(bounds.xMin, bounds.xMax),
     y: randomRange(bounds.yMin, bounds.yMax),
@@ -8311,6 +8370,7 @@ function createParticle(bounds = DEFAULT_BOUNDS) {
     lifetime,
     maxLifetime: lifetime,
     size: randomRange(PARTICLE_DEFAULTS.minSize, PARTICLE_DEFAULTS.maxSize),
+    color,
   };
 }
 
@@ -8360,6 +8420,7 @@ function updateParticleSystem(system, wind, dt) {
       lifetime: current.lifetime - dt,
       maxLifetime: current.maxLifetime,
       size: current.size,
+      color: current.color,
     };
   });
 
@@ -8439,9 +8500,89 @@ function calculateFogDensity(system, height) {
 return { createFogSystem: createFogSystem, updateFogSystem: updateFogSystem, calculateFogDensity: calculateFogDensity, DEFAULT_LAYERS: DEFAULT_LAYERS };
 })();
 
+const _m_world_god_rays_js = (() => {
+
+const RAY_COUNT = 14;
+
+const VERTEX = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const FRAGMENT = `
+  uniform float uTime;
+  uniform float uOpacity;
+  uniform float uPulseSpeed;
+  uniform float uPulseFreq;
+  varying vec2 vUv;
+
+  void main() {
+    float heightFade = pow(vUv.y, 1.5);
+    float pulse = 0.7 + 0.3 * sin(uTime * uPulseSpeed + vUv.y * uPulseFreq);
+    float alpha = heightFade * uOpacity * pulse;
+    gl_FragColor = vec4(1.0, 0.88, 0.55, alpha);
+  }
+`;
+
+function createGodRaySystem(sunPos) {
+  const rays = [];
+
+  for (let i = 0; i < RAY_COUNT; i++) {
+    const angle = (i / RAY_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+    const length = 100 + Math.random() * 80;
+    const topRadius = 0.5 + Math.random() * 1.5;
+    const bottomRadius = 12 + Math.random() * 20;
+
+    const geo = new THREE.CylinderGeometry(topRadius, bottomRadius, length, 6, 1, true);
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: Math.random() * 10 },
+        uOpacity: { value: 0.015 + Math.random() * 0.025 },
+        uPulseSpeed: { value: 0.2 + Math.random() * 0.4 },
+        uPulseFreq: { value: 2.0 + Math.random() * 3.0 },
+      },
+      vertexShader: VERTEX,
+      fragmentShader: FRAGMENT,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      fog: false,
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    const tiltAmount = 0.15 + Math.random() * 0.3;
+
+    mesh.position.set(
+      sunPos.x + Math.cos(angle) * tiltAmount * 30,
+      sunPos.y - length * 0.4,
+      sunPos.z + Math.sin(angle) * tiltAmount * 30
+    );
+    mesh.rotation.x = Math.cos(angle) * tiltAmount;
+    mesh.rotation.z = -Math.sin(angle) * tiltAmount;
+
+    rays.push(mesh);
+  }
+
+  return {
+    rays,
+    update(dt) {
+      for (const ray of rays) {
+        ray.material.uniforms.uTime.value += dt;
+      }
+    },
+  };
+}
+
+return { createGodRaySystem: createGodRaySystem };
+})();
+
 const _m_world_wind_currents_js = (() => {
 const { noise2D } = _m_utils_noise_js;
-const { lerp } = _m_utils_math_js;
+const { lerp, smoothstep } = _m_utils_math_js;
 function createWindCurrent({
   start,
   end,
@@ -8451,6 +8592,8 @@ function createWindCurrent({
   id = null,
   pulseSpeed = 1.5,
   pulseAmplitude = 0.2,
+  fadeInDuration = 0.75,
+  fadeOutDuration = 0.75,
 } = {}) {
   const current = {
     id,
@@ -8464,6 +8607,8 @@ function createWindCurrent({
     active: true,
     pulseSpeed,
     pulseAmplitude,
+    fadeInDuration,
+    fadeOutDuration,
   };
   current.points = generateWindCurrentPath(current);
   return current;
@@ -8512,6 +8657,7 @@ function findClosestPointOnPath(points, position) {
 
 function isInWindCurrent(current, position) {
   if (!current.active) return false;
+  if (isCurrentFaded(current)) return false;
   const points = current.points;
   if (!points || points.length === 0) return false;
   const { distance } = findClosestPointOnPath(points, position);
@@ -8532,8 +8678,15 @@ function getWindForce(current, position) {
   const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
   if (len === 0) return { x: 0, y: 0, z: 0 };
 
+  const fadeIn = current.fadeInDuration <= 0 ? 1 : smoothstep(0, current.fadeInDuration, current.time);
+  const fadeOut = 1;
+  let effectiveStrength = current.strength * fadeIn * fadeOut;
+  if (current.fadingOut) {
+    const outProgress = current.time - current.fadeOutStart;
+    effectiveStrength *= current.fadeOutDuration <= 0 ? 0 : 1 - smoothstep(0, current.fadeOutDuration, outProgress);
+  }
   const pulseFactor = 1 + Math.sin(current.phase) * current.pulseAmplitude;
-  const effectiveStrength = current.strength * pulseFactor;
+  effectiveStrength *= pulseFactor;
   const { distance } = findClosestPointOnPath(points, position);
   const halfWidth = current.width / 2;
   const centerFactor = 1 - (distance / halfWidth) * 0.3;
@@ -8565,8 +8718,17 @@ function removeCurrent(system, id) {
   return { currents: system.currents.filter(c => c.id !== id) };
 }
 
+function fadeOutCurrent(current) {
+  return { ...current, fadingOut: true, fadeOutStart: current.time };
+}
+
+function isCurrentFaded(current) {
+  if (!current.fadingOut) return false;
+  return (current.time - current.fadeOutStart) >= current.fadeOutDuration;
+}
+
 function updateCurrents(system, dt) {
-  return { currents: system.currents.map(c => updateWindCurrent(c, dt)) };
+  return { currents: system.currents.map(c => updateWindCurrent(c, dt)).filter(c => !isCurrentFaded(c)) };
 }
 
 function getForceAt(system, position) {
@@ -8586,13 +8748,13 @@ function isInAnyCurrent(system, position) {
   return system.currents.some(c => isInWindCurrent(c, position));
 }
 
-return { createWindCurrent: createWindCurrent, generateWindCurrentPath: generateWindCurrentPath, isInWindCurrent: isInWindCurrent, getWindForce: getWindForce, updateWindCurrent: updateWindCurrent, createWindCurrentSystem: createWindCurrentSystem, addCurrent: addCurrent, removeCurrent: removeCurrent, updateCurrents: updateCurrents, getForceAt: getForceAt, isInAnyCurrent: isInAnyCurrent };
+return { createWindCurrent: createWindCurrent, generateWindCurrentPath: generateWindCurrentPath, isInWindCurrent: isInWindCurrent, getWindForce: getWindForce, updateWindCurrent: updateWindCurrent, createWindCurrentSystem: createWindCurrentSystem, addCurrent: addCurrent, removeCurrent: removeCurrent, fadeOutCurrent: fadeOutCurrent, isCurrentFaded: isCurrentFaded, updateCurrents: updateCurrents, getForceAt: getForceAt, isInAnyCurrent: isInAnyCurrent };
 })();
 
 const _m_world_wind_js = (() => {
-const { createWindCurrent, generateWindCurrentPath, isInWindCurrent, updateWindCurrent, createWindCurrentSystem, addCurrent, removeCurrent, updateCurrents, getForceAt, isInAnyCurrent } = _m_world_wind_currents_js;
+const { createWindCurrent, generateWindCurrentPath, isInWindCurrent, updateWindCurrent, createWindCurrentSystem, addCurrent, removeCurrent, updateCurrents, getForceAt, isInAnyCurrent, fadeOutCurrent, isCurrentFaded } = _m_world_wind_currents_js;
 
-return { createWindCurrent: createWindCurrent, generateWindCurrentPath: generateWindCurrentPath, isInWindCurrent: isInWindCurrent, updateWindCurrent: updateWindCurrent, createWindCurrentSystem: createWindCurrentSystem, addCurrent: addCurrent, removeCurrent: removeCurrent, updateCurrents: updateCurrents, isInAnyCurrent: isInAnyCurrent, getWindForce: getForceAt };
+return { createWindCurrent: createWindCurrent, generateWindCurrentPath: generateWindCurrentPath, isInWindCurrent: isInWindCurrent, updateWindCurrent: updateWindCurrent, createWindCurrentSystem: createWindCurrentSystem, addCurrent: addCurrent, removeCurrent: removeCurrent, updateCurrents: updateCurrents, isInAnyCurrent: isInAnyCurrent, getWindForce: getForceAt, fadeOutCurrent: fadeOutCurrent, isCurrentFaded: isCurrentFaded };
 })();
 
 const _m_engine_audio_js = (() => {
@@ -8771,6 +8933,7 @@ return { createAudioState: createAudioState, initAudio: initAudio, setMasterVolu
 (() => {
 const { createAudioState, initAudio, getEffectiveVolume, registerSound, cleanupSounds, getFootstepParams, shouldPlayFootstep, getClimbingGrabParams, getHeartbeatParams, shouldPlayHeartbeat, getSwordSlashParams, getWeakPointHitParams, getColossusDeathParams, getAmbientWindParams } = _m_engine_audio_js;
 const { createWindCurrent, createWindCurrentSystem, addCurrent, updateCurrents, getWindForce, isInAnyCurrent } = _m_world_wind_js;
+const { createGodRaySystem } = _m_world_god_rays_js;
 const { createFogSystem, updateFogSystem, DEFAULT_LAYERS } = _m_world_fog_js;
 const { createParticleSystem, updateParticleSystem, DEFAULT_BOUNDS } = _m_world_particles_js;
 const { createArenaTransitionManager, updateArenaTransition, getTransitionProgress, isTransitioning, startTransitionToArena, startTransitionToHub, shouldTriggerArenaEntry, shouldTriggerHubReturn, getArenaSpawnPoint, getHubSpawnPoint, TRANSITION_STATES } = _m_game_arena_transition_js;
@@ -8809,12 +8972,17 @@ const { OrbitCamera } = _m_engine_camera_js;
 const { createIntegratedInput, updateIntegratedInput, getActiveInputType, destroyIntegratedInput } = _m_engine_input_integration_js;
 const { createSky } = _m_world_sky_js;
 const { createCharacterMesh } = _m_player_character_mesh_js;
-const { createRenderer, initScene, resize, createIslandMesh, createSimplifiedBoxMesh, wrapInLOD, createInstancedMesh } = _m_engine_renderer_js;
+const { noise2D } = _m_utils_noise_js;
+const { createRenderer, initScene, resize, createIslandMesh, createSimplifiedBoxMesh, wrapInLOD, createInstancedMesh, createNormalMapTexture } = _m_engine_renderer_js;
 const canvas = document.getElementById('game-canvas');
 const renderer = createRenderer(canvas);
-const { scene, camera } = initScene();
+const { scene, camera } = initScene(renderer);
 const handleResize = resize(renderer, camera);
 const sky = createSky(scene);
+const godRays = createGodRaySystem({ x: 50, y: 20, z: 30 });
+for (const ray of godRays.rays) {
+  scene.impl.add(ray);
+}
 const shadowSize = getShadowMapSize();
 sky.sun.setShadowMapSize(shadowSize, shadowSize);
 const input = createIntegratedInput(canvas);
@@ -8842,7 +9010,7 @@ const progression = new ProgressionTracker();
 
 const stamina = createIntegratedStamina();
 const climbing = createClimbingState();
-const combat = createIntegratedCombat();
+let combat = createIntegratedCombat();
 const dodge = createDodgeState();
 const music = new MusicSystem();
 let audioCtx = null;
@@ -9248,7 +9416,15 @@ const pathDefs = arenaConfigs.map(({ center }) =>
   createSteppingStonesPath({ x: 0, y: 0, z: 0 }, { x: center.x, y: 0, z: center.z }, 5, { stoneRadius: 2 })
 );
 const pathPoints = pathDefs.map(p => generatePathPoints(p));
-const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0x888877, flatShading: true });
+const stoneNormalMap = createNormalMapTexture({ size: 128, scale: 0.12, seed: 88, strength: 1.8 });
+const stoneMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  flatShading: true,
+  roughness: 0.92,
+  metalness: 0.0,
+  normalMap: stoneNormalMap,
+  normalScale: new THREE.Vector2(0.5, 0.5),
+});
 const stoneGeometry = new THREE.CylinderGeometry(2, 2.2, 0.6, 8);
 const allStonePositions = [];
 for (const points of pathPoints) {
@@ -9257,6 +9433,25 @@ for (const points of pathPoints) {
   }
 }
 const stoneBatch = createInstancedMesh(stoneGeometry, stoneMaterial, allStonePositions);
+const stoneColor = new THREE.Color();
+for (let i = 0; i < allStonePositions.length; i++) {
+  const p = allStonePositions[i];
+  const moss = noise2D(p.x * 0.05, p.z * 0.05);
+  const mossFactor = Math.max(0, moss) * 0.6;
+  const baseR = 0.53 + Math.random() * 0.06;
+  const baseG = 0.52 + Math.random() * 0.06;
+  const baseB = 0.47 + Math.random() * 0.04;
+  const mossR = 0.22 + Math.random() * 0.1;
+  const mossG = 0.32 + Math.random() * 0.12;
+  const mossB = 0.15 + Math.random() * 0.06;
+  stoneColor.setRGB(
+    baseR * (1 - mossFactor) + mossR * mossFactor,
+    baseG * (1 - mossFactor) + mossG * mossFactor,
+    baseB * (1 - mossFactor) + mossB * mossFactor,
+  );
+  stoneBatch.impl.setColorAt(i, stoneColor);
+}
+stoneBatch.impl.instanceColor.needsUpdate = true;
 scene.impl.add(stoneBatch.impl);
 
 function getStoneHeight(x, z) {
@@ -9368,16 +9563,40 @@ function updateDirectionIndicators(playerPos) {
 const PARTICLE_COUNT = getParticleCount();
 const particleSystem = createParticleSystem(PARTICLE_COUNT, DEFAULT_BOUNDS);
 const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+const particleColors = new Float32Array(PARTICLE_COUNT * 3);
 const particleGeometry = new THREE.BufferGeometry();
 particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+particleGeometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+function createGlowTexture() {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const half = size / 2;
+  const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+  gradient.addColorStop(0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(0.15, 'rgba(255,255,255,0.8)');
+  gradient.addColorStop(0.4, 'rgba(255,200,100,0.3)');
+  gradient.addColorStop(1, 'rgba(255,100,0,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
 const particleMaterial = new THREE.PointsMaterial({
-  size: 0.15,
-  color: 0xff6622,
+  size: 0.4,
+  map: createGlowTexture(),
   transparent: true,
-  opacity: 0.6,
+  opacity: 0.85,
   blending: THREE.AdditiveBlending,
   depthWrite: false,
+  vertexColors: true,
+  sizeAttenuation: true,
 });
+particleMaterial.map.needsUpdate = true;
 const particlePoints = new THREE.Points(particleGeometry, particleMaterial);
 scene.impl.add(particlePoints);
 
@@ -9658,7 +9877,7 @@ function animate(now) {
     }
 
     const surfaces = getColossusSurfaces(colossi);
-    const weakPoints = getColossusWeakPoints(colossi);
+    let weakPoints = getColossusWeakPoints(colossi);
     const playerPos = player.state.position;
     const prevClimbingThisFrame = isPlayerClimbing(climbing);
 
@@ -9760,14 +9979,14 @@ function animate(now) {
         physicsWorld,
       );
 
-      player.state = {
-        ...player.state,
-        position: collision.position,
-        velocity: collision.velocity,
-      };
-
       const groundY = getGroundHeight(player.state.position.x, player.state.position.z);
       player.GROUND_Y = groundY;
+
+      player.state = {
+        ...player.state,
+        position: { ...collision.position, y: Math.max(collision.position.y, groundY) },
+        velocity: collision.velocity,
+      };
 
       const distToGround = player.state.position.y - groundY;
       if (distToGround >= -0.5 && distToGround < 0.5 && player.state.velocity.y <= 0) {
@@ -9819,6 +10038,8 @@ function animate(now) {
       audioState = registerSound(audioState, 'swordSlash', slashParams.duration, now * 0.001);
     }
     const combatResult = updateIntegratedCombat(combat, { ...inputState, attackJustPressed }, player.state.position, player.state.rotation, weakPoints, isPlayerClimbing(climbing), dt);
+    combat = combatResult.combatState;
+    weakPoints = combatResult.hitResult.weakPoints || weakPoints;
     prevAttack = inputState.attack;
 
     if (combatResult.hitResult.attacked && combatResult.hitResult.hitWeakPoint) {
@@ -9857,8 +10078,8 @@ function animate(now) {
     for (const event of colossusEvents) {
       if (event.type === 'shakeOff' && isPlayerClimbing(climbing)) {
         const shakeResult = handleShakeOff(combat, stamina, dt, inputState.action);
-        Object.assign(combat, shakeResult.combatState);
-        Object.assign(stamina, shakeResult.staminaState);
+        combat = shakeResult.combatState;
+        stamina = shakeResult.staminaState;
       }
     }
 
@@ -9966,11 +10187,14 @@ function animate(now) {
     const wind = { x: 0, z: 0, strength: 1 };
     particleSystem.particles = updateParticleSystem(particleSystem, wind, dt).particles;
     const posAttr = particleGeometry.attributes.position;
+    const colAttr = particleGeometry.attributes.color;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const p = particleSystem.particles[i];
       posAttr.setXYZ(i, p.x, p.y, p.z);
+      colAttr.setXYZ(i, p.color[0], p.color[1], p.color[2]);
     }
     posAttr.needsUpdate = true;
+    colAttr.needsUpdate = true;
 
     updateDirectionIndicators(pos);
     updateAmbientWind(0.3 + Math.sin(now * 0.0003) * 0.15);
@@ -10068,6 +10292,7 @@ function animate(now) {
 
   music.update(dt);
   Object.assign(fogSystem, updateFogSystem(fogSystem, dt));
+  godRays.update(dt);
   for (let i = 0; i < fogPlanes.length; i++) {
     fogPlanes[i].material.opacity = fogSystem.layers[i].currentDensity * 0.15;
   }
@@ -10168,6 +10393,2819 @@ function onColossusDefeated(type) {
 animate(performance.now());
 
 
+})();
+
+const _m_engine_physics_adapter_js = (() => {
+
+function createMockAdapter() {
+  const worlds = new Map();
+
+  function getInternal(world) {
+    return worlds.get(world);
+  }
+
+  return {
+    createPhysicsWorld(opts = {}) {
+      const internal = {
+        gravity: opts.gravity || { x: 0, y: -9.81, z: 0 },
+        bodies: new Set(),
+        collisionListeners: [],
+        friction: opts.friction !== undefined ? opts.friction : 0.6,
+        restitution: opts.restitution !== undefined ? opts.restitution : 0.1,
+      };
+      const handle = { impl: Symbol('world') };
+      worlds.set(handle, internal);
+      return handle;
+    },
+
+    createBody(world, opts) {
+      const pos = opts.position || { x: 0, y: 0, z: 0 };
+      const vel = { x: 0, y: 0, z: 0 };
+      const forceAccum = { x: 0, y: 0, z: 0 };
+      const impulseAccum = { x: 0, y: 0, z: 0 };
+      const mass = opts.type === 'static' ? 0 : (opts.mass || 1);
+
+      const body = {
+        impl: Symbol('body'),
+        type: opts.type || 'dynamic',
+        mass,
+        shape: opts.shape,
+        _position: { x: pos.x, y: pos.y, z: pos.z },
+        _velocity: { x: 0, y: 0, z: 0 },
+        _force: { x: 0, y: 0, z: 0 },
+        _impulse: { x: 0, y: 0, z: 0 },
+        _rotation: opts.rotation || { x: 0, y: 0, z: 0, w: 1 },
+        _angularVelocity: { x: 0, y: 0, z: 0 },
+        userData: opts.userData || {},
+        friction: opts.friction !== undefined ? opts.friction : null,
+        restitution: opts.restitution !== undefined ? opts.restitution : null,
+      };
+      return body;
+    },
+
+    addBody(world, body) {
+      const internal = getInternal(world);
+      if (internal) internal.bodies.add(body);
+    },
+
+    removeBody(world, body) {
+      const internal = getInternal(world);
+      if (internal) internal.bodies.delete(body);
+    },
+
+    step(world, dt) {
+      const clampedDt = Math.min(dt, 0.1);
+      const internal = getInternal(world);
+      if (!internal) return;
+
+      const { gravity, bodies, collisionListeners } = internal;
+
+      for (const body of bodies) {
+        if (body.type !== 'dynamic') continue;
+
+        const mass = body.mass || 1;
+
+        if (body._impulse.x !== 0 || body._impulse.y !== 0 || body._impulse.z !== 0) {
+          body._velocity.x += body._impulse.x / mass;
+          body._velocity.y += body._impulse.y / mass;
+          body._velocity.z += body._impulse.z / mass;
+          body._impulse.x = 0;
+          body._impulse.y = 0;
+          body._impulse.z = 0;
+        }
+
+        body._velocity.x += (gravity.x + body._force.x / mass) * clampedDt;
+        body._velocity.y += (gravity.y + body._force.y / mass) * clampedDt;
+        body._velocity.z += (gravity.z + body._force.z / mass) * clampedDt;
+
+        body._force.x = 0;
+        body._force.y = 0;
+        body._force.z = 0;
+
+        body._position.x += body._velocity.x * clampedDt;
+        body._position.y += body._velocity.y * clampedDt;
+        body._position.z += body._velocity.z * clampedDt;
+      }
+
+      const dynamicBodies = [];
+      const staticBodies = [];
+      for (const b of bodies) {
+        if (b.type === 'dynamic') dynamicBodies.push(b);
+        else if (b.type === 'static' || b.type === 'kinematic') staticBodies.push(b);
+      }
+
+      for (const dyn of dynamicBodies) {
+        for (const stat of staticBodies) {
+          if (dyn === stat) continue;
+          const penetration = detectAABBOverlap(dyn, stat);
+          if (penetration) {
+            resolvePenetration(dyn, stat, penetration);
+
+            const n = penetration.normal;
+            const velDotN = dyn._velocity.x * n.x + dyn._velocity.y * n.y + dyn._velocity.z * n.z;
+
+            const friction = dyn.friction !== null && dyn.friction !== undefined ? dyn.friction : internal.friction;
+            const restitution = dyn.restitution !== null && dyn.restitution !== undefined ? dyn.restitution : internal.restitution;
+
+            if (velDotN < 0) {
+              const bounce = -(1 + restitution) * velDotN;
+              dyn._velocity.x += bounce * n.x;
+              dyn._velocity.y += bounce * n.y;
+              dyn._velocity.z += bounce * n.z;
+            }
+
+            const newVelDotN = dyn._velocity.x * n.x + dyn._velocity.y * n.y + dyn._velocity.z * n.z;
+            const tanVelX = dyn._velocity.x - newVelDotN * n.x;
+            const tanVelY = dyn._velocity.y - newVelDotN * n.y;
+            const tanVelZ = dyn._velocity.z - newVelDotN * n.z;
+            const frictionFactor = Math.max(0, 1 - friction * clampedDt * 10);
+
+            dyn._velocity.x = newVelDotN * n.x + tanVelX * frictionFactor;
+            dyn._velocity.y = newVelDotN * n.y + tanVelY * frictionFactor;
+            dyn._velocity.z = newVelDotN * n.z + tanVelZ * frictionFactor;
+
+            for (const listener of collisionListeners) {
+              if (listener.bodyA === dyn && listener.bodyB === stat) {
+                listener.callback({ bodyA: dyn, bodyB: stat, normal: penetration.normal });
+              } else if (listener.bodyA === stat && listener.bodyB === dyn) {
+                listener.callback({ bodyA: stat, bodyB: dyn, normal: penetration.normal });
+              }
+            }
+          }
+        }
+      }
+    },
+
+    applyForce(world, body, force) {
+      body._force.x += force.x;
+      body._force.y += force.y;
+      body._force.z += force.z;
+    },
+
+    applyImpulse(world, body, impulse) {
+      body._impulse.x += impulse.x;
+      body._impulse.y += impulse.y;
+      body._impulse.z += impulse.z;
+    },
+
+    setVelocity(world, body, vel) {
+      body._velocity.x = vel.x;
+      body._velocity.y = vel.y;
+      body._velocity.z = vel.z;
+    },
+
+    getVelocity(world, body) {
+      return { x: body._velocity.x, y: body._velocity.y, z: body._velocity.z };
+    },
+
+    setPosition(world, body, pos) {
+      body._position.x = pos.x;
+      body._position.y = pos.y;
+      body._position.z = pos.z;
+    },
+
+    getPosition(world, body) {
+      return { x: body._position.x, y: body._position.y, z: body._position.z };
+    },
+
+    setRotation(world, body, rot) {
+      if (rot.x !== undefined) {
+        body._rotation.x = rot.x;
+        body._rotation.y = rot.y;
+        body._rotation.z = rot.z;
+        body._rotation.w = rot.w;
+      } else {
+        const rad = rot;
+        const half = rad / 2;
+        body._rotation = { x: 0, y: Math.sin(half), z: 0, w: Math.cos(half) };
+      }
+    },
+
+    getRotation(world, body) {
+      return { x: body._rotation.x, y: body._rotation.y, z: body._rotation.z, w: body._rotation.w };
+    },
+
+    raycast(world, from, to) {
+      const internal = getInternal(world);
+      if (!internal) return null;
+
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const dz = to.z - from.z;
+      const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (len === 0) return null;
+
+      const dirX = dx / len;
+      const dirY = dy / len;
+      const dirZ = dz / len;
+
+      let closestHit = null;
+      let closestDist = Infinity;
+
+      for (const body of internal.bodies) {
+        const result = raycastAABB(from, dirX, dirY, dirZ, body);
+        if (result && result.distance < closestDist && result.distance >= 0 && result.distance <= len) {
+          closestDist = result.distance;
+          closestHit = {
+            body,
+            distance: result.distance,
+            point: result.point,
+            normal: result.normal,
+          };
+        }
+      }
+
+      return closestHit;
+    },
+
+    onCollision(world, bodyA, bodyB, callback) {
+      const internal = getInternal(world);
+      if (internal) {
+        internal.collisionListeners.push({ bodyA, bodyB, callback });
+      }
+    },
+
+    createTrimeshCollider(world, opts) {
+      const pos = opts.position || { x: 0, y: 0, z: 0 };
+      const body = {
+        impl: Symbol('trimesh'),
+        type: 'static',
+        mass: 0,
+        shape: { type: 'trimesh', vertices: opts.vertices, indices: opts.indices },
+        _position: { x: pos.x, y: pos.y, z: pos.z },
+        _velocity: { x: 0, y: 0, z: 0 },
+        _force: { x: 0, y: 0, z: 0 },
+        _impulse: { x: 0, y: 0, z: 0 },
+        _rotation: { x: 0, y: 0, z: 0, w: 1 },
+        _angularVelocity: { x: 0, y: 0, z: 0 },
+        userData: opts.userData || {},
+        friction: opts.friction !== undefined ? opts.friction : null,
+        restitution: opts.restitution !== undefined ? opts.restitution : null,
+      };
+      const internal = getInternal(world);
+      if (internal) internal.bodies.add(body);
+      return body;
+    },
+  };
+}
+
+function getHalfExtents(body) {
+  const s = body.shape;
+  if (!s) return { x: 0.5, y: 0.5, z: 0.5 };
+  if (s.type === 'box') return { x: s.halfExtents.x, y: s.halfExtents.y, z: s.halfExtents.z };
+  if (s.type === 'capsule') {
+    const r = s.radius || 0.3;
+    const h = (s.height || 1.0) / 2 + r;
+    return { x: r, y: h, z: r };
+  }
+  if (s.type === 'sphere') {
+    const r = s.radius || 0.5;
+    return { x: r, y: r, z: r };
+  }
+  if (s.type === 'trimesh') {
+    const verts = s.vertices;
+    if (!verts || verts.length === 0) return { x: 50, y: 0.5, z: 50 };
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    for (let i = 0; i < verts.length; i += 3) {
+      const vx = verts[i] + body._position.x;
+      const vy = verts[i + 1] + body._position.y;
+      const vz = verts[i + 2] + body._position.z;
+      if (vx < minX) minX = vx;
+      if (vy < minY) minY = vy;
+      if (vz < minZ) minZ = vz;
+      if (vx > maxX) maxX = vx;
+      if (vy > maxY) maxY = vy;
+      if (vz > maxZ) maxZ = vz;
+    }
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const cz = (minZ + maxZ) / 2;
+    return { x: (maxX - minX) / 2, y: (maxY - minY) / 2, z: (maxZ - minZ) / 2, cx, cy, cz };
+  }
+  return { x: 0.5, y: 0.5, z: 0.5 };
+}
+
+function detectAABBOverlap(bodyA, bodyB) {
+  const heA = getHalfExtents(bodyA);
+  const heB = getHalfExtents(bodyB);
+  const pA = bodyA._position;
+  const pB = bodyB._position;
+
+  const cAx = heA.cx !== undefined ? heA.cx : pA.x;
+  const cAy = heA.cy !== undefined ? heA.cy : pA.y;
+  const cAz = heA.cz !== undefined ? heA.cz : pA.z;
+  const cBx = heB.cx !== undefined ? heB.cx : pB.x;
+  const cBy = heB.cy !== undefined ? heB.cy : pB.y;
+  const cBz = heB.cz !== undefined ? heB.cz : pB.z;
+
+  const dx = cBx - cAx;
+  const dy = cBy - cAy;
+  const dz = cBz - cAz;
+  const overlapX = heA.x + heB.x - Math.abs(dx);
+  const overlapY = heA.y + heB.y - Math.abs(dy);
+  const overlapZ = heA.z + heB.z - Math.abs(dz);
+
+  if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) return null;
+
+  let normal, depth;
+  if (overlapX < overlapY && overlapX < overlapZ) {
+    depth = overlapX;
+    normal = { x: dx > 0 ? -1 : 1, y: 0, z: 0 };
+  } else if (overlapY < overlapZ) {
+    depth = overlapY;
+    normal = { x: 0, y: dy > 0 ? -1 : 1, z: 0 };
+  } else {
+    depth = overlapZ;
+    normal = { x: 0, y: 0, z: dz > 0 ? -1 : 1 };
+  }
+
+  return { depth, normal };
+}
+
+function resolvePenetration(dynamicBody, otherBody, penetration) {
+  dynamicBody._position.x += penetration.normal.x * penetration.depth;
+  dynamicBody._position.y += penetration.normal.y * penetration.depth;
+  dynamicBody._position.z += penetration.normal.z * penetration.depth;
+}
+
+function raycastAABB(origin, dirX, dirY, dirZ, body) {
+  const he = getHalfExtents(body);
+  const p = body._position;
+
+  const cBx = he.cx !== undefined ? he.cx : p.x;
+  const cBy = he.cy !== undefined ? he.cy : p.y;
+  const cBz = he.cz !== undefined ? he.cz : p.z;
+
+  const minX = cBx - he.x;
+  const maxX = cBx + he.x;
+  const minY = cBy - he.y;
+  const maxY = cBy + he.y;
+  const minZ = cBz - he.z;
+  const maxZ = cBz + he.z;
+
+  let tmin = -Infinity;
+  let tmax = Infinity;
+  let hitNormal = { x: 0, y: 0, z: 0 };
+
+  if (Math.abs(dirX) > 1e-8) {
+    let t1 = (minX - origin.x) / dirX;
+    let t2 = (maxX - origin.x) / dirX;
+    let nx1 = -1;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; nx1 = 1; }
+    if (t1 > tmin) { tmin = t1; hitNormal = { x: nx1, y: 0, z: 0 }; }
+    tmax = Math.min(tmax, t2);
+  } else {
+    if (origin.x < minX || origin.x > maxX) return null;
+  }
+
+  if (Math.abs(dirY) > 1e-8) {
+    let t1 = (minY - origin.y) / dirY;
+    let t2 = (maxY - origin.y) / dirY;
+    let ny1 = -1;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; ny1 = 1; }
+    if (t1 > tmin) { tmin = t1; hitNormal = { x: 0, y: ny1, z: 0 }; }
+    tmax = Math.min(tmax, t2);
+  } else {
+    if (origin.y < minY || origin.y > maxY) return null;
+  }
+
+  if (Math.abs(dirZ) > 1e-8) {
+    let t1 = (minZ - origin.z) / dirZ;
+    let t2 = (maxZ - origin.z) / dirZ;
+    let nz1 = -1;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; nz1 = 1; }
+    if (t1 > tmin) { tmin = t1; hitNormal = { x: 0, y: 0, z: nz1 }; }
+    tmax = Math.min(tmax, t2);
+  } else {
+    if (origin.z < minZ || origin.z > maxZ) return null;
+  }
+
+  if (tmax < 0 || tmin > tmax) return null;
+
+  const t = tmin >= 0 ? tmin : tmax;
+  if (t < 0) return null;
+
+  return {
+    distance: t,
+    point: {
+      x: origin.x + dirX * t,
+      y: origin.y + dirY * t,
+      z: origin.z + dirZ * t,
+    },
+    normal: tmin >= 0 ? hitNormal : { x: 0, y: 0, z: 0 },
+  };
+}
+
+
+
+return { createMockAdapter: createMockAdapter };
+})();
+
+const _m_world_block_types_js = (() => {
+
+const BlockType = {
+  AIR: 0,
+  DIRT: 1,
+  GRASS: 2,
+  STONE: 3,
+  MOSS_STONE: 4,
+  SAND: 5,
+  WATER: 6,
+  WOOD: 7,
+  LEAVES: 8,
+  RUNE_GLOW: 9,
+  CRACKED_STONE: 10,
+  MOSS_DIRT: 11,
+};
+
+const BLOCK_PROPERTIES = {
+  [BlockType.AIR]: {
+    solid: false,
+    transparent: true,
+    color: [0, 0, 0],
+    emissive: [0, 0, 0],
+  },
+  [BlockType.DIRT]: {
+    solid: true,
+    transparent: false,
+    color: [0.36, 0.25, 0.13],
+    emissive: [0, 0, 0],
+  },
+  [BlockType.GRASS]: {
+    solid: true,
+    transparent: false,
+    color: [0.22, 0.55, 0.15],
+    emissive: [0, 0, 0],
+  },
+  [BlockType.STONE]: {
+    solid: true,
+    transparent: false,
+    color: [0.55, 0.52, 0.48],
+    emissive: [0, 0, 0],
+  },
+  [BlockType.MOSS_STONE]: {
+    solid: true,
+    transparent: false,
+    color: [0.35, 0.50, 0.30],
+    emissive: [0, 0, 0],
+  },
+  [BlockType.SAND]: {
+    solid: true,
+    transparent: false,
+    color: [0.76, 0.70, 0.50],
+    emissive: [0, 0, 0],
+  },
+  [BlockType.WATER]: {
+    solid: false,
+    transparent: true,
+    color: [0.15, 0.35, 0.65],
+    emissive: [0, 0, 0],
+  },
+  [BlockType.WOOD]: {
+    solid: true,
+    transparent: false,
+    color: [0.40, 0.26, 0.13],
+    emissive: [0, 0, 0],
+  },
+  [BlockType.LEAVES]: {
+    solid: true,
+    transparent: true,
+    color: [0.18, 0.42, 0.12],
+    emissive: [0, 0, 0],
+  },
+  [BlockType.RUNE_GLOW]: {
+    solid: true,
+    transparent: false,
+    color: [0.0, 0.8, 1.0],
+    emissive: [0.0, 0.5, 0.7],
+  },
+  [BlockType.CRACKED_STONE]: {
+    solid: true,
+    transparent: false,
+    color: [0.40, 0.38, 0.35],
+    emissive: [0, 0, 0],
+  },
+  [BlockType.MOSS_DIRT]: {
+    solid: true,
+    transparent: false,
+    color: [0.30, 0.40, 0.18],
+    emissive: [0, 0, 0],
+  },
+};
+
+function getBlockProperty(type, prop) {
+  const props = BLOCK_PROPERTIES[type];
+  if (!props) return undefined;
+  return props[prop];
+}
+
+function isBlockSolid(type) {
+  return getBlockProperty(type, 'solid') === true;
+}
+
+function isBlockTransparent(type) {
+  return getBlockProperty(type, 'transparent') === true;
+}
+
+function getBlockColor(type) {
+  return getBlockProperty(type, 'color');
+}
+
+function getBlockEmissive(type) {
+  return getBlockProperty(type, 'emissive');
+}
+
+return { getBlockProperty: getBlockProperty, isBlockSolid: isBlockSolid, isBlockTransparent: isBlockTransparent, getBlockColor: getBlockColor, getBlockEmissive: getBlockEmissive, BlockType: BlockType, BLOCK_PROPERTIES: BLOCK_PROPERTIES };
+})();
+
+const _m_world_voxel_chunk_js = (() => {
+const { BlockType, isBlockSolid, isBlockTransparent, getBlockColor, getBlockEmissive } = _m_world_block_types_js;
+const CHUNK_SIZE = 16;
+
+function createChunk(chunkX, chunkY, chunkZ) {
+  const size = CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE;
+  return {
+    chunkX,
+    chunkY,
+    chunkZ,
+    blocks: new Uint8Array(size),
+    dirty: true,
+    mesh: null,
+  };
+}
+
+function index(x, y, z) {
+  return (y * CHUNK_SIZE * CHUNK_SIZE) + (z * CHUNK_SIZE) + x;
+}
+
+function getBlock(chunk, lx, ly, lz) {
+  if (lx < 0 || lx >= CHUNK_SIZE || ly < 0 || ly >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE) {
+    return BlockType.AIR;
+  }
+  return chunk.blocks[index(lx, ly, lz)];
+}
+
+function setBlock(chunk, lx, ly, lz, blockType) {
+  if (lx < 0 || lx >= CHUNK_SIZE || ly < 0 || ly >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE) return;
+  chunk.blocks[index(lx, ly, lz)] = blockType;
+  chunk.dirty = true;
+}
+
+function fillChunk(chunk, blockType) {
+  chunk.blocks.fill(blockType);
+  chunk.dirty = true;
+}
+
+function isChunkEmpty(chunk) {
+  for (let i = 0; i < chunk.blocks.length; i++) {
+    if (chunk.blocks[i] !== BlockType.AIR) return false;
+  }
+  return true;
+}
+
+function forEachBlock(chunk, callback) {
+  for (let y = 0; y < CHUNK_SIZE; y++) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      for (let x = 0; x < CHUNK_SIZE; x++) {
+        const blockType = chunk.blocks[index(x, y, z)];
+        if (blockType !== BlockType.AIR) {
+          callback(x, y, z, blockType);
+        }
+      }
+    }
+  }
+}
+
+function isBlockExposed(chunk, lx, ly, lz, getNeighborBlock) {
+  const type = getBlock(chunk, lx, ly, lz);
+  if (type === BlockType.AIR) return false;
+
+  const dirs = [
+    [1, 0, 0], [-1, 0, 0],
+    [0, 1, 0], [0, -1, 0],
+    [0, 0, 1], [0, 0, -1],
+  ];
+
+  for (const [dx, dy, dz] of dirs) {
+    const nx = lx + dx;
+    const ny = ly + dy;
+    const nz = lz + dz;
+
+    let neighbor;
+    if (getNeighborBlock) {
+      neighbor = getNeighborBlock(nx, ny, nz);
+    } else {
+      if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) {
+        neighbor = BlockType.AIR;
+      } else {
+        neighbor = chunk.blocks[index(nx, ny, nz)];
+      }
+    }
+
+    if (!isBlockSolid(neighbor) || isBlockTransparent(neighbor)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getChunkWorldPosition(chunk) {
+  return {
+    x: chunk.chunkX * CHUNK_SIZE,
+    y: chunk.chunkY * CHUNK_SIZE,
+    z: chunk.chunkZ * CHUNK_SIZE,
+  };
+}
+
+function getExposedFaces(chunk, getNeighborBlock) {
+  const faces = [];
+
+  const FACE_DIRS = [
+    { dx: 1, dy: 0, dz: 0, nx: 1, ny: 0, nz: 0 },
+    { dx: -1, dy: 0, dz: 0, nx: -1, ny: 0, nz: 0 },
+    { dx: 0, dy: 1, dz: 0, nx: 0, ny: 1, nz: 0 },
+    { dx: 0, dy: -1, dz: 0, nx: 0, ny: -1, nz: 0 },
+    { dx: 0, dy: 0, dz: 1, nx: 0, ny: 0, nz: 1 },
+    { dx: 0, dy: 0, dz: -1, nx: 0, ny: 0, nz: -1 },
+  ];
+
+  for (let y = 0; y < CHUNK_SIZE; y++) {
+    for (let z = 0; z < CHUNK_SIZE; z++) {
+      for (let x = 0; x < CHUNK_SIZE; x++) {
+        const blockType = chunk.blocks[index(x, y, z)];
+        if (blockType === BlockType.AIR) continue;
+
+        for (const face of FACE_DIRS) {
+          const nx = x + face.dx;
+          const ny = y + face.dy;
+          const nz = z + face.dz;
+
+          let neighbor;
+          if (getNeighborBlock) {
+            neighbor = getNeighborBlock(nx, ny, nz);
+          } else {
+            if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) {
+              neighbor = BlockType.AIR;
+            } else {
+              neighbor = chunk.blocks[index(nx, ny, nz)];
+            }
+          }
+
+          if (!isBlockSolid(neighbor) || isBlockTransparent(neighbor)) {
+            faces.push({
+              x, y, z,
+              blockType,
+              normal: { x: face.nx, y: face.ny, z: face.nz },
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return faces;
+}
+
+return { createChunk: createChunk, getBlock: getBlock, setBlock: setBlock, fillChunk: fillChunk, isChunkEmpty: isChunkEmpty, forEachBlock: forEachBlock, isBlockExposed: isBlockExposed, getChunkWorldPosition: getChunkWorldPosition, getExposedFaces: getExposedFaces, CHUNK_SIZE: CHUNK_SIZE };
+})();
+
+const _m_world_voxel_materials_js = (() => {
+const { BlockType, getBlockColor, getBlockEmissive } = _m_world_block_types_js;
+const GRASS_SIDE_COLOR = [0.36, 0.25, 0.13];
+
+function getBlockColorForFace(type, nx, ny, nz) {
+  if (type === BlockType.GRASS && ny !== 1) {
+    return GRASS_SIDE_COLOR;
+  }
+  return getBlockColor(type);
+}
+
+function createMaterialConfig(opts) {
+  const { opaque, transparent, emissive } = opts;
+  const config = {
+    vertexColors: true,
+    roughness: 0.9,
+    metalness: 0.0,
+    side: 0,
+  };
+
+  if (transparent) {
+    config.transparent = true;
+    config.alphaTest = 0.1;
+    config.depthWrite = false;
+  } else {
+    config.transparent = false;
+    config.alphaTest = 0;
+  }
+
+  if (emissive) {
+    config.emissiveIntensity = 1;
+  }
+
+  return config;
+}
+
+let _THREE = null;
+
+function setTHREE(threeModule) {
+  _THREE = threeModule;
+}
+
+function createVoxelMesh(meshData) {
+  const T = _THREE;
+  if (!T) return null;
+
+  const geometry = new T.BufferGeometry();
+  geometry.setAttribute('position', new T.Float32BufferAttribute(meshData.positions, 3));
+  geometry.setAttribute('normal', new T.Float32BufferAttribute(meshData.normals, 3));
+  geometry.setAttribute('color', new T.Float32BufferAttribute(meshData.colors, 3));
+  if (meshData.emissives && meshData.emissives.length > 0) {
+    geometry.setAttribute('aEmissive', new T.Float32BufferAttribute(meshData.emissives, 3));
+  }
+  geometry.setIndex(Array.from(meshData.indices));
+
+  const material = new T.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.9,
+    metalness: 0.0,
+  });
+
+  const mesh = new T.Mesh(geometry, material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  return mesh;
+}
+
+function createVoxelMeshGroup() {
+  const T = _THREE;
+  if (!T) return null;
+
+  const group = new T.Group();
+  const meshes = [];
+
+  group._createMesh = function (meshData, cx, cy, cz) {
+    const mesh = createVoxelMesh(meshData);
+    if (!mesh) return null;
+    mesh.position.set(cx, cy, cz);
+    group.add(mesh);
+    meshes.push(mesh);
+    return mesh;
+  };
+
+  group._clearMeshes = function () {
+    for (const mesh of meshes) {
+      group.remove(mesh);
+      if (mesh.geometry) mesh.geometry.dispose();
+      if (mesh.material) mesh.material.dispose();
+    }
+    meshes.length = 0;
+  };
+
+  return group;
+}
+
+return { getBlockColorForFace: getBlockColorForFace, createMaterialConfig: createMaterialConfig, setTHREE: setTHREE, createVoxelMesh: createVoxelMesh, createVoxelMeshGroup: createVoxelMeshGroup };
+})();
+
+const _m_world_voxel_mesher_js = (() => {
+const { getBlockColorForFace } = _m_world_voxel_materials_js;
+const { BlockType, getBlockColor, getBlockEmissive, isBlockSolid } = _m_world_block_types_js;
+const { CHUNK_SIZE, getBlock, getExposedFaces, getChunkWorldPosition } = _m_world_voxel_chunk_js;
+const FACE_VERTICES = {
+  px: [
+    [1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1],
+  ],
+  nx: [
+    [0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0],
+  ],
+  py: [
+    [0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0],
+  ],
+  ny: [
+    [0, 0, 1], [0, 0, 0], [1, 0, 0], [1, 0, 1],
+  ],
+  pz: [
+    [1, 0, 1], [1, 1, 1], [0, 1, 1], [0, 0, 1],
+  ],
+  nz: [
+    [0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0],
+  ],
+};
+
+const FACE_INDICES = [0, 1, 2, 0, 2, 3];
+
+const AO_CURVE = [
+  0.45,
+  0.65,
+  0.80,
+  1.0,
+];
+
+function faceKey(nx, ny, nz) {
+  if (nx === 1) return 'px';
+  if (nx === -1) return 'nx';
+  if (ny === 1) return 'py';
+  if (ny === -1) return 'ny';
+  if (nz === 1) return 'pz';
+  return 'nz';
+}
+
+function vertexAO(side1, side2, corner) {
+  if (side1 && side2) return 0;
+  return AO_CURVE[(side1 ? 1 : 0) + (side2 ? 1 : 0) + (corner ? 1 : 0)];
+}
+
+function computeFaceAO(chunk, x, y, z, nx, ny, nz, getNeighborBlock) {
+  function isSolidNeighbor(wx, wy, wz) {
+    const bt = getNeighborBlock ? getNeighborBlock(wx, wy, wz) : getBlock(chunk, wx, wy, wz);
+    return isBlockSolid(bt);
+  }
+
+  const verts = FACE_VERTICES[faceKey(nx, ny, nz)];
+  const ao = new Float32Array(4);
+
+  for (let i = 0; i < 4; i++) {
+    const vx = x + verts[i][0];
+    const vy = y + verts[i][1];
+    const vz = z + verts[i][2];
+
+    const s1x = vx - nx + (nz !== 0 ? nx : 0);
+    const s1y = vy - ny + (ny === 0 ? 1 : 0);
+    const s1z = vz - nz + (nx !== 0 ? nx : 0);
+
+    const s2x = vx - nx + (nx === 0 ? 1 : 0);
+    const s2y = vy - ny + (nz !== 0 ? nx : 0);
+    const s2z = vz - nz + (ny === 0 ? 1 : 0);
+
+    const cx = vx - nx;
+    const cy = vy - ny;
+    const cz = vz - nz;
+
+    const side1 = isSolidNeighbor(s1x, s1y, s1z);
+    const side2 = isSolidNeighbor(s2x, s2y, s2z);
+    const corner = isSolidNeighbor(cx, cy, cz);
+
+    ao[i] = vertexAO(side1, side2, corner);
+  }
+
+  return ao;
+}
+
+function buildChunkMeshData(chunk, getNeighborBlock) {
+  const faces = getExposedFaces(chunk, getNeighborBlock);
+  if (faces.length === 0) return null;
+
+  const positions = [];
+  const normals = [];
+  const colors = [];
+  const indices = [];
+  const emissives = [];
+
+  let vertexCount = 0;
+  const origin = getChunkWorldPosition(chunk);
+
+  const faceGroups = new Map();
+
+  for (const face of faces) {
+    const key = face.blockType;
+    if (!faceGroups.has(key)) faceGroups.set(key, []);
+    faceGroups.get(key).push(face);
+  }
+
+  for (const [blockType, groupFaces] of faceGroups) {
+    const emissive = getBlockEmissive(blockType);
+
+    for (const face of groupFaces) {
+      const fk = faceKey(face.normal.x, face.normal.y, face.normal.z);
+      const verts = FACE_VERTICES[fk];
+      const ao = computeFaceAO(chunk, face.x, face.y, face.z, face.normal.x, face.normal.y, face.normal.z, getNeighborBlock);
+      const baseColor = getBlockColorForFace(blockType, face.normal.x, face.normal.y, face.normal.z);
+
+      for (let i = 0; i < 4; i++) {
+        positions.push(
+          origin.x + face.x + verts[i][0],
+          origin.y + face.y + verts[i][1],
+          origin.z + face.z + verts[i][2]
+        );
+        normals.push(face.normal.x, face.normal.y, face.normal.z);
+        colors.push(baseColor[0] * ao[i], baseColor[1] * ao[i], baseColor[2] * ao[i]);
+        emissives.push(emissive[0], emissive[1], emissive[2]);
+      }
+
+      for (const idx of FACE_INDICES) {
+        indices.push(vertexCount + idx);
+      }
+      vertexCount += 4;
+    }
+  }
+
+  return {
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    colors: new Float32Array(colors),
+    emissives: new Float32Array(emissives),
+    indices: new Uint32Array(indices),
+    vertexCount,
+    faceCount: faces.length,
+  };
+}
+
+function buildVoxelGeometryForGroup(faces, origin) {
+  const positions = [];
+  const normals = [];
+  const colors = [];
+  const indices = [];
+
+  let vertexCount = 0;
+
+  for (const face of faces) {
+    const fk = faceKey(face.normal.x, face.normal.y, face.normal.z);
+    const verts = FACE_VERTICES[fk];
+    const baseColor = getBlockColorForFace(face.blockType, face.normal.x, face.normal.y, face.normal.z);
+
+    for (let i = 0; i < 4; i++) {
+      positions.push(
+        origin.x + face.x + verts[i][0],
+        origin.y + face.y + verts[i][1],
+        origin.z + face.z + verts[i][2]
+      );
+      normals.push(face.normal.x, face.normal.y, face.normal.z);
+      colors.push(baseColor[0], baseColor[1], baseColor[2]);
+    }
+
+    for (const idx of FACE_INDICES) {
+      indices.push(vertexCount + idx);
+    }
+    vertexCount += 4;
+  }
+
+  return {
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    colors: new Float32Array(colors),
+    indices: new Uint32Array(indices),
+    vertexCount,
+  };
+}
+
+return { buildChunkMeshData: buildChunkMeshData, buildVoxelGeometryForGroup: buildVoxelGeometryForGroup };
+})();
+
+const _m_player_voxel_character_mesh_js = (() => {
+const { buildVoxelGeometryForGroup } = _m_world_voxel_mesher_js;
+const { BlockType, isBlockSolid } = _m_world_block_types_js;
+const FACE_DIRS = [
+  { dx: 1, dy: 0, dz: 0, nx: 1, ny: 0, nz: 0 },
+  { dx: -1, dy: 0, dz: 0, nx: -1, ny: 0, nz: 0 },
+  { dx: 0, dy: 1, dz: 0, nx: 0, ny: 1, nz: 0 },
+  { dx: 0, dy: -1, dz: 0, nx: 0, ny: -1, nz: 0 },
+  { dx: 0, dy: 0, dz: 1, nx: 0, ny: 0, nz: 1 },
+  { dx: 0, dy: 0, dz: -1, nx: 0, ny: 0, nz: -1 },
+];
+
+function vkey(x, y, z) {
+  return `${x},${y},${z}`;
+}
+
+function computeExposedFaces(voxels) {
+  const occupied = new Set();
+  for (const v of voxels) {
+    occupied.add(vkey(v.x, v.y, v.z));
+  }
+
+  const faces = [];
+  for (const v of voxels) {
+    for (const dir of FACE_DIRS) {
+      const nk = vkey(v.x + dir.dx, v.y + dir.dy, v.z + dir.dz);
+      if (!occupied.has(nk)) {
+        faces.push({
+          x: v.x,
+          y: v.y,
+          z: v.z,
+          blockType: v.type,
+          normal: { x: dir.nx, y: dir.ny, z: dir.nz },
+        });
+      }
+    }
+  }
+  return faces;
+}
+
+function createPlayerVoxelTemplate() {
+  const voxels = [];
+
+  voxels.push({ x: 0, y: 3, z: 0, type: BlockType.SAND });
+
+  voxels.push({ x: 0, y: 2, z: 0, type: BlockType.SAND });
+  voxels.push({ x: 0, y: 1, z: 0, type: BlockType.SAND });
+
+  voxels.push({ x: -1, y: 2, z: 0, type: BlockType.SAND });
+  voxels.push({ x: 1, y: 2, z: 0, type: BlockType.SAND });
+  voxels.push({ x: -1, y: 1, z: 0, type: BlockType.SAND });
+  voxels.push({ x: 1, y: 1, z: 0, type: BlockType.SAND });
+
+  voxels.push({ x: -1, y: 0, z: 0, type: BlockType.WOOD });
+  voxels.push({ x: 1, y: 0, z: 0, type: BlockType.WOOD });
+
+  voxels.push({ x: -2, y: 2, z: 0, type: BlockType.STONE });
+  voxels.push({ x: -2, y: 3, z: 0, type: BlockType.STONE });
+  voxels.push({ x: -2, y: 1, z: 0, type: BlockType.CRACKED_STONE });
+
+  voxels.push({ x: 0, y: 1, z: -1, type: BlockType.MOSS_DIRT });
+  voxels.push({ x: 0, y: 2, z: -1, type: BlockType.MOSS_DIRT });
+  voxels.push({ x: 0, y: 3, z: -1, type: BlockType.MOSS_DIRT });
+
+  return voxels;
+}
+
+function buildPlayerMeshData(voxels, origin = { x: 0, y: 0, z: 0 }) {
+  const faces = computeExposedFaces(voxels);
+  return buildVoxelGeometryForGroup(faces, origin);
+}
+
+return { createPlayerVoxelTemplate: createPlayerVoxelTemplate, buildPlayerMeshData: buildPlayerMeshData };
+})();
+
+const _m_world_island_physics_js = (() => {
+
+function extractIslandColliderData(island, resolution) {
+  const res = resolution ?? island.resolution;
+  const side = res + 1;
+  const vertexCount = side * side;
+  const vertices = new Float32Array(vertexCount * 3);
+  const indices = [];
+
+  const r = island.radius * 2;
+  const cx = island.center.x;
+  const cz = island.center.z;
+
+  for (let iy = 0; iy < side; iy++) {
+    for (let ix = 0; ix < side; ix++) {
+      const idx = iy * side + ix;
+      vertices[idx * 3] = (ix / res - 0.5) * r + cx;
+      vertices[idx * 3 + 1] = island.heightData[idx];
+      vertices[idx * 3 + 2] = (iy / res - 0.5) * r + cz;
+    }
+  }
+
+  for (let iy = 0; iy < res; iy++) {
+    for (let ix = 0; ix < res; ix++) {
+      const a = iy * side + ix;
+      const b = a + 1;
+      const c = a + side;
+      const d = c + 1;
+      indices.push(a, c, b);
+      indices.push(b, c, d);
+    }
+  }
+
+  return { vertices, indices };
+}
+
+function createIslandCollider(adapter, world, island, downsampleFactor) {
+  const resolution = downsampleFactor
+    ? Math.max(1, Math.floor(island.resolution / downsampleFactor))
+    : undefined;
+  const { vertices, indices } = extractIslandColliderData(island, resolution);
+  return adapter.createTrimeshCollider(world, {
+    vertices,
+    indices,
+    position: { x: 0, y: 0, z: 0 },
+    userData: { entity: 'island', type: island.type },
+  });
+}
+
+function groundHeightRaycast(adapter, world, x, z, maxDistance) {
+  const hit = adapter.raycast(
+    world,
+    { x, y: maxDistance, z },
+    { x, y: -maxDistance, z }
+  );
+  return hit ? hit.point.y : null;
+}
+
+return { extractIslandColliderData: extractIslandColliderData, createIslandCollider: createIslandCollider, groundHeightRaycast: groundHeightRaycast };
+})();
+
+const _m_world_voxel_atmosphere_js = (() => {
+
+const AO_CURVE = [0.45, 0.65, 0.80, 1.0];
+
+const VOXEL_FOG_DENSITY_MULTIPLIER = 1.3;
+const DEFAULT_SCENE_FOG_DENSITY = 0.005;
+const VOXEL_FOG_MAX_DENSITY = 0.04;
+const VOXEL_BLOOM_THRESHOLD = 0.15;
+const VOXEL_BLOOM_INTENSITY_MULTIPLIER = 1.4;
+const DEFAULT_BLOOM_THRESHOLD = 0.1;
+const DEFAULT_BLOOM_INTENSITY = 0.5;
+const VOXEL_BLOOM_INTENSITY_MAX = 3.0;
+const VOXEL_BLOOM_THRESHOLD_MAX = 0.2;
+const SHADOW_MAP_SIZE = 2048;
+const SHADOW_BIAS = -0.002;
+const SHADOW_NORMAL_BIAS = 0.02;
+
+function updateFogForVoxels(base = {}) {
+  const baseDensity = base.sceneFogDensity ?? DEFAULT_SCENE_FOG_DENSITY;
+  return {
+    sceneFogDensity: Math.min(baseDensity * VOXEL_FOG_DENSITY_MULTIPLIER, VOXEL_FOG_MAX_DENSITY),
+    sceneFogColor: base.sceneFogColor ?? 0xc9a84c,
+    layerDensityMultiplier: VOXEL_FOG_DENSITY_MULTIPLIER,
+  };
+}
+
+function updateBloomForVoxels(base = {}) {
+  const baseIntensity = base.bloomIntensity ?? DEFAULT_BLOOM_INTENSITY;
+  const baseThreshold = base.bloomThreshold ?? DEFAULT_BLOOM_THRESHOLD;
+  return {
+    bloomThreshold: Math.min(Math.max(baseThreshold, VOXEL_BLOOM_THRESHOLD), VOXEL_BLOOM_THRESHOLD_MAX),
+    bloomIntensity: Math.min(baseIntensity * VOXEL_BLOOM_INTENSITY_MULTIPLIER, VOXEL_BLOOM_INTENSITY_MAX),
+  };
+}
+
+function createVoxelShadowConfig() {
+  return {
+    shadowMapType: 3,
+    shadowMapSize: SHADOW_MAP_SIZE,
+    shadowBias: SHADOW_BIAS,
+    shadowNormalBias: SHADOW_NORMAL_BIAS,
+  };
+}
+
+return { updateFogForVoxels: updateFogForVoxels, updateBloomForVoxels: updateBloomForVoxels, createVoxelShadowConfig: createVoxelShadowConfig, AO_CURVE: AO_CURVE };
+})();
+
+const _m_world_voxel_audio_js = (() => {
+
+const FOOTSTEP_SOUNDS = {
+  GRASS: { frequency: 200, duration: 0.08, type: 'sine', volume: 0.3 },
+  STONE: { frequency: 500, duration: 0.05, type: 'square', volume: 0.4 },
+  DIRT: { frequency: 150, duration: 0.1, type: 'sine', volume: 0.3 },
+  SAND: { frequency: 300, duration: 0.09, type: 'sawtooth', volume: 0.25 },
+  MOSS_STONE: { frequency: 350, duration: 0.06, type: 'sine', volume: 0.35 },
+  WOOD: { frequency: 250, duration: 0.07, type: 'triangle', volume: 0.35 },
+};
+
+const BREAK_SOUNDS = {
+  GRASS: { frequency: 300, duration: 0.12, type: 'sine', volume: 0.35 },
+  STONE: { frequency: 600, duration: 0.15, type: 'square', volume: 0.5 },
+  DIRT: { frequency: 200, duration: 0.15, type: 'sine', volume: 0.35 },
+  SAND: { frequency: 350, duration: 0.1, type: 'sawtooth', volume: 0.3 },
+  MOSS_STONE: { frequency: 500, duration: 0.14, type: 'square', volume: 0.45 },
+  WOOD: { frequency: 400, duration: 0.13, type: 'triangle', volume: 0.45 },
+};
+
+const PLACE_SOUND = { frequency: 350, duration: 0.06, type: 'sine', volume: 0.3 };
+
+const DEFAULT_FOOTSTEP = FOOTSTEP_SOUNDS.STONE;
+const DEFAULT_BREAK = BREAK_SOUNDS.STONE;
+
+const BLOCK_TYPE_NAMES = ['AIR', 'DIRT', 'GRASS', 'STONE', 'MOSS_STONE', 'SAND', 'WATER', 'WOOD', 'LEAVES', 'RUNE_GLOW', 'CRACKED_STONE', 'MOSS_DIRT'];
+
+function getBlockTypeName(blockType) {
+  return BLOCK_TYPE_NAMES[blockType] ?? null;
+}
+
+function getBlockFootstepSound(blockType) {
+  const name = getBlockTypeName(blockType);
+  return (name && FOOTSTEP_SOUNDS[name]) ? { ...FOOTSTEP_SOUNDS[name] } : { ...DEFAULT_FOOTSTEP };
+}
+
+function getBlockBreakSound(blockType) {
+  const name = getBlockTypeName(blockType);
+  return (name && BREAK_SOUNDS[name]) ? { ...BREAK_SOUNDS[name] } : { ...DEFAULT_BREAK };
+}
+
+function getBlockPlaceSound(blockType) {
+  return { ...PLACE_SOUND };
+}
+
+return { getBlockFootstepSound: getBlockFootstepSound, getBlockBreakSound: getBlockBreakSound, getBlockPlaceSound: getBlockPlaceSound };
+})();
+
+const _m_world_voxel_chunk_manager_js = (() => {
+const { isChunkEmpty } = _m_world_voxel_chunk_js;
+const { buildChunkMeshData } = _m_world_voxel_mesher_js;
+const { CHUNK_SIZE } = _m_world_voxel_chunk_js;
+function createChunkManager(voxelStorage, opts = {}) {
+  const viewDistance = opts.viewDistance ?? 128;
+  const maxMeshUpdatesPerFrame = opts.maxMeshUpdatesPerFrame ?? 4;
+  const chunkMeshes = new Map();
+  const dirtyQueue = [];
+  let meshGroup = opts.meshGroup ?? null;
+
+  function chunkKey(cx, cy, cz) {
+    return `${cx},${cy},${cz}`;
+  }
+
+  function getNeighborBlock(chunk, lx, ly, lz) {
+    const worldX = chunk.chunkX * CHUNK_SIZE + lx;
+    const worldY = chunk.chunkY * CHUNK_SIZE + ly;
+    const worldZ = chunk.chunkZ * CHUNK_SIZE + lz;
+    return voxelStorage.getBlock(worldX, worldY, worldZ);
+  }
+
+  function buildMesh(chunk) {
+    if (isChunkEmpty(chunk)) return null;
+    return buildChunkMeshData(chunk, (lx, ly, lz) => getNeighborBlock(chunk, lx, ly, lz));
+  }
+
+  function enqueueDirtyChunks() {
+    const dirty = voxelStorage.getDirtyChunks();
+    for (const chunk of dirty) {
+      const key = chunkKey(chunk.chunkX, chunk.chunkY, chunk.chunkZ);
+      if (!dirtyQueue.includes(key)) {
+        dirtyQueue.push(key);
+      }
+    }
+  }
+
+  function processDirtyChunks(limit) {
+    const count = limit ?? maxMeshUpdatesPerFrame;
+    let processed = 0;
+
+    while (dirtyQueue.length > 0 && processed < count) {
+      const key = dirtyQueue.shift();
+      const [cx, cy, cz] = key.split(',').map(Number);
+      const chunk = voxelStorage.getChunk(cx, cy, cz);
+      if (!chunk) continue;
+
+      const oldMesh = chunkMeshes.get(key);
+      if (oldMesh && meshGroup) {
+        meshGroup.remove(oldMesh);
+      }
+
+      const meshData = buildMesh(chunk);
+      if (meshData) {
+        chunk.dirty = false;
+        if (meshGroup && meshGroup._createMesh) {
+          const mesh = meshGroup._createMesh(meshData, cx, cy, cz);
+          chunkMeshes.set(key, mesh);
+          meshGroup.add(mesh);
+        } else {
+          chunk.dirty = false;
+          chunkMeshes.set(key, meshData);
+        }
+      } else {
+        chunk.dirty = false;
+        chunkMeshes.delete(key);
+      }
+      processed++;
+    }
+
+    return processed;
+  }
+
+  function update(centerX, centerY, centerZ, dt) {
+    enqueueDirtyChunks();
+    processDirtyChunks();
+  }
+
+  function getVisibleChunks(centerX, centerY, centerZ) {
+    const visible = [];
+    for (const chunk of chunkMeshes.keys()) {
+      const [cx, cy, cz] = chunk.split(',').map(Number);
+      const wx = (cx + 0.5) * CHUNK_SIZE;
+      const wy = (cy + 0.5) * CHUNK_SIZE;
+      const wz = (cz + 0.5) * CHUNK_SIZE;
+      const dx = wx - centerX;
+      const dy = wy - centerY;
+      const dz = wz - centerZ;
+      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (dist <= viewDistance) {
+        visible.push({ cx, cy, cz, distance: dist });
+      }
+    }
+    return visible;
+  }
+
+  function getChunkMesh(cx, cy, cz) {
+    return chunkMeshes.get(chunkKey(cx, cy, cz)) ?? null;
+  }
+
+  function getDirtyQueueLength() {
+    return dirtyQueue.length;
+  }
+
+  function getMeshCount() {
+    return chunkMeshes.size;
+  }
+
+  function setMeshGroup(group) {
+    meshGroup = group;
+  }
+
+  function dispose() {
+    if (meshGroup) {
+      for (const mesh of chunkMeshes.values()) {
+        if (mesh.geometry) meshGroup.remove(mesh);
+      }
+    }
+    chunkMeshes.clear();
+    dirtyQueue.length = 0;
+  }
+
+  return {
+    update,
+    processDirtyChunks,
+    getVisibleChunks,
+    getChunkMesh,
+    getDirtyQueueLength,
+    getMeshCount,
+    setMeshGroup,
+    dispose,
+    buildMesh,
+    enqueueDirtyChunks,
+  };
+}
+
+return { createChunkManager: createChunkManager };
+})();
+
+const _m_world_voxel_indicators_js = (() => {
+const { normalize2D } = _m_utils_math_js;
+const DEFAULT_DISTANCE = 20;
+const HEIGHT_OFFSET = 3;
+const FADE_NEAR = 15;
+const FADE_FAR = 20;
+
+function createVoxelArrowMesh() {
+  const voxels = [];
+  const STEM_LENGTH = 3;
+  for (let z = 0; z < STEM_LENGTH; z++) {
+    voxels.push({ x: 0, y: 0, z: -(z + 1), blockType: 'indicator_stem' });
+  }
+  const HEAD_WIDTH = 3;
+  for (let x = -1; x <= 1; x++) {
+    voxels.push({ x, y: 0, z: 0, blockType: 'indicator_head' });
+  }
+
+  return {
+    voxels,
+    color: [1.0, 0.84, 0.0],
+    glow: true
+  };
+}
+
+function getIndicatorPosition(playerPos, colossusPos, distance = DEFAULT_DISTANCE) {
+  const dx = colossusPos.x - playerPos.x;
+  const dz = colossusPos.z - playerPos.z;
+  const norm = normalize2D(dx, dz);
+  return {
+    x: playerPos.x + norm.x * distance,
+    y: playerPos.y + HEIGHT_OFFSET,
+    z: playerPos.z + norm.y * distance
+  };
+}
+
+function updateIndicatorOpacity(indicators, colossi, playerPos) {
+  return indicators.map((indicator, index) => {
+    const colossus = colossi.find(c => c.id === indicator.colossusId);
+    if (!colossus || colossus.defeated) {
+      return { indicatorIndex: index, opacity: 0 };
+    }
+
+    const dx = colossus.x - playerPos.x;
+    const dz = colossus.z - playerPos.z;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+
+    if (dist <= FADE_NEAR) {
+      return { indicatorIndex: index, opacity: 0 };
+    }
+
+    if (dist >= FADE_FAR) {
+      return { indicatorIndex: index, opacity: 1 };
+    }
+
+    const t = (dist - FADE_NEAR) / (FADE_FAR - FADE_NEAR);
+    return { indicatorIndex: index, opacity: t };
+  });
+}
+
+return { createVoxelArrowMesh: createVoxelArrowMesh, getIndicatorPosition: getIndicatorPosition, updateIndicatorOpacity: updateIndicatorOpacity };
+})();
+
+const _m_world_voxel_island_generator_js = (() => {
+const { fbm3D } = _m_utils_noise_js;
+const { BlockType } = _m_world_block_types_js;
+function seededRandom(seed) {
+  let s = (seed | 0) || 1;
+  return function () {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+function generateVoxelIsland({ centerX, centerZ, radius, maxHeight, seed, voxelStorage, baseY = 20 }) {
+  const r = Math.max(1, radius);
+  const topH = Math.max(1, maxHeight * 0.65);
+  const botH = Math.max(1, maxHeight * 0.45);
+  const cY = baseY + botH;
+
+  const noiseScale = 0.04;
+  const noX = seed * 0.137;
+  const noZ = seed * 0.259;
+  const basePerturbation = 0.18;
+
+  const minY = Math.floor(cY - botH - 4);
+  const maxY = Math.ceil(cY + topH + 4);
+  const minX = centerX - r - 4;
+  const maxX = centerX + r + 4;
+  const minZ = centerZ - r - 4;
+  const maxZ = centerZ + r + 4;
+
+  const solid = new Set();
+
+  for (let wz = minZ; wz <= maxZ; wz++) {
+    const dz = (wz - centerZ) / r;
+    const dz2 = dz * dz;
+    for (let wx = minX; wx <= maxX; wx++) {
+      const dx = (wx - centerX) / r;
+      const hd2 = dx * dx + dz2;
+      if (hd2 > 1.4) continue;
+
+      for (let wy = minY; wy <= maxY; wy++) {
+        const dy = wy >= cY
+          ? (wy - cY) / topH
+          : (wy - cY) / botH;
+        const d2 = dx * dx + dy * dy + dz2;
+        if (d2 > 1.5) continue;
+
+        const n = fbm3D(wx * noiseScale + noX, wy * noiseScale, wz * noiseScale + noZ, 3, 2, 0.5);
+        const perturbation = basePerturbation * (0.5 + Math.sqrt(hd2));
+
+        if (d2 + n * perturbation < 1.0) {
+          solid.add(wx + ',' + wy + ',' + wz);
+        }
+      }
+    }
+  }
+
+  const colTop = new Map();
+  const colBot = new Map();
+  for (const k of solid) {
+    const c1 = k.indexOf(',');
+    const c2 = k.indexOf(',', c1 + 1);
+    const wx = +k.slice(0, c1);
+    const wy = +k.slice(c1 + 1, c2);
+    const wz = +k.slice(c2 + 1);
+    const ck = wx + ',' + wz;
+    const t = colTop.get(ck);
+    if (t === undefined || wy > t) colTop.set(ck, wy);
+    const b = colBot.get(ck);
+    if (b === undefined || wy < b) colBot.set(ck, wy);
+  }
+
+  for (const k of solid) {
+    const c1 = k.indexOf(',');
+    const c2 = k.indexOf(',', c1 + 1);
+    const wx = +k.slice(0, c1);
+    const wy = +k.slice(c1 + 1, c2);
+    const wz = +k.slice(c2 + 1);
+    const ck = wx + ',' + wz;
+    const topY = colTop.get(ck);
+    const depthFromTop = topY - wy;
+    const hDist = Math.sqrt(((wx - centerX) / r) ** 2 + ((wz - centerZ) / r) ** 2);
+
+    let bt = BlockType.STONE;
+
+    if (!solid.has(wx + ',' + (wy + 1) + ',' + wz)) {
+      bt = hDist > 0.7 ? BlockType.MOSS_STONE : BlockType.GRASS;
+    } else if (!solid.has(wx + ',' + (wy - 1) + ',' + wz)) {
+      bt = BlockType.MOSS_STONE;
+    } else if (depthFromTop >= 1 && depthFromTop <= 3 && hDist < 0.75) {
+      bt = BlockType.DIRT;
+    } else if (hDist > 0.5 && (
+      !solid.has((wx + 1) + ',' + wy + ',' + wz) || !solid.has((wx - 1) + ',' + wy + ',' + wz) ||
+      !solid.has(wx + ',' + wy + ',' + (wz + 1)) || !solid.has(wx + ',' + wy + ',' + (wz - 1))
+    )) {
+      bt = BlockType.MOSS_STONE;
+    }
+
+    voxelStorage.setBlock(wx, wy, wz, bt);
+  }
+}
+
+function generateVoxelSteppingStones({ fromX, fromZ, toX, toZ, seed, voxelStorage, baseY = 20 }) {
+  const rng = seededRandom(seed);
+  const dx = toX - fromX;
+  const dz = toZ - fromZ;
+  const dist = Math.sqrt(dx * dx + dz * dz);
+  const steps = Math.max(3, Math.floor(dist / 10));
+
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const x = Math.round(fromX + dx * t + (rng() - 0.5) * 4);
+    const z = Math.round(fromZ + dz * t + (rng() - 0.5) * 4);
+    const w = 1 + Math.floor(rng() * 2);
+    const h = 1 + Math.floor(rng() * 2);
+
+    for (let sx = -w; sx <= w; sx++) {
+      for (let sz = -w; sz <= w; sz++) {
+        if (Math.abs(sx) + Math.abs(sz) > w + 1) continue;
+        const bt = (sx === 0 && sz === 0) ? BlockType.STONE : BlockType.MOSS_STONE;
+        for (let sy = 0; sy < h; sy++) {
+          if (rng() > 0.3) {
+            voxelStorage.setBlock(x + sx, baseY - sy, z + sz, bt);
+          }
+        }
+      }
+    }
+  }
+}
+
+function generateVoxelRuins({ centerX, centerZ, seed, voxelStorage, count = 5, baseY = 24, radius = 20 }) {
+  const rng = seededRandom(seed + 777);
+  const ruins = [];
+  const minDist = 5;
+  const inner = Math.max(1, radius * 0.15);
+  const outer = radius * 0.85;
+
+  for (let i = 0; i < count; i++) {
+    let placed = false;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const angle = rng() * Math.PI * 2;
+      const r = inner + rng() * (outer - inner);
+      const x = centerX + Math.cos(angle) * r;
+      const z = centerZ + Math.sin(angle) * r;
+
+      let valid = true;
+      for (const e of ruins) {
+        if (Math.hypot(x - e.x, z - e.z) < minDist) { valid = false; break; }
+      }
+
+      if (valid) {
+        const isPillar = rng() < 0.5;
+        const scale = 0.5 + rng() * 1.5;
+        const height = Math.max(2, Math.floor(4 * scale));
+        const rx = Math.round(x), rz = Math.round(z);
+
+        if (isPillar) {
+          for (let dy = 0; dy < height; dy++) {
+            voxelStorage.setBlock(rx, baseY + dy, rz, dy === height - 1 ? BlockType.CRACKED_STONE : BlockType.STONE);
+          }
+        } else {
+          const width = 2 + Math.floor(rng() * 2);
+          const isX = rng() < 0.5;
+          for (let w = 0; w < width; w++) {
+            for (let dy = 0; dy < height; dy++) {
+              const bx = isX ? rx + w : rx;
+              const bz = isX ? rz : rz + w;
+              voxelStorage.setBlock(bx, baseY + dy, bz, dy === height - 1 ? BlockType.CRACKED_STONE : BlockType.STONE);
+            }
+          }
+        }
+
+        ruins.push({ x, z, type: isPillar ? 'pillar' : 'wall', scale });
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      const angle = rng() * Math.PI * 2;
+      const r = inner + rng() * (outer - inner);
+      ruins.push({ x: centerX + Math.cos(angle) * r, z: centerZ + Math.sin(angle) * r, type: 'rubble', scale: 0.5 });
+    }
+  }
+
+  return ruins;
+}
+
+return { generateVoxelIsland: generateVoxelIsland, generateVoxelSteppingStones: generateVoxelSteppingStones, generateVoxelRuins: generateVoxelRuins };
+})();
+
+const _m_world_voxel_lod_js = (() => {
+const { BlockType, getBlockColor, isBlockSolid } = _m_world_block_types_js;
+const { buildChunkMeshData } = _m_world_voxel_mesher_js;
+const { CHUNK_SIZE, isChunkEmpty, getChunkWorldPosition, forEachBlock } = _m_world_voxel_chunk_js;
+const LOD_THRESHOLDS = [50, 100];
+const VIEW_DISTANCE = 128;
+
+function getVoxelLODLevel(distance) {
+  if (distance < LOD_THRESHOLDS[0]) return 0;
+  if (distance <= LOD_THRESHOLDS[1]) return 1;
+  return 2;
+}
+
+function getLODMergeFactor(level) {
+  if (level <= 0) return 1;
+  if (level === 1) return 2;
+  return 4;
+}
+
+function chunkCenterDist(cx, cy, cz, playerPos) {
+  const wx = (cx + 0.5) * CHUNK_SIZE;
+  const wy = (cy + 0.5) * CHUNK_SIZE;
+  const wz = (cz + 0.5) * CHUNK_SIZE;
+  const dx = wx - playerPos.x;
+  const dy = wy - playerPos.y;
+  const dz = wz - playerPos.z;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
+
+function shouldRenderChunk(cx, cy, cz, playerPos, lodLevel) {
+  const dist = chunkCenterDist(cx, cy, cz, playerPos);
+  return dist <= VIEW_DISTANCE;
+}
+
+function computeBounds(chunk) {
+  let minX = CHUNK_SIZE, minY = CHUNK_SIZE, minZ = CHUNK_SIZE;
+  let maxX = -1, maxY = -1, maxZ = -1;
+
+  forEachBlock(chunk, (x, y, z) => {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (z < minZ) minZ = z;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+    if (z > maxZ) maxZ = z;
+  });
+
+  if (maxX < 0) return null;
+  return { minX, minY, minZ, maxX, maxY, maxZ };
+}
+
+function getMostCommonBlock(chunk) {
+  const counts = new Map();
+  forEachBlock(chunk, (x, y, z, bt) => {
+    counts.set(bt, (counts.get(bt) || 0) + 1);
+  });
+  let best = BlockType.STONE;
+  let bestCount = 0;
+  for (const [bt, count] of counts) {
+    if (count > bestCount) {
+      bestCount = count;
+      best = bt;
+    }
+  }
+  return best;
+}
+
+function isSuperBlockSolid(chunk, x, y, z, size) {
+  for (let dy = 0; dy < size; dy++) {
+    for (let dz = 0; dz < size; dz++) {
+      for (let dx = 0; dx < size; dx++) {
+        if (x + dx < CHUNK_SIZE && y + dy < CHUNK_SIZE && z + dz < CHUNK_SIZE) {
+          const bt = chunk.blocks[(y + dy) * CHUNK_SIZE * CHUNK_SIZE + (z + dz) * CHUNK_SIZE + (x + dx)];
+          if (isBlockSolid(bt)) return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function buildMergedMesh(chunk, mergeSize) {
+  const origin = getChunkWorldPosition(chunk);
+  const step = mergeSize;
+  const positions = [];
+  const normals = [];
+  const colors = [];
+  const indices = [];
+  const emissives = [];
+  let vertexCount = 0;
+
+  const superSize = mergeSize;
+  const FACE_DIRS = [
+    { dx: 1, dy: 0, dz: 0, nx: 1, ny: 0, nz: 0 },
+    { dx: -1, dy: 0, dz: 0, nx: -1, ny: 0, nz: 0 },
+    { dx: 0, dy: 1, dz: 0, nx: 0, ny: 1, nz: 0 },
+    { dx: 0, dy: -1, dz: 0, nx: 0, ny: -1, nz: 0 },
+    { dx: 0, dy: 0, dz: 1, nx: 0, ny: 0, nz: 1 },
+    { dx: 0, dy: 0, dz: -1, nx: 0, ny: 0, nz: -1 },
+  ];
+
+  const FACE_VERTICES = {
+    px: [[1,0,0],[1,1,0],[1,1,1],[1,0,1]],
+    nx: [[0,0,1],[0,1,1],[0,1,0],[0,0,0]],
+    py: [[0,1,0],[0,1,1],[1,1,1],[1,1,0]],
+    ny: [[0,0,1],[0,0,0],[1,0,0],[1,0,1]],
+    pz: [[1,0,1],[1,1,1],[0,1,1],[0,0,1]],
+    nz: [[0,0,0],[0,1,0],[1,1,0],[1,0,0]],
+  };
+
+  const FACE_INDICES = [0, 1, 2, 0, 2, 3];
+
+  function faceKey(nx, ny, nz) {
+    if (nx === 1) return 'px';
+    if (nx === -1) return 'nx';
+    if (ny === 1) return 'py';
+    if (ny === -1) return 'ny';
+    if (nz === 1) return 'pz';
+    return 'nz';
+  }
+
+  for (let y = 0; y < CHUNK_SIZE; y += step) {
+    for (let z = 0; z < CHUNK_SIZE; z += step) {
+      for (let x = 0; x < CHUNK_SIZE; x += step) {
+        if (!isSuperBlockSolid(chunk, x, y, z, step)) continue;
+
+        const blockCounts = new Map();
+        for (let dy = 0; dy < step && y + dy < CHUNK_SIZE; dy++) {
+          for (let dz = 0; dz < step && z + dz < CHUNK_SIZE; dz++) {
+            for (let dx = 0; dx < step && x + dx < CHUNK_SIZE; dx++) {
+              const bt = chunk.blocks[(y+dy)*CHUNK_SIZE*CHUNK_SIZE + (z+dz)*CHUNK_SIZE + (x+dx)];
+              if (bt !== BlockType.AIR) {
+                blockCounts.set(bt, (blockCounts.get(bt) || 0) + 1);
+              }
+            }
+          }
+        }
+
+        let repType = BlockType.STONE;
+        let bestCount = 0;
+        for (const [bt, count] of blockCounts) {
+          if (count > bestCount) { bestCount = count; repType = bt; }
+        }
+
+        const baseColor = getBlockColor(repType) || [0.5, 0.5, 0.5];
+
+        for (const face of FACE_DIRS) {
+          const adjX = x + face.dx * step;
+          const adjY = y + face.dy * step;
+          const adjZ = z + face.dz * step;
+          let neighborSolid = false;
+
+          if (adjX >= 0 && adjX < CHUNK_SIZE && adjY >= 0 && adjY < CHUNK_SIZE && adjZ >= 0 && adjZ < CHUNK_SIZE) {
+            neighborSolid = isSuperBlockSolid(chunk, adjX, adjY, adjZ, step);
+          }
+
+          if (neighborSolid) continue;
+
+          const fk = faceKey(face.nx, face.ny, face.nz);
+          const verts = FACE_VERTICES[fk];
+          const s = step;
+
+          for (let i = 0; i < 4; i++) {
+            positions.push(
+              origin.x + x + verts[i][0] * s,
+              origin.y + y + verts[i][1] * s,
+              origin.z + z + verts[i][2] * s
+            );
+            normals.push(face.nx, face.ny, face.nz);
+            colors.push(baseColor[0], baseColor[1], baseColor[2]);
+            emissives.push(0, 0, 0);
+          }
+
+          for (const idx of FACE_INDICES) {
+            indices.push(vertexCount + idx);
+          }
+          vertexCount += 4;
+        }
+      }
+    }
+  }
+
+  if (vertexCount === 0) return null;
+
+  return {
+    positions: new Float32Array(positions),
+    normals: new Float32Array(normals),
+    colors: new Float32Array(colors),
+    emissives: new Float32Array(emissives),
+    indices: new Uint32Array(indices),
+    vertexCount,
+    faceCount: vertexCount / 4,
+  };
+}
+
+function createLODChunkMeshData(chunk, lodLevel, getNeighborBlock) {
+  if (isChunkEmpty(chunk)) return null;
+
+  if (lodLevel <= 0) {
+    return buildChunkMeshData(chunk, getNeighborBlock);
+  }
+
+  if (lodLevel === 1) {
+    return buildMergedMesh(chunk, 2);
+  }
+
+  const bounds = computeBounds(chunk);
+  if (!bounds) return null;
+
+  const origin = getChunkWorldPosition(chunk);
+  const repType = getMostCommonBlock(chunk);
+  const baseColor = getBlockColor(repType) || [0.5, 0.5, 0.5];
+
+  const x0 = origin.x + bounds.minX;
+  const y0 = origin.y + bounds.minY;
+  const z0 = origin.z + bounds.minZ;
+  const x1 = origin.x + bounds.maxX + 1;
+  const y1 = origin.y + bounds.maxY + 1;
+  const z1 = origin.z + bounds.maxZ + 1;
+
+  const sides = [
+    { verts: [[0,0,0],[1,0,0],[1,0,1],[0,0,1]], norm: [0,0,-1], quad: [0,0,1,0,1,0,1,1,0,0,1,1] },
+    { verts: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]], norm: [0,0,1], quad: [0,0,1,1,0,1,1,1,1,0,1,1] },
+    { verts: [[0,0,0],[0,0,1],[0,1,1],[0,1,0]], norm: [-1,0,0], quad: [0,0,0,0,0,1,0,1,1,0,1,0] },
+    { verts: [[1,0,0],[1,1,0],[1,1,1],[1,0,1]], norm: [1,0,0], quad: [1,0,0,1,1,0,1,1,1,1,0,1] },
+    { verts: [[0,0,0],[0,1,0],[1,1,0],[1,0,0]], norm: [0,-1,0], quad: [0,0,0,0,1,0,1,1,0,1,0,0] },
+    { verts: [[0,1,0],[0,1,1],[1,1,1],[1,1,0]], norm: [0,1,0], quad: [0,1,0,0,1,1,1,1,1,1,1,0] },
+  ];
+
+  const FACE_IDX = [0, 1, 2, 0, 2, 3];
+  const pos = [];
+  const norm = [];
+  const col = [];
+  const emi = [];
+  let vertexCount = 0;
+
+  for (const side of sides) {
+    for (let i = 0; i < 4; i++) {
+      pos.push(
+        x0 + side.quad[i * 3] * (x1 - x0),
+        y0 + side.quad[i * 3 + 1] * (y1 - y0),
+        z0 + side.quad[i * 3 + 2] * (z1 - z0)
+      );
+      norm.push(side.norm[0], side.norm[1], side.norm[2]);
+      col.push(baseColor[0], baseColor[1], baseColor[2]);
+      emi.push(0, 0, 0);
+    }
+    vertexCount += 4;
+  }
+
+  const indices = new Uint32Array(Array.from({ length: 6 * sides.length }, (_, i) => {
+    const faceIdx = Math.floor(i / 6);
+    const localIdx = i % 6;
+    return faceIdx * 4 + FACE_IDX[localIdx];
+  }));
+
+  return {
+    positions: new Float32Array(pos),
+    normals: new Float32Array(norm),
+    colors: new Float32Array(col),
+    emissives: new Float32Array(emi),
+    indices,
+    vertexCount: sides.length * 4,
+    faceCount: sides.length,
+  };
+}
+
+function createVoxelImpostor(chunk) {
+  const bounds = computeBounds(chunk);
+  if (!bounds) return null;
+
+  const repType = getMostCommonBlock(chunk);
+  const color = getBlockColor(repType) || [0.5, 0.5, 0.5];
+
+  return {
+    type: 'box',
+    width: bounds.maxX - bounds.minX + 1,
+    height: bounds.maxY - bounds.minY + 1,
+    depth: bounds.maxZ - bounds.minZ + 1,
+    color,
+  };
+}
+
+function getMeshBudgetInfo(chunkCount, lodLevel) {
+  const avgFacesPerChunk = [800, 200, 12][lodLevel] || 800;
+  const trianglesPerFace = 2;
+  const estimatedTriangles = chunkCount * avgFacesPerChunk * trianglesPerFace;
+
+  const maxUpdatesPerFrame = [4, 6, 8][lodLevel] || 4;
+
+  const bytesPerVertex = 3 * 4 + 3 * 4 + 3 * 4 + 3 * 4;
+  const verticesPerFace = 4;
+  const indexBytesPerFace = 6 * 4;
+  const memoryEstimate = chunkCount * avgFacesPerChunk * (bytesPerVertex * verticesPerFace + indexBytesPerFace);
+
+  return {
+    estimatedTriangles,
+    maxUpdatesPerFrame,
+    memoryEstimate,
+  };
+}
+
+return { getVoxelLODLevel: getVoxelLODLevel, getLODMergeFactor: getLODMergeFactor, shouldRenderChunk: shouldRenderChunk, createLODChunkMeshData: createLODChunkMeshData, createVoxelImpostor: createVoxelImpostor, getMeshBudgetInfo: getMeshBudgetInfo };
+})();
+
+const _m_world_voxel_physics_js = (() => {
+const { CHUNK_SIZE } = _m_world_voxel_chunk_js;
+const { isBlockSolid } = _m_world_block_types_js;
+function voxelGroundHeight(voxelStorage, worldX, worldZ) {
+  const bx = Math.floor(worldX);
+  const bz = Math.floor(worldZ);
+
+  let maxCY = -1;
+  for (const key of voxelStorage.chunks.keys()) {
+    const cy = +key.split(',')[1];
+    if (cy > maxCY) maxCY = cy;
+  }
+
+  if (maxCY < 0) return -Infinity;
+
+  const topY = (maxCY + 1) * CHUNK_SIZE - 1;
+
+  for (let y = topY; y >= 0; y--) {
+    if (isBlockSolid(voxelStorage.getBlock(bx, y, bz))) {
+      return y;
+    }
+  }
+
+  return -Infinity;
+}
+
+function voxelRaycast(voxelStorage, fromX, fromY, fromZ, dirX, dirY, dirZ, maxDist) {
+  const len = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ);
+  if (len < 1e-10) return { hit: false };
+
+  const dx = dirX / len;
+  const dy = dirY / len;
+  const dz = dirZ / len;
+
+  let ix = Math.floor(fromX);
+  let iy = Math.floor(fromY);
+  let iz = Math.floor(fromZ);
+
+  const stepX = dx >= 0 ? 1 : -1;
+  const stepY = dy >= 0 ? 1 : -1;
+  const stepZ = dz >= 0 ? 1 : -1;
+
+  const tDeltaX = dx !== 0 ? Math.abs(1 / dx) : 1e30;
+  const tDeltaY = dy !== 0 ? Math.abs(1 / dy) : 1e30;
+  const tDeltaZ = dz !== 0 ? Math.abs(1 / dz) : 1e30;
+
+  let tMaxX = dx !== 0 ? ((dx > 0 ? ix + 1 : ix) - fromX) / dx : 1e30;
+  let tMaxY = dy !== 0 ? ((dy > 0 ? iy + 1 : iy) - fromY) / dy : 1e30;
+  let tMaxZ = dz !== 0 ? ((dz > 0 ? iz + 1 : iz) - fromZ) / dz : 1e30;
+
+  let t = 0;
+  let face = -1;
+
+  for (let i = 0; i < 1000; i++) {
+    const block = voxelStorage.getBlock(ix, iy, iz);
+    if (isBlockSolid(block)) {
+      const normals = [
+        { x: -stepX, y: 0, z: 0 },
+        { x: 0, y: -stepY, z: 0 },
+        { x: 0, y: 0, z: -stepZ },
+      ];
+      return {
+        hit: true,
+        position: { x: ix, y: iy, z: iz },
+        normal: face >= 0 ? normals[face] : { x: 0, y: 1, z: 0 },
+        blockType: block,
+        distance: t,
+      };
+    }
+
+    if (tMaxX < tMaxY) {
+      if (tMaxX < tMaxZ) {
+        t = tMaxX;
+        if (t > maxDist) break;
+        ix += stepX;
+        tMaxX += tDeltaX;
+        face = 0;
+      } else {
+        t = tMaxZ;
+        if (t > maxDist) break;
+        iz += stepZ;
+        tMaxZ += tDeltaZ;
+        face = 2;
+      }
+    } else {
+      if (tMaxY < tMaxZ) {
+        t = tMaxY;
+        if (t > maxDist) break;
+        iy += stepY;
+        tMaxY += tDeltaY;
+        face = 1;
+      } else {
+        t = tMaxZ;
+        if (t > maxDist) break;
+        iz += stepZ;
+        tMaxZ += tDeltaZ;
+        face = 2;
+      }
+    }
+  }
+
+  return { hit: false };
+}
+
+function createVoxelCollisionHeightfield(voxelStorage, cx, cz, chunkHeight) {
+  const size = CHUNK_SIZE;
+  const worldBaseX = cx * size;
+  const worldBaseZ = cz * size;
+  const maxScanY = chunkHeight != null ? chunkHeight : 256;
+
+  const data = [];
+  for (let dz = 0; dz <= size; dz++) {
+    const row = [];
+    for (let dx = 0; dx <= size; dx++) {
+      const wx = worldBaseX + dx;
+      const wz = worldBaseZ + dz;
+      let height = 0;
+      for (let y = maxScanY; y >= 0; y--) {
+        if (isBlockSolid(voxelStorage.getBlock(wx, y, wz))) {
+          height = y + 1;
+          break;
+        }
+      }
+      row.push(height);
+    }
+    data.push(row);
+  }
+
+  return { data, elementSize: 1 };
+}
+
+function isOnVoxelGround(voxelStorage, worldX, worldY, worldZ) {
+  const bx = Math.floor(worldX);
+  const bz = Math.floor(worldZ);
+  const bottom = worldY - 1;
+  const startBy = Math.floor(worldY);
+  const endBy = Math.floor(bottom);
+
+  for (let y = startBy; y >= endBy; y--) {
+    if (isBlockSolid(voxelStorage.getBlock(bx, y, bz))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getVoxelSurfaceNormal(voxelStorage, worldX, worldY, worldZ) {
+  const bx = Math.floor(worldX);
+  const by = Math.floor(worldY);
+  const bz = Math.floor(worldZ);
+
+  const block = voxelStorage.getBlock(bx, by, bz);
+
+  if (isBlockSolid(block)) {
+    return { x: 0, y: 1, z: 0 };
+  }
+
+  const dirs = [
+    { dx: 0, dy: -1, dz: 0, nx: 0, ny: 1, nz: 0 },
+    { dx: 0, dy: 1, dz: 0, nx: 0, ny: -1, nz: 0 },
+    { dx: 1, dy: 0, dz: 0, nx: -1, ny: 0, nz: 0 },
+    { dx: -1, dy: 0, dz: 0, nx: 1, ny: 0, nz: 0 },
+    { dx: 0, dy: 0, dz: 1, nx: 0, ny: 0, nz: -1 },
+    { dx: 0, dy: 0, dz: -1, nx: 0, ny: 0, nz: 1 },
+  ];
+
+  for (const { dx, dy, dz, nx, ny, nz } of dirs) {
+    if (isBlockSolid(voxelStorage.getBlock(bx + dx, by + dy, bz + dz))) {
+      return { x: nx, y: ny, z: nz };
+    }
+  }
+
+  return { x: 0, y: 1, z: 0 };
+}
+
+return { voxelGroundHeight: voxelGroundHeight, voxelRaycast: voxelRaycast, createVoxelCollisionHeightfield: createVoxelCollisionHeightfield, isOnVoxelGround: isOnVoxelGround, getVoxelSurfaceNormal: getVoxelSurfaceNormal };
+})();
+
+const _m_world_voxel_storage_js = (() => {
+const { BlockType } = _m_world_block_types_js;
+const { createChunk, CHUNK_SIZE, getBlock, setBlock } = _m_world_voxel_chunk_js;
+function createVoxelStorage() {
+  const chunks = new Map();
+
+  function chunkKey(cx, cy, cz) {
+    return `${cx},${cy},${cz}`;
+  }
+
+  return {
+    chunks,
+
+    getChunk(cx, cy, cz) {
+      return chunks.get(chunkKey(cx, cy, cz)) || null;
+    },
+
+    getOrCreateChunk(cx, cy, cz) {
+      const key = chunkKey(cx, cy, cz);
+      let chunk = chunks.get(key);
+      if (!chunk) {
+        chunk = createChunk(cx, cy, cz);
+        chunks.set(key, chunk);
+      }
+      return chunk;
+    },
+
+    removeChunk(cx, cy, cz) {
+      const key = chunkKey(cx, cy, cz);
+      const chunk = chunks.get(key);
+      chunks.delete(key);
+      return chunk;
+    },
+
+    getBlock(worldX, worldY, worldZ) {
+      const cx = Math.floor(worldX / CHUNK_SIZE);
+      const cy = Math.floor(worldY / CHUNK_SIZE);
+      const cz = Math.floor(worldZ / CHUNK_SIZE);
+      const chunk = chunks.get(chunkKey(cx, cy, cz));
+      if (!chunk) return BlockType.AIR;
+
+      const lx = ((worldX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+      const ly = ((worldY % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+      const lz = ((worldZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+
+      return getBlock(chunk, lx, ly, lz);
+    },
+
+    setBlock(worldX, worldY, worldZ, blockType) {
+      const cx = Math.floor(worldX / CHUNK_SIZE);
+      const cy = Math.floor(worldY / CHUNK_SIZE);
+      const cz = Math.floor(worldZ / CHUNK_SIZE);
+      const chunk = this.getOrCreateChunk(cx, cy, cz);
+
+      const lx = ((worldX % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+      const ly = ((worldY % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+      const lz = ((worldZ % CHUNK_SIZE) + CHUNK_SIZE) % CHUNK_SIZE;
+
+      setBlock(chunk, lx, ly, lz, blockType);
+
+      if (lx === 0) {
+        const neighbor = this.getChunk(cx - 1, cy, cz);
+        if (neighbor) neighbor.dirty = true;
+      }
+      if (lx === CHUNK_SIZE - 1) {
+        const neighbor = this.getChunk(cx + 1, cy, cz);
+        if (neighbor) neighbor.dirty = true;
+      }
+      if (ly === 0) {
+        const neighbor = this.getChunk(cx, cy - 1, cz);
+        if (neighbor) neighbor.dirty = true;
+      }
+      if (ly === CHUNK_SIZE - 1) {
+        const neighbor = this.getChunk(cx, cy + 1, cz);
+        if (neighbor) neighbor.dirty = true;
+      }
+      if (lz === 0) {
+        const neighbor = this.getChunk(cx, cy, cz - 1);
+        if (neighbor) neighbor.dirty = true;
+      }
+      if (lz === CHUNK_SIZE - 1) {
+        const neighbor = this.getChunk(cx, cy, cz + 1);
+        if (neighbor) neighbor.dirty = true;
+      }
+    },
+
+    getDirtyChunks() {
+      const dirty = [];
+      for (const chunk of chunks.values()) {
+        if (chunk.dirty) dirty.push(chunk);
+      }
+      return dirty;
+    },
+
+    getChunkCount() {
+      return chunks.size;
+    },
+
+    forEachChunk(callback) {
+      for (const chunk of chunks.values()) {
+        callback(chunk);
+      }
+    },
+  };
+}
+
+return { createVoxelStorage: createVoxelStorage };
+})();
+
+const _m_colossus_physics_js = (() => {
+
+const SHAPES = {
+  sentinel: { type: 'capsule', radius: 4, height: 14 },
+  wraith: { type: 'box', halfExtents: { x: 10, y: 3, z: 8 } },
+  titan: { type: 'sphere', radius: 15 },
+};
+
+function createColossusBody(adapter, world, type, position) {
+  const shape = SHAPES[type];
+  const body = adapter.createBody(world, {
+    type: 'kinematic',
+    position,
+    shape,
+    userData: { entity: 'colossus', type },
+  });
+  body.userData = { entity: 'colossus', type };
+  adapter.addBody(world, body);
+  return body;
+}
+
+function syncColossusBody(adapter, world, colossusBody, aiPosition, rotation) {
+  adapter.setPosition(world, colossusBody, aiPosition);
+  adapter.setRotation(world, colossusBody, rotation);
+}
+
+function setupColossusCollisionEvents(adapter, world, colossusBody, playerBody, callbacks) {
+  adapter.onCollision(world, colossusBody, playerBody, callbacks.onPlayerHit);
+  adapter.onCollision(world, playerBody, colossusBody, callbacks.onPlayerAttack);
+}
+
+function performCombatRaycast(adapter, world, fromPosition, direction, maxDistance) {
+  const to = {
+    x: fromPosition.x + direction.x * maxDistance,
+    y: fromPosition.y + direction.y * maxDistance,
+    z: fromPosition.z + direction.z * maxDistance,
+  };
+  return adapter.raycast(world, fromPosition, to);
+}
+
+function applyColossusForce(adapter, world, playerBody, force) {
+  adapter.applyForce(world, playerBody, force);
+}
+
+function applyKnockback(adapter, world, playerBody, direction, strength) {
+  adapter.applyImpulse(world, playerBody, {
+    x: direction.x * strength,
+    y: direction.y * strength + 3,
+    z: direction.z * strength,
+  });
+}
+
+return { createColossusBody: createColossusBody, syncColossusBody: syncColossusBody, setupColossusCollisionEvents: setupColossusCollisionEvents, performCombatRaycast: performCombatRaycast, applyColossusForce: applyColossusForce, applyKnockback: applyKnockback };
+})();
+
+const _m_colossus_rest_spots_js = (() => {
+
+function isOnRestSpot(climbSurface, body) {
+  if (!climbSurface || !body) return false;
+  const part = body.parts.get(climbSurface.bodyPartId);
+  if (!part) return false;
+  return !!part.isRestSpot;
+}
+
+return { isOnRestSpot: isOnRestSpot };
+})();
+
+const _m_colossus_surface_js = (() => {
+
+function getPatchesPerPart(patches) {
+  const grouped = new Map();
+  for (const patch of patches) {
+    const id = patch.bodyPartId;
+    if (!grouped.has(id)) {
+      grouped.set(id, []);
+    }
+    grouped.get(id).push(patch);
+  }
+  return grouped;
+}
+
+function getPatchCoverageStats(patches, definition) {
+  const patchesPerPart = getPatchesPerPart(patches);
+
+  let minPatches = Infinity;
+  let maxPatches = 0;
+  for (const [, partPatches] of patchesPerPart) {
+    const count = partPatches.length;
+    if (count < minPatches) minPatches = count;
+    if (count > maxPatches) maxPatches = count;
+  }
+
+  const climbablePartIds = definition.parts
+    .filter(p => p.isClimbable)
+    .map(p => p.id);
+
+  const climbablePartsMissingPatches = [];
+  for (const id of climbablePartIds) {
+    if (!patchesPerPart.has(id) || patchesPerPart.get(id).length === 0) {
+      climbablePartsMissingPatches.push(id);
+    }
+  }
+
+  return {
+    totalPatches: patches.length,
+    partsWithPatches: patchesPerPart.size,
+    patchesPerPart,
+    minPatchesPerPart: patchesPerPart.size > 0 ? minPatches : 0,
+    maxPatchesPerPart: patchesPerPart.size > 0 ? maxPatches : 0,
+    climbablePartsMissingPatches,
+  };
+}
+
+function validateSurfacePatches(patches, definition) {
+  const stats = getPatchCoverageStats(patches, definition);
+  const patchPartIds = patches.map(p => p.bodyPartId);
+
+  return {
+    valid: stats.climbablePartsMissingPatches.length === 0,
+    totalPatches: stats.totalPatches,
+    missingParts: stats.climbablePartsMissingPatches,
+    patchPartIds,
+    patchesPerPart: stats.patchesPerPart,
+    partsWithPatches: stats.partsWithPatches,
+  };
+}
+
+return { getPatchesPerPart: getPatchesPerPart, getPatchCoverageStats: getPatchCoverageStats, validateSurfacePatches: validateSurfacePatches };
+})();
+
+const _m_colossus_voxel_templates_js = (() => {
+const { BlockType } = _m_world_block_types_js;
+function voxelBox(width, height, depth, blockType = BlockType.STONE) {
+  const voxels = [];
+  const hw = Math.floor(width / 2);
+  const hh = Math.floor(height / 2);
+  const hd = Math.floor(depth / 2);
+  const xStart = width % 2 === 1 ? -hw || 0 : -hw || 0;
+  const xEnd = width % 2 === 1 ? hw : hw - 1;
+  const yStart = height % 2 === 1 ? -hh || 0 : -hh || 0;
+  const yEnd = height % 2 === 1 ? hh : hh - 1;
+  const zStart = depth % 2 === 1 ? -hd || 0 : -hd || 0;
+  const zEnd = depth % 2 === 1 ? hd : hd - 1;
+
+  for (let y = yStart; y <= yEnd; y++) {
+    for (let z = zStart; z <= zEnd; z++) {
+      for (let x = xStart; x <= xEnd; x++) {
+        voxels.push({ x, y, z, blockType });
+      }
+    }
+  }
+  return voxels;
+}
+
+function voxelSphere(radius, blockType = BlockType.STONE) {
+  const voxels = [];
+  if (radius <= 0) return voxels;
+  const r = radius;
+
+  for (let y = -r; y <= r; y++) {
+    for (let z = -r; z <= r; z++) {
+      for (let x = -r; x <= r; x++) {
+        if (x * x + y * y + z * z <= r * r) {
+          voxels.push({ x, y, z, blockType });
+        }
+      }
+    }
+  }
+  return voxels;
+}
+
+function voxelCylinder(radiusTop, radiusBottom, height, blockType = BlockType.STONE) {
+  const voxels = [];
+  if (height <= 0) return voxels;
+  const maxR = Math.max(radiusTop, radiusBottom);
+  const yStart = height % 2 === 0 ? -Math.floor(height / 2) : -Math.floor(height / 2);
+  const yEnd = height % 2 === 0 ? Math.floor(height / 2) - 1 : Math.floor(height / 2);
+  const totalY = yEnd - yStart;
+
+  for (let y = yStart; y <= yEnd; y++) {
+    const t = totalY > 0 ? (y - yStart) / totalY : 0;
+    const currentR = radiusBottom + t * (radiusTop - radiusBottom);
+    const rSq = currentR * currentR;
+
+    for (let z = -maxR; z <= maxR; z++) {
+      for (let x = -maxR; x <= maxR; x++) {
+        if (x * x + z * z <= rSq) {
+          voxels.push({ x, y, z, blockType });
+        }
+      }
+    }
+  }
+  return voxels;
+}
+
+function voxelHollowBox(width, height, depth, thickness, blockType = BlockType.STONE) {
+  const solid = voxelBox(width, height, depth, blockType);
+  if (thickness * 2 >= width && thickness * 2 >= height && thickness * 2 >= depth) {
+    return solid;
+  }
+  return solid.filter(v => {
+    const hw = Math.floor(width / 2);
+    const hh = Math.floor(height / 2);
+    const hd = Math.floor(depth / 2);
+    const xMin = width % 2 === 0 ? -hw : -hw;
+    const xMax = width % 2 === 0 ? hw - 1 : hw;
+    const yMin = height % 2 === 0 ? -hh : -hh;
+    const yMax = height % 2 === 0 ? hh - 1 : hh;
+    const zMin = depth % 2 === 0 ? -hd : -hd;
+    const zMax = depth % 2 === 0 ? hd - 1 : hd;
+
+    const withinX = v.x >= xMin + thickness && v.x <= xMax - thickness;
+    const withinY = v.y >= yMin + thickness && v.y <= yMax - thickness;
+    const withinZ = v.z >= zMin + thickness && v.z <= zMax - thickness;
+    return !(withinX && withinY && withinZ);
+  });
+}
+
+return { voxelBox: voxelBox, voxelSphere: voxelSphere, voxelCylinder: voxelCylinder, voxelHollowBox: voxelHollowBox };
+})();
+
+const _m_colossus_voxel_builder_js = (() => {
+const { voxelBox, voxelSphere, voxelCylinder } = _m_colossus_voxel_templates_js;
+const { createTitanDefinition, TIDE_TITAN_SCALE } = _m_colossus_titan_js;
+const { createWraithDefinition, WIND_WRAITH_SCALE } = _m_colossus_wraith_js;
+const { createSentinelDefinition, STONE_SENTINEL_SCALE } = _m_colossus_sentinel_js;
+const { BlockType } = _m_world_block_types_js;
+function round3(v) {
+  return {
+    x: Math.round(v.x),
+    y: Math.round(v.y),
+    z: Math.round(v.z),
+  };
+}
+
+function buildPart(definition) {
+  const { dimensions: dim } = definition;
+  const blockType = definition.isWeakPoint ? BlockType.RUNE_GLOW : BlockType.STONE;
+  const voxels = voxelBox(
+    Math.max(1, Math.round(dim.width)),
+    Math.max(1, Math.round(dim.height)),
+    Math.max(1, Math.round(dim.depth)),
+    blockType,
+  );
+  return {
+    voxels,
+    offset: round3(definition.position),
+    transparent: definition.transparent || false,
+  };
+}
+
+function buildSentinelVoxels() {
+  const def = createSentinelDefinition();
+  const result = {};
+
+  for (const part of def.parts) {
+    let voxels;
+    const blockType = part.isWeakPoint ? BlockType.RUNE_GLOW : BlockType.STONE;
+    const dims = part.dimensions;
+
+    if (part.id === 'torso' || part.id === 'hips') {
+      voxels = voxelBox(
+        Math.max(1, Math.round(dims.width)),
+        Math.max(1, Math.round(dims.height)),
+        Math.max(1, Math.round(dims.depth)),
+        blockType,
+      );
+    } else if (part.id === 'head') {
+      voxels = voxelSphere(
+        Math.max(1, Math.round(dims.width / 2)),
+        blockType,
+      );
+    } else if (part.id.includes('_upper') || part.id.includes('_lower')) {
+      const radius = Math.max(1, Math.round(dims.width / 2));
+      voxels = voxelCylinder(
+        radius, radius,
+        Math.max(1, Math.round(dims.height)),
+        blockType,
+      );
+    } else {
+      voxels = voxelBox(
+        Math.max(1, Math.round(dims.width)),
+        Math.max(1, Math.round(dims.height)),
+        Math.max(1, Math.round(dims.depth)),
+        blockType,
+      );
+    }
+
+    result[part.id] = {
+      voxels,
+      offset: round3(part.position),
+      transparent: false,
+    };
+  }
+
+  return result;
+}
+
+function buildWraithVoxels() {
+  const def = createWraithDefinition();
+  const result = {};
+
+  for (const part of def.parts) {
+    const blockType = part.isWeakPoint ? BlockType.RUNE_GLOW : BlockType.STONE;
+    const dims = part.dimensions;
+    let voxels;
+    const isTransparent = !part.isWeakPoint;
+
+    if (part.type === 'head') {
+      voxels = voxelSphere(
+        Math.max(1, Math.round(dims.width / 2)),
+        blockType,
+      );
+    } else if (part.type === 'limb_upper') {
+      voxels = voxelBox(
+        Math.max(1, Math.round(dims.width)),
+        Math.max(1, Math.round(dims.height)),
+        Math.max(1, Math.round(dims.depth)),
+        blockType,
+      );
+    } else {
+      const radius = Math.max(1, Math.round(Math.max(dims.width, dims.depth) / 2));
+      const heightVoxels = Math.max(1, Math.round(dims.height));
+      voxels = voxelCylinder(radius, radius, heightVoxels, blockType);
+    }
+
+    result[part.id] = {
+      voxels,
+      offset: round3(part.position),
+      transparent: isTransparent,
+    };
+  }
+
+  return result;
+}
+
+function buildTitanVoxels() {
+  const def = createTitanDefinition();
+  const result = {};
+
+  for (const part of def.parts) {
+    const blockType = part.isWeakPoint ? BlockType.RUNE_GLOW : BlockType.STONE;
+    const dims = part.dimensions;
+    let voxels;
+
+    if (part.id === 'shell_main' || part.id === 'underbelly') {
+      const radius = Math.max(1, Math.round(Math.max(dims.width, dims.depth) / 2));
+      const heightVoxels = Math.max(1, Math.round(dims.height));
+      voxels = voxelCylinder(radius, radius, heightVoxels, blockType);
+    } else if (part.id === 'head') {
+      voxels = voxelSphere(
+        Math.max(1, Math.round(dims.width / 2)),
+        blockType,
+      );
+    } else if (part.id.startsWith('leg_')) {
+      const radius = Math.max(1, Math.round(dims.width / 2));
+      voxels = voxelCylinder(radius, radius, Math.max(1, Math.round(dims.height)), blockType);
+    } else {
+      voxels = voxelBox(
+        Math.max(1, Math.round(dims.width)),
+        Math.max(1, Math.round(dims.height)),
+        Math.max(1, Math.round(dims.depth)),
+        blockType,
+      );
+    }
+
+    result[part.id] = {
+      voxels,
+      offset: round3(part.position),
+      transparent: false,
+    };
+  }
+
+  return result;
+}
+
+function buildColossusVoxels(type) {
+  switch (type) {
+    case 'sentinel': return buildSentinelVoxels();
+    case 'wraith': return buildWraithVoxels();
+    case 'titan': return buildTitanVoxels();
+    default: throw new Error(`unknown colossus type: ${type}`);
+  }
+}
+
+return { buildColossusVoxels: buildColossusVoxels };
+})();
+
+const _m_colossus_voxel_effects_js = (() => {
+const { clamp } = _m_utils_math_js;
+const { BlockType } = _m_world_block_types_js;
+const HIT_COLORS = {
+  [BlockType.STONE]: [0.55, 0.52, 0.48],
+  [BlockType.RUNE_GLOW]: [0.0, 0.8, 1.0],
+  [BlockType.CRACKED_STONE]: [0.40, 0.38, 0.35],
+  [BlockType.MOSS_STONE]: [0.35, 0.50, 0.30],
+};
+
+const DEFAULT_HIT_COLOR = [1.0, 1.0, 1.0];
+const HIT_CUBE_SIZE = 1.2;
+const HIT_DURATION = 0.3;
+
+const KNEEL_DURATION = 2;
+const COLLAPSE_DURATION = 2;
+const DISSOLVE_DURATION = 3;
+const FALLEN_DURATION = 0.001;
+
+const KNEEL_LIMB_FRACTION = 0.4;
+const KNEEL_BODY_FRACTION = 0.15;
+const KNEEL_HEAD_FRACTION = 0.5;
+
+const COLLAPSE_BODY_FRACTION = 0.2;
+const COLLAPSE_LIMB_FRACTION = 0.1;
+const COLLAPSE_HEAD_FRACTION = 0.3;
+
+const DISSOLVE_SCATTER_SPEED_MIN = 3;
+const DISSOLVE_SCATTER_SPEED_MAX = 8;
+
+const LIMB_PATTERNS = ['leg', 'wing', 'claw'];
+
+function isLimbPart(partId) {
+  return LIMB_PATTERNS.some(p => partId.includes(p));
+}
+
+function getPartCategory(partId) {
+  if (partId === 'head') return 'head';
+  if (isLimbPart(partId)) return 'limb';
+  return 'body';
+}
+
+function getCenterY(voxels, offset) {
+  if (voxels.length === 0) return offset.y;
+  let sum = 0;
+  for (const v of voxels) sum += v.y;
+  return offset.y + sum / voxels.length;
+}
+
+function randomUnitSphere() {
+  while (true) {
+    const x = Math.random() * 2 - 1;
+    const y = Math.random() * 2 - 1;
+    const z = Math.random() * 2 - 1;
+    const len = Math.sqrt(x * x + y * y + z * z);
+    if (len > 0.01 && len <= 1) return { x: x / len, y: y / len, z: z / len };
+  }
+}
+
+function createVoxelHitEffect(blockType, position) {
+  const color = HIT_COLORS[blockType] || DEFAULT_HIT_COLOR;
+  return {
+    type: 'cube',
+    size: HIT_CUBE_SIZE,
+    color,
+    duration: HIT_DURATION,
+    position,
+  };
+}
+
+function createVoxelDamageNumbers(count, position) {
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    const dx = Math.round(position.x + (Math.random() * 2 - 1) * 2);
+    const dy = Math.round(position.y + 1 + Math.random() * 2);
+    const dz = Math.round(position.z + (Math.random() * 2 - 1) * 2);
+    results.push({
+      position: { x: dx, y: dy, z: dz },
+    });
+  }
+  return results;
+}
+
+function createVoxelDeathSequence(voxelParts) {
+  const partIds = Object.keys(voxelParts);
+
+  const kneelTransforms = partIds.map(partId => {
+    const part = voxelParts[partId];
+    const category = getPartCategory(partId);
+    const origY = part.offset.y;
+    let newY = origY;
+    let rotX = 0;
+
+    if (category === 'limb') {
+      newY = origY - origY * KNEEL_LIMB_FRACTION;
+      rotX = 0.3;
+    } else if (category === 'head') {
+      newY = origY - KNEEL_HEAD_FRACTION;
+      rotX = 0.5;
+    } else {
+      newY = origY - origY * KNEEL_BODY_FRACTION;
+    }
+
+    return {
+      partId,
+      position: { x: part.offset.x, y: newY, z: part.offset.z },
+      rotation: { x: rotX, y: 0, z: 0 },
+      opacity: 1,
+    };
+  });
+
+  const collapseTransforms = partIds.map(partId => {
+    const part = voxelParts[partId];
+    const category = getPartCategory(partId);
+    const origY = part.offset.y;
+    let targetY;
+
+    if (category === 'limb') {
+      targetY = origY * COLLAPSE_LIMB_FRACTION;
+    } else if (category === 'head') {
+      targetY = origY * COLLAPSE_HEAD_FRACTION;
+    } else {
+      targetY = origY * COLLAPSE_BODY_FRACTION;
+    }
+
+    return {
+      partId,
+      position: { x: part.offset.x, y: targetY, z: part.offset.z },
+      rotation: {
+        x: category === 'head' ? 1.2 : (category === 'limb' ? 0.3 : 0),
+        y: Math.random() * 0.4 - 0.2,
+        z: Math.random() * 0.2 - 0.1,
+      },
+      opacity: 1,
+    };
+  });
+
+  const dissolveTransforms = partIds.map(partId => {
+    const part = voxelParts[partId];
+    const scatterVoxels = part.voxels.map(v => {
+      const dir = randomUnitSphere();
+      const speed = DISSOLVE_SCATTER_SPEED_MIN + Math.random() * (DISSOLVE_SCATTER_SPEED_MAX - DISSOLVE_SCATTER_SPEED_MIN);
+      return {
+        position: { x: v.x + part.offset.x, y: v.y + part.offset.y, z: v.z + part.offset.z },
+        velocity: { x: dir.x * speed, y: dir.y * speed, z: dir.z * speed },
+      };
+    });
+
+    return {
+      partId,
+      position: { x: part.offset.x, y: part.offset.y * COLLAPSE_BODY_FRACTION, z: part.offset.z },
+      rotation: { x: 0, y: 0, z: 0 },
+      opacity: 0,
+      scatterVoxels,
+    };
+  });
+
+  const fallenTransforms = partIds.map(partId => {
+    const part = voxelParts[partId];
+    return {
+      partId,
+      position: { x: part.offset.x, y: 0, z: part.offset.z },
+      rotation: { x: 0, y: 0, z: 0 },
+      opacity: 0,
+    };
+  });
+
+  return [
+    { phase: 'kneel', duration: KNEEL_DURATION, transforms: kneelTransforms },
+    { phase: 'collapse', duration: COLLAPSE_DURATION, transforms: collapseTransforms },
+    { phase: 'dissolve', duration: DISSOLVE_DURATION, transforms: dissolveTransforms },
+    { phase: 'fallen', duration: FALLEN_DURATION, transforms: fallenTransforms },
+  ];
+}
+
+function createVoxelWeakPointDestroy(voxels, position) {
+  const removedVoxels = voxels.filter(v => v.blockType === BlockType.RUNE_GLOW);
+  const particles = [];
+
+  for (const rv of removedVoxels) {
+    const px = rv.x + position.x;
+    const py = rv.y + position.y;
+    const pz = rv.z + position.z;
+    const count = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+      const dir = randomUnitSphere();
+      const speed = 2 + Math.random() * 5;
+      particles.push({
+        position: { x: px, y: py, z: pz },
+        velocity: { x: dir.x * speed, y: dir.y * speed, z: dir.z * speed },
+      });
+    }
+  }
+
+  return {
+    removedVoxels: removedVoxels.map(v => ({ x: v.x, y: v.y, z: v.z })),
+    replacementType: BlockType.CRACKED_STONE,
+    particles,
+  };
+}
+
+function createVoxelHealthOpacity(partVoxels, healthPercent) {
+  const normalized = healthPercent <= 1 ? healthPercent * 100 : healthPercent;
+  const hp = clamp(normalized, 0, 100);
+
+  if (hp >= 100) {
+    return { darken: [], remove: [] };
+  }
+
+  const allVoxels = [];
+  for (const [partId, part] of Object.entries(partVoxels)) {
+    for (const v of part.voxels) {
+      allVoxels.push({ x: v.x + part.offset.x, y: v.y + part.offset.y, z: v.z + part.offset.z, partId });
+    }
+  }
+
+  if (allVoxels.length === 0) {
+    return { darken: [], remove: [] };
+  }
+
+  let cx = 0, cy = 0, cz = 0;
+  for (const v of allVoxels) {
+    cx += v.x;
+    cy += v.y;
+    cz += v.z;
+  }
+  cx /= allVoxels.length;
+  cy /= allVoxels.length;
+  cz /= allVoxels.length;
+
+  allVoxels.sort((a, b) => {
+    const distA = (a.x - cx) ** 2 + (a.y - cy) ** 2 + (a.z - cz) ** 2;
+    const distB = (b.x - cx) ** 2 + (b.y - cy) ** 2 + (b.z - cz) ** 2;
+    return distB - distA;
+  });
+
+  const damageFraction = 1 - hp / 100;
+  const removeThreshold = damageFraction > 0.7;
+  const removeCount = removeThreshold ? Math.floor((damageFraction - 0.7) / 0.3 * allVoxels.length * 0.3) : 0;
+  const darkenCount = Math.floor(damageFraction * allVoxels.length * 0.5);
+
+  const darken = allVoxels.slice(0, darkenCount).map(v => ({ x: v.x, y: v.y, z: v.z }));
+  const remove = allVoxels.slice(0, removeCount).map(v => ({ x: v.x, y: v.y, z: v.z }));
+
+  return { darken, remove };
+}
+
+return { createVoxelHitEffect: createVoxelHitEffect, createVoxelDamageNumbers: createVoxelDamageNumbers, createVoxelDeathSequence: createVoxelDeathSequence, createVoxelWeakPointDestroy: createVoxelWeakPointDestroy, createVoxelHealthOpacity: createVoxelHealthOpacity };
 })();
 </script>
 </body>
