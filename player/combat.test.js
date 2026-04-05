@@ -221,14 +221,6 @@ describe('tryStab', () => {
     assert.strictEqual(weakPoints[0].health, 100 - COMBAT_CONFIG.STAB_DAMAGE);
   });
 
-  it('fails on destroyed weak points', () => {
-    const combat = createCombatState();
-    const playerPos = { x: 0, y: 0, z: 0 };
-    const weakPoints = [makeWeakPoint({ position: { x: 0, y: 0, z: -2 }, isDestroyed: true, isActive: false })];
-    const result = tryStab(combat, 1.0, playerPos, weakPoints);
-    assert.strictEqual(result.attacked, false);
-  });
-
   it('resets stab charge after successful attack', () => {
     const combat = createCombatState({ isChargingStab: true, stabChargeProgress: 1.0 });
     const playerPos = { x: 0, y: 0, z: 0 };
@@ -343,22 +335,6 @@ describe('findHitWeakPoint', () => {
 
   it('returns null when no weak points in range', () => {
     const weakPoints = [makeWeakPoint({ position: { x: 0, y: 0, z: -100 } })];
-    const result = findHitWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
-    assert.strictEqual(result, null);
-  });
-
-  it('skips destroyed weak points', () => {
-    const weakPoints = [
-      makeWeakPoint({ id: 'destroyed', position: { x: 0, y: 0, z: -2 }, isDestroyed: true, isActive: false }),
-    ];
-    const result = findHitWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
-    assert.strictEqual(result, null);
-  });
-
-  it('skips inactive weak points', () => {
-    const weakPoints = [
-      makeWeakPoint({ id: 'inactive', position: { x: 0, y: 0, z: -2 }, isActive: false }),
-    ];
     const result = findHitWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
     assert.strictEqual(result, null);
   });

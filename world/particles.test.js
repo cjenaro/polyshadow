@@ -8,34 +8,14 @@ import {
 } from './particles.js';
 
 describe('createParticle', () => {
-  it('creates particle with position', () => {
+  it('creates particle with all required properties', () => {
     const p = createParticle();
-    assert.ok('x' in p);
-    assert.ok('y' in p);
-    assert.ok('z' in p);
-  });
-
-  it('creates particle with velocity', () => {
-    const p = createParticle();
-    assert.ok('vx' in p);
-    assert.ok('vy' in p);
-    assert.ok('vz' in p);
-  });
-
-  it('creates particle with lifetime', () => {
-    const p = createParticle();
+    assert.ok('x' in p && 'y' in p && 'z' in p);
+    assert.ok('vx' in p && 'vy' in p && 'vz' in p);
     assert.ok('lifetime' in p);
     assert.ok(p.lifetime > 0);
-  });
-
-  it('creates particle with maxLifetime', () => {
-    const p = createParticle();
     assert.ok('maxLifetime' in p);
     assert.ok(p.maxLifetime >= p.lifetime);
-  });
-
-  it('creates particle with size', () => {
-    const p = createParticle();
     assert.ok('size' in p);
     assert.ok(p.size > 0);
   });

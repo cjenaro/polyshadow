@@ -5,6 +5,7 @@ import { OrbitCamera } from '../engine/camera.js';
 import { updatePlayer } from '../player/movement.js';
 import { PlayerCharacter } from '../player/character.js';
 import { GameState } from './state.js';
+import { ProgressionTracker } from './progression.js';
 import { UISystem } from '../engine/ui.js';
 import { createHubIsland, createArenaIsland, generateIslandGeometry, getIslandSurfaceHeight } from '../world/island.js';
 
@@ -22,6 +23,23 @@ scene.add(playerMesh);
 
 const gameState = new GameState();
 const ui = new UISystem();
+const progression = new ProgressionTracker();
+
+progression.onAllDefeated(() => {
+  if (gameState.isPlaying()) {
+    gameState.transition('victory');
+  }
+});
+
+gameState.onTransition((from, to) => {
+  if (to === 'title') {
+    progression.reset();
+    ui.showTitleScreen();
+  }
+  if (from === 'title') ui.hideTitleScreen();
+  if (to === 'paused') ui.showPauseOverlay();
+  if (from === 'paused') ui.hidePauseOverlay();
+});
 
 const hubIsland = generateIslandGeometry(createHubIsland());
 const hubMesh = createIslandMesh(hubIsland);
@@ -56,13 +74,6 @@ function getGroundHeight(x, z) {
 }
 
 ui.showTitleScreen();
-
-gameState.onTransition((from, to) => {
-  if (from === 'title') ui.hideTitleScreen();
-  if (to === 'title') ui.showTitleScreen();
-  if (to === 'paused') ui.showPauseOverlay();
-  if (from === 'paused') ui.hidePauseOverlay();
-});
 
 document.addEventListener('keydown', (e) => {
   if (gameState.getState() === 'title') {
@@ -121,4 +132,10 @@ function animate(now) {
   renderer.render(scene, camera);
 }
 
+function onColossusDefeated(type) {
+  progression.defeatColossus(type);
+}
+
 animate(performance.now());
+
+export { progression, gameState, onColossusDefeated };

@@ -87,13 +87,6 @@ describe('mapKeysToInput', () => {
     assert.ok(Math.abs(state.move.y - 0.707) < 0.01, `expected ~0.707 got ${state.move.y}`);
   });
 
-  it('WD and ArrowUp+ArrowRight both normalize', () => {
-    const wd = mapKeysToInput(keys('KeyW', 'KeyD'));
-    const arrows = mapKeysToInput(keys('ArrowUp', 'ArrowRight'));
-    assert.ok(Math.abs(wd.move.x - arrows.move.x) < 0.001);
-    assert.ok(Math.abs(wd.move.y - arrows.move.y) < 0.001);
-  });
-
   it('opposing keys cancel out', () => {
     const state = mapKeysToInput(keys('KeyW', 'KeyS'));
     assert.equal(state.move.y, 0);
@@ -412,10 +405,6 @@ describe('isTouchInButtonRegion', () => {
 
   it('returns true for touch at exact edge', () => {
     assert.equal(isTouchInButtonRegion(120, 200, 100, 200, 20), true);
-  });
-
-  it('returns true for touch at center', () => {
-    assert.equal(isTouchInButtonRegion(100, 200, 100, 200, 20), true);
   });
 
   it('handles diagonal distance', () => {

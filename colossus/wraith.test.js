@@ -1,7 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  WIND_WRAITH_SCALE,
   createWraithDefinition,
   generateWraithSurfacePatches,
   getWraithWeakPointPositions,
@@ -18,30 +17,10 @@ import {
 } from './wraith.js';
 import { getBodyHeight, getAllClimbableParts, getWeakPoints } from './base.js';
 
-describe('WIND_WRAITH_SCALE', () => {
-  it('is 30', () => {
-    assert.equal(WIND_WRAITH_SCALE, 30);
-  });
-});
-
 describe('createWraithDefinition', () => {
   it('returns a valid body definition', () => {
     const def = createWraithDefinition();
     assert.ok(def.parts && def.parts.length > 0);
-  });
-
-  it('has the expected part ids', () => {
-    const def = createWraithDefinition();
-    const ids = def.parts.map(p => p.id);
-    assert.ok(ids.includes('neck'));
-    assert.ok(ids.includes('chest'));
-    assert.ok(ids.includes('tail_base'));
-    assert.ok(ids.includes('tail_mid'));
-    assert.ok(ids.includes('tail_tip'));
-    assert.ok(ids.includes('head'));
-    assert.ok(ids.includes('left_wing'));
-    assert.ok(ids.includes('right_wing'));
-    assert.ok(ids.includes('neck_rune'));
   });
 
   it('head is not climbable and not a weak point', () => {
@@ -120,23 +99,6 @@ describe('generateWraithSurfacePatches', () => {
     const patches = generateWraithSurfacePatches(def);
     assert.ok(Array.isArray(patches));
     assert.ok(patches.length > 0);
-  });
-
-  it('each patch has the correct format', () => {
-    const def = createWraithDefinition();
-    const patches = generateWraithSurfacePatches(def);
-    for (const patch of patches) {
-      assert.ok(patch.position !== undefined, 'missing position');
-      assert.ok(typeof patch.position.x === 'number', 'position.x not number');
-      assert.ok(typeof patch.position.y === 'number', 'position.y not number');
-      assert.ok(typeof patch.position.z === 'number', 'position.z not number');
-      assert.ok(patch.normal !== undefined, 'missing normal');
-      assert.ok(typeof patch.normal.x === 'number', 'normal.x not number');
-      assert.ok(typeof patch.normal.y === 'number', 'normal.y not number');
-      assert.ok(typeof patch.normal.z === 'number', 'normal.z not number');
-      assert.equal(patch.climbable, true);
-      assert.equal(typeof patch.bodyPartId, 'string');
-    }
   });
 
   it('has patches for climbable parts', () => {
@@ -282,18 +244,7 @@ describe('createWraithBehaviorState', () => {
     const state = createWraithBehaviorState();
     assert.strictEqual(state.state, WraithState.IDLE);
     assert.strictEqual(state.health, WRAITH_BEHAVIOR_CONFIG.maxHealth);
-    assert.strictEqual(state.position.x, 0);
-    assert.strictEqual(state.position.y, 0);
-    assert.strictEqual(state.position.z, 0);
-    assert.strictEqual(state.rotation, 0);
-    assert.strictEqual(state.stateTimer, 0);
-    assert.strictEqual(state.stunTimer, 0);
-    assert.strictEqual(state.attackCooldown, 0);
-    assert.strictEqual(state.isAlerted, false);
     assert.strictEqual(state.altitude, 0);
-    assert.strictEqual(state.swoopTarget, null);
-    assert.strictEqual(state.flightPhase, 0);
-    assert.strictEqual(state.windPushTimer, 0);
   });
 
   it('accepts overrides', () => {

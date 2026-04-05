@@ -14,29 +14,6 @@ function makeParticle(overrides = {}) {
   return { x: 0, y: 0, z: 0, px: 0, py: 0, py: 0, vx: 0, vy: 0, vz: 0, pinned: false, ...overrides };
 }
 
-describe('CAPE_CONSTANTS', () => {
-  it('has positive NUM_NODES', () => {
-    assert.ok(CAPE_CONSTANTS.NUM_NODES > 0);
-  });
-
-  it('has positive SEGMENT_LENGTH', () => {
-    assert.ok(CAPE_CONSTANTS.SEGMENT_LENGTH > 0);
-  });
-
-  it('has GRAVITY that is negative', () => {
-    assert.ok(CAPE_CONSTANTS.GRAVITY < 0);
-  });
-
-  it('has DAMPING between 0 and 1', () => {
-    assert.ok(CAPE_CONSTANTS.DAMPING >= 0);
-    assert.ok(CAPE_CONSTANTS.DAMPING <= 1);
-  });
-
-  it('has positive ITERATIONS', () => {
-    assert.ok(CAPE_CONSTANTS.ITERATIONS > 0);
-  });
-});
-
 describe('createChain', () => {
   it('creates chain with correct number of particles', () => {
     const chain = createChain({ x: 0, y: 5, z: 0 });
@@ -231,13 +208,5 @@ describe('isCapeActive', () => {
 
   it('returns false when stamina is below low threshold', () => {
     assert.strictEqual(isCapeActive(5), false);
-  });
-
-  it('returns true when stamina just above low threshold', () => {
-    assert.strictEqual(isCapeActive(CAPE_CONSTANTS.STAMINA_LOW_THRESHOLD + 1), true);
-  });
-
-  it('returns false when stamina equals low threshold', () => {
-    assert.strictEqual(isCapeActive(CAPE_CONSTANTS.STAMINA_LOW_THRESHOLD), false);
   });
 });

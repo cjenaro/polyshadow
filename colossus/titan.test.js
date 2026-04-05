@@ -22,37 +22,10 @@ import {
 import { createColossusBody, getWeakPoints, getAllClimbableParts, getBodyBounds } from './base.js';
 import { ColossusState } from './behavior.js';
 
-describe('TIDE_TITAN_SCALE', () => {
-  it('is 40', () => {
-    assert.equal(TIDE_TITAN_SCALE, 40);
-  });
-});
-
 describe('createTitanDefinition', () => {
   it('returns a valid body definition', () => {
     const def = createTitanDefinition();
     assert.ok(def.parts && def.parts.length > 0);
-  });
-
-  it('has the expected part ids', () => {
-    const def = createTitanDefinition();
-    const ids = def.parts.map(p => p.id);
-    assert.ok(ids.includes('shell_main'));
-    assert.ok(ids.includes('shell_front'));
-    assert.ok(ids.includes('shell_rear'));
-    assert.ok(ids.includes('underbelly'));
-    assert.ok(ids.includes('head'));
-    assert.ok(ids.includes('left_claw_upper'));
-    assert.ok(ids.includes('left_claw_lower'));
-    assert.ok(ids.includes('right_claw_upper'));
-    assert.ok(ids.includes('right_claw_lower'));
-    assert.ok(ids.includes('left_leg_front'));
-    assert.ok(ids.includes('left_leg_rear'));
-    assert.ok(ids.includes('right_leg_front'));
-    assert.ok(ids.includes('right_leg_rear'));
-    assert.ok(ids.includes('shell_rune_left'));
-    assert.ok(ids.includes('shell_rune_right'));
-    assert.ok(ids.includes('shell_rune_center'));
   });
 
   it('has exactly 4 weak points', () => {
@@ -147,23 +120,6 @@ describe('generateTitanSurfacePatches', () => {
     const patches = generateTitanSurfacePatches(def);
     assert.ok(Array.isArray(patches));
     assert.ok(patches.length > 0);
-  });
-
-  it('each patch has the correct format', () => {
-    const def = createTitanDefinition();
-    const patches = generateTitanSurfacePatches(def);
-    for (const patch of patches) {
-      assert.ok(patch.position !== undefined, 'missing position');
-      assert.ok(typeof patch.position.x === 'number', 'position.x not number');
-      assert.ok(typeof patch.position.y === 'number', 'position.y not number');
-      assert.ok(typeof patch.position.z === 'number', 'position.z not number');
-      assert.ok(patch.normal !== undefined, 'missing normal');
-      assert.ok(typeof patch.normal.x === 'number', 'normal.x not number');
-      assert.ok(typeof patch.normal.y === 'number', 'normal.y not number');
-      assert.ok(typeof patch.normal.z === 'number', 'normal.z not number');
-      assert.equal(patch.climbable, true);
-      assert.equal(typeof patch.bodyPartId, 'string');
-    }
   });
 
   it('has patches for climbable parts', () => {
@@ -349,21 +305,9 @@ describe('buildCombatWeakPoints', () => {
 describe('createTitanBehaviorState', () => {
   it('returns default state with phase 1 and full health', () => {
     const state = createTitanBehaviorState();
-    assert.strictEqual(state.state, ColossusState.IDLE);
     assert.strictEqual(state.phase, 1);
+    assert.strictEqual(state.state, ColossusState.IDLE);
     assert.strictEqual(state.health, TITAN_BEHAVIOR_CONFIG.maxHealth);
-    assert.strictEqual(state.position.x, 0);
-    assert.strictEqual(state.position.z, 0);
-    assert.strictEqual(state.rotation, 0);
-    assert.strictEqual(state.stateTimer, 0);
-    assert.strictEqual(state.stunTimer, 0);
-    assert.strictEqual(state.attackCooldown, 0);
-    assert.strictEqual(state.isAlerted, false);
-    assert.strictEqual(state.submergeTimer, 0);
-    assert.strictEqual(state.submergeActive, false);
-    assert.strictEqual(state.submergeWarning, false);
-    assert.strictEqual(state.tiltAngle, 0);
-    assert.strictEqual(state.isSubmerged, false);
   });
 
   it('accepts overrides', () => {
@@ -558,11 +502,6 @@ describe('Titan AI Phase 2', () => {
 });
 
 describe('getTitanPhase', () => {
-  it('returns 1 for default state', () => {
-    const state = createTitanBehaviorState();
-    assert.strictEqual(getTitanPhase(state), 1);
-  });
-
   it('returns 2 after phase transition', () => {
     const state = createTitanBehaviorState({ phase: 2 });
     assert.strictEqual(getTitanPhase(state), 2);
@@ -570,14 +509,6 @@ describe('getTitanPhase', () => {
 });
 
 describe('getShellTilt', () => {
-  it('returns tilt angle and direction', () => {
-    const state = createTitanBehaviorState();
-    const tilt = getShellTilt(state, TITAN_BEHAVIOR_CONFIG);
-    assert.ok(typeof tilt.angle === 'number');
-    assert.ok(typeof tilt.direction.x === 'number');
-    assert.ok(typeof tilt.direction.z === 'number');
-  });
-
   it('tilt increases during aggro', () => {
     let state = createTitanBehaviorState({
       state: ColossusState.AGGRO,

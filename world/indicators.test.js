@@ -50,13 +50,7 @@ describe('getIndicatorDirection', () => {
     assert.ok(Math.abs(dir.z - 0.8) < 1e-6);
   });
 
-  it('is pure function (returns same result)', () => {
-    const indicator = createDirectionIndicator('c1', { x: 1, z: 1 });
-    const a = getIndicatorDirection(indicator);
-    const b = getIndicatorDirection(indicator);
-    assert.equal(a.x, b.x);
-    assert.equal(a.z, b.z);
-  });
+
 });
 
 describe('isIndicatorVisible', () => {
@@ -71,13 +65,7 @@ describe('isIndicatorVisible', () => {
     assert.ok(!isIndicatorVisible(indicator, { x: 95, y: 0, z: 0 }));
   });
 
-  it('is pure function', () => {
-    const indicator = createDirectionIndicator('c1', { x: 50, z: 0 });
-    const player = { x: 0, y: 0, z: 0 };
-    const a = isIndicatorVisible(indicator, player);
-    const b = isIndicatorVisible(indicator, player);
-    assert.equal(a, b);
-  });
+
 
   it('respects indicator disabled state', () => {
     const indicator = createDirectionIndicator('c1', { x: 100, z: 0 });

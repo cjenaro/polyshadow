@@ -27,6 +27,7 @@ export class ProgressionTracker {
     return {
       defeated: this.defeated,
       total: this.total,
+      count: this.defeated.size,
       allDefeated: this.isAllDefeated(),
     };
   }

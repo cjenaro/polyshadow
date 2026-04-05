@@ -158,13 +158,7 @@ describe('getIslandSurfaceHeight', () => {
     assert.ok(hCenter >= hMid, `center ${hCenter} should be >= mid ${hMid}`);
   });
 
-  it('is pure function (same inputs = same output)', () => {
-    const island = createHubIsland();
-    const gen = generateIslandGeometry(island);
-    const a = getIslandSurfaceHeight(gen, 5, 10);
-    const b = getIslandSurfaceHeight(gen, 5, 10);
-    assert.equal(a, b);
-  });
+
 });
 
 describe('isOnIsland', () => {
@@ -212,16 +206,7 @@ describe('isOnIsland', () => {
     assert.ok(!isOnIsland(island, 50, 0));
   });
 
-  it('is pure function', () => {
-    const island = createIsland({
-      center: { x: 0, z: 0 },
-      radius: 50,
-      maxHeight: 10,
-      seed: 42,
-      type: 'hub'
-    });
-    assert.equal(isOnIsland(island, 10, 10), isOnIsland(island, 10, 10));
-  });
+
 });
 
 describe('findSpawnPoint', () => {

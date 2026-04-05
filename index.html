@@ -75,6 +75,15 @@
       text-transform: uppercase;
       font-weight: 300;
     }
+    #hud-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 5;
+      pointer-events: none;
+    }
   </style>
   <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.1/dist/es-module-shims.js"></script>
   <script type="importmap">
@@ -88,6 +97,7 @@
 </head>
 <body>
   <canvas id="game-canvas"></canvas>
+  <canvas id="hud-canvas"></canvas>
   <div id="title-screen">
     <h1>Polyshadow</h1>
     <p id="title-prompt">Press any key to begin</p>

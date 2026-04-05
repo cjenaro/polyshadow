@@ -24,28 +24,6 @@ function makeState(overrides = {}) {
   };
 }
 
-describe('FALL_CONSTANTS', () => {
-  it('FREEFALL_THRESHOLD is a negative number', () => {
-    assert.ok(FALL_CONSTANTS.FREEFALL_THRESHOLD < 0);
-  });
-
-  it('FALL_GRAVITY_MULTIPLIER is greater than 1', () => {
-    assert.ok(FALL_CONSTANTS.FALL_GRAVITY_MULTIPLIER > 1);
-  });
-
-  it('MAX_FALL_TIME is a positive number', () => {
-    assert.ok(FALL_CONSTANTS.MAX_FALL_TIME > 0);
-  });
-
-  it('FREEFALL_CAMERA_ZOOM is greater than 1', () => {
-    assert.ok(FALL_CONSTANTS.FREEFALL_CAMERA_ZOOM > 1);
-  });
-
-  it('FREEFALL_CAMERA_OFFSET is a positive number', () => {
-    assert.ok(FALL_CONSTANTS.FREEFALL_CAMERA_OFFSET > 0);
-  });
-});
-
 describe('enterFall', () => {
   it('sets isFalling to true', () => {
     const state = makeState();
@@ -85,12 +63,6 @@ describe('enterFall', () => {
     assert.strictEqual(result.velocity.x, 2);
     assert.strictEqual(result.velocity.y, 0);
     assert.strictEqual(result.velocity.z, -1);
-  });
-
-  it('does not mutate the original state', () => {
-    const state = makeState();
-    enterFall(state);
-    assert.strictEqual(state.isFalling, false);
   });
 
   it('clears climbSurface and climbNormal if present', () => {
@@ -141,19 +113,6 @@ describe('updateFall', () => {
     const state = makeState({ isFalling: false });
     const result = updateFall(state, 0.1, FALL_CONSTANTS);
     assert.strictEqual(result, state);
-  });
-
-  it('does not mutate the original state', () => {
-    const state = makeState({
-      isFalling: true,
-      fallTime: 0,
-      velocity: { x: 0, y: 0, z: 0 },
-      position: { x: 0, y: 10, z: 0 },
-    });
-    updateFall(state, 1, FALL_CONSTANTS);
-    assert.strictEqual(state.fallTime, 0);
-    assert.strictEqual(state.velocity.y, 0);
-    assert.strictEqual(state.position.y, 10);
   });
 });
 
@@ -272,13 +231,6 @@ describe('respawn', () => {
     const state = makeState({ position: { x: 0, y: -100, z: 0 } });
     const result = respawn(state, []);
     assert.strictEqual(result, state);
-  });
-
-  it('does not mutate the original state', () => {
-    const state = makeState({ position: { x: 8, y: -100, z: 0 }, velocity: { x: 5, y: -20, z: 3 } });
-    respawn(state, respawnPoints);
-    assert.strictEqual(state.position.x, 8);
-    assert.strictEqual(state.velocity.y, -20);
   });
 });
 

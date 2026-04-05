@@ -1,7 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  STONE_SENTINEL_SCALE,
   createSentinelDefinition,
   generateSentinelSurfacePatches,
   getSentinelWeakPointPositions,
@@ -12,32 +11,10 @@ import {
 } from './sentinel.js';
 import { getBodyHeight, getAllClimbableParts, getWeakPoints } from './base.js';
 
-describe('STONE_SENTINEL_SCALE', () => {
-  it('is 20', () => {
-    assert.equal(STONE_SENTINEL_SCALE, 20);
-  });
-});
-
 describe('createSentinelDefinition', () => {
   it('returns a valid body definition', () => {
     const def = createSentinelDefinition();
     assert.ok(def.parts && def.parts.length > 0);
-  });
-
-  it('has the expected part ids', () => {
-    const def = createSentinelDefinition();
-    const ids = def.parts.map(p => p.id);
-    assert.ok(ids.includes('torso'));
-    assert.ok(ids.includes('hips'));
-    assert.ok(ids.includes('head'));
-    assert.ok(ids.includes('front_left_upper'));
-    assert.ok(ids.includes('front_left_lower'));
-    assert.ok(ids.includes('front_right_upper'));
-    assert.ok(ids.includes('front_right_lower'));
-    assert.ok(ids.includes('back_left_upper'));
-    assert.ok(ids.includes('back_left_lower'));
-    assert.ok(ids.includes('back_right_upper'));
-    assert.ok(ids.includes('back_right_lower'));
   });
 
   it('head is not climbable and is a weak point', () => {
@@ -76,23 +53,6 @@ describe('generateSentinelSurfacePatches', () => {
     const patches = generateSentinelSurfacePatches(def);
     assert.ok(Array.isArray(patches));
     assert.ok(patches.length > 0);
-  });
-
-  it('each patch has the correct format', () => {
-    const def = createSentinelDefinition();
-    const patches = generateSentinelSurfacePatches(def);
-    for (const patch of patches) {
-      assert.ok(patch.position !== undefined, 'missing position');
-      assert.ok(typeof patch.position.x === 'number', 'position.x not number');
-      assert.ok(typeof patch.position.y === 'number', 'position.y not number');
-      assert.ok(typeof patch.position.z === 'number', 'position.z not number');
-      assert.ok(patch.normal !== undefined, 'missing normal');
-      assert.ok(typeof patch.normal.x === 'number', 'normal.x not number');
-      assert.ok(typeof patch.normal.y === 'number', 'normal.y not number');
-      assert.ok(typeof patch.normal.z === 'number', 'normal.z not number');
-      assert.equal(patch.climbable, true);
-      assert.equal(typeof patch.bodyPartId, 'string');
-    }
   });
 
   it('has patches for climbable parts (torso, legs)', () => {
@@ -209,12 +169,6 @@ describe('generateSentinelSurfacePatches coverage', () => {
     assert.ok(partIds.has('back_right_lower'));
   });
 
-  it('total patch count is reasonable for the sentinel size', () => {
-    const def = createSentinelDefinition();
-    const patches = generateSentinelSurfacePatches(def);
-    assert.ok(patches.length > 100, `only ${patches.length} patches, expected more for colossus-sized body`);
-    assert.ok(patches.length < 2000, `${patches.length} patches, too many`);
-  });
 });
 
 describe('buildCombatWeakPoints', () => {

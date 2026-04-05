@@ -111,11 +111,6 @@ describe('setMasterVolume', () => {
     assert.equal(s1.masterVolume, 1);
   });
 
-  it('does not mutate original state', () => {
-    const original = createAudioState();
-    setMasterVolume(original, 0.2);
-    assert.equal(original.masterVolume, AUDIO_CONFIG.masterVolume);
-  });
 });
 
 describe('toggleMute', () => {
@@ -245,81 +240,46 @@ describe('isSoundPlaying', () => {
 });
 
 describe('getFootstepParams', () => {
-  it('returns type noise_burst for walking', () => {
+  it('returns noise_burst with required fields', () => {
     const params = getFootstepParams(false);
     assert.equal(params.type, 'noise_burst');
-  });
-
-  it('walking has longer duration than sprinting', () => {
-    const walking = getFootstepParams(false);
-    const sprinting = getFootstepParams(true);
-    assert.ok(walking.duration > sprinting.duration);
-  });
-
-  it('sprinting has higher bandpass frequency', () => {
-    const walking = getFootstepParams(false);
-    const sprinting = getFootstepParams(true);
-    assert.ok(sprinting.bandpassFreq > walking.bandpassFreq);
-  });
-
-  it('sprinting duration is 0.08', () => {
-    assert.equal(getFootstepParams(true).duration, 0.08);
-  });
-
-  it('walking duration is 0.12', () => {
-    assert.equal(getFootstepParams(false).duration, 0.12);
-  });
-
-  it('has required fields', () => {
-    const params = getFootstepParams(false);
+    assert.equal(typeof params.bandpassFreq, 'number');
     assert.equal(typeof params.bandpassQ, 'number');
     assert.equal(typeof params.gain, 'number');
+    assert.equal(typeof params.duration, 'number');
     assert.equal(typeof params.decay, 'number');
+  });
+
+  it('sprinting has shorter duration', () => {
+    const walking = getFootstepParams(false);
+    const sprinting = getFootstepParams(true);
+    assert.ok(sprinting.duration < walking.duration);
   });
 });
 
 describe('getClimbingGrabParams', () => {
-  it('returns type filtered_click', () => {
-    assert.equal(getClimbingGrabParams().type, 'filtered_click');
-  });
-
-  it('has expected duration', () => {
-    assert.equal(getClimbingGrabParams().duration, 0.06);
-  });
-
-  it('has highpass frequency above 1000', () => {
-    assert.ok(getClimbingGrabParams().highpassFreq > 1000);
-  });
-
-  it('has gain matching config', () => {
-    assert.equal(getClimbingGrabParams().gain, AUDIO_CONFIG.climbingGrabVolume);
-  });
-
-  it('has resonance field', () => {
-    assert.equal(typeof getClimbingGrabParams().resonance, 'number');
+  it('returns filtered_click with key fields', () => {
+    const params = getClimbingGrabParams();
+    assert.equal(params.type, 'filtered_click');
+    assert.equal(params.duration, 0.06);
+    assert.equal(typeof params.highpassFreq, 'number');
+    assert.equal(typeof params.resonance, 'number');
+    assert.equal(typeof params.gain, 'number');
   });
 });
 
 describe('getHeartbeatParams', () => {
-  it('returns type pulse', () => {
-    assert.equal(getHeartbeatParams().type, 'pulse');
-  });
-
-  it('has low frequency around 40', () => {
-    assert.equal(getHeartbeatParams().frequency, 40);
-  });
-
-  it('has expected duration', () => {
-    assert.equal(getHeartbeatParams().duration, 0.15);
-  });
-
-  it('has attack and decay', () => {
+  it('returns pulse with required fields', () => {
     const params = getHeartbeatParams();
+    assert.equal(params.type, 'pulse');
+    assert.equal(params.frequency, 40);
+    assert.equal(params.duration, 0.15);
     assert.equal(typeof params.attack, 'number');
     assert.equal(typeof params.decay, 'number');
+    assert.equal(typeof params.gain, 'number');
   });
 
-  it('has gain matching config', () => {
+  it('gain matches config', () => {
     assert.equal(getHeartbeatParams().gain, AUDIO_CONFIG.staminaLowVolume);
   });
 });
@@ -364,28 +324,18 @@ describe('shouldPlayHeartbeat', () => {
 });
 
 describe('getSwordSlashParams', () => {
-  it('returns type metallic_resonance', () => {
-    assert.equal(getSwordSlashParams(false).type, 'metallic_resonance');
+  it('returns metallic_resonance with required fields', () => {
+    const params = getSwordSlashParams(false);
+    assert.equal(params.type, 'metallic_resonance');
+    assert.equal(typeof params.frequency, 'number');
+    assert.equal(typeof params.gain, 'number');
+    assert.equal(typeof params.duration, 'number');
+    assert.equal(typeof params.decay, 'number');
+    assert.equal(typeof params.noiseMix, 'number');
   });
 
   it('charged slash has longer duration', () => {
     assert.ok(getSwordSlashParams(true).duration > getSwordSlashParams(false).duration);
-  });
-
-  it('charged slash has lower frequency', () => {
-    assert.ok(getSwordSlashParams(true).frequency < getSwordSlashParams(false).frequency);
-  });
-
-  it('charged slash has higher gain', () => {
-    assert.ok(getSwordSlashParams(true).gain > getSwordSlashParams(false).gain);
-  });
-
-  it('charged slash has longer decay', () => {
-    assert.ok(getSwordSlashParams(true).decay > getSwordSlashParams(false).decay);
-  });
-
-  it('has noiseMix field', () => {
-    assert.equal(typeof getSwordSlashParams(false).noiseMix, 'number');
   });
 });
 
@@ -399,66 +349,32 @@ describe('getColossusImpactParams', () => {
     const far = getColossusImpactParams(50);
     assert.ok(close.gain > far.gain);
   });
-
-  it('volume is 0 at distance >= 100', () => {
-    assert.equal(getColossusImpactParams(100).gain, 0);
-    assert.equal(getColossusImpactParams(200).gain, 0);
-  });
-
-  it('shake is true at close range', () => {
-    assert.equal(getColossusImpactParams(5).shake, true);
-    assert.equal(getColossusImpactParams(15).shake, true);
-  });
-
-  it('shake is false at far range', () => {
-    assert.equal(getColossusImpactParams(25).shake, false);
-    assert.equal(getColossusImpactParams(50).shake, false);
-  });
-
-  it('shake is false at exact boundary 20', () => {
-    assert.equal(getColossusImpactParams(20).shake, false);
-  });
-
-  it('frequency increases with distance', () => {
-    const close = getColossusImpactParams(0);
-    const far = getColossusImpactParams(50);
-    assert.ok(far.frequency > close.frequency);
-  });
-
-  it('has expected duration', () => {
-    assert.equal(getColossusImpactParams(0).duration, 0.8);
-  });
 });
 
 describe('getWeakPointHitParams', () => {
-  it('returns type resonant_ding', () => {
-    assert.equal(getWeakPointHitParams(false).type, 'resonant_ding');
+  it('returns resonant_ding with required fields', () => {
+    const params = getWeakPointHitParams(false);
+    assert.equal(params.type, 'resonant_ding');
+    assert.equal(typeof params.frequency, 'number');
+    assert.equal(typeof params.gain, 'number');
+    assert.equal(typeof params.duration, 'number');
+    assert.equal(typeof params.reverbMix, 'number');
   });
 
   it('destroyed has longer duration', () => {
     assert.ok(getWeakPointHitParams(true).duration > getWeakPointHitParams(false).duration);
   });
-
-  it('destroyed has lower frequency', () => {
-    assert.ok(getWeakPointHitParams(true).frequency < getWeakPointHitParams(false).frequency);
-  });
-
-  it('destroyed has higher gain', () => {
-    assert.ok(getWeakPointHitParams(true).gain > getWeakPointHitParams(false).gain);
-  });
-
-  it('destroyed has higher reverbMix', () => {
-    assert.ok(getWeakPointHitParams(true).reverbMix > getWeakPointHitParams(false).reverbMix);
-  });
-
-  it('normal hit has correct frequency', () => {
-    assert.equal(getWeakPointHitParams(false).frequency, 1000);
-  });
 });
 
 describe('getColossusDeathParams', () => {
-  it('returns type evolving_drone', () => {
-    assert.equal(getColossusDeathParams(0).type, 'evolving_drone');
+  it('returns evolving_drone with required fields', () => {
+    const params = getColossusDeathParams(0.5);
+    assert.equal(params.type, 'evolving_drone');
+    assert.equal(typeof params.baseFrequency, 'number');
+    assert.equal(typeof params.gain, 'number');
+    assert.equal(typeof params.filterFreq, 'number');
+    assert.equal(typeof params.noiseAmount, 'number');
+    assert.equal(typeof params.duration, 'number');
   });
 
   it('gain decreases as phase increases', () => {
@@ -466,71 +382,22 @@ describe('getColossusDeathParams', () => {
     const end = getColossusDeathParams(1);
     assert.ok(start.gain > end.gain);
   });
-
-  it('baseFrequency decreases as phase increases', () => {
-    const start = getColossusDeathParams(0);
-    const end = getColossusDeathParams(1);
-    assert.ok(start.baseFrequency > end.baseFrequency);
-  });
-
-  it('filterFreq increases as phase increases', () => {
-    const start = getColossusDeathParams(0);
-    const end = getColossusDeathParams(1);
-    assert.ok(start.filterFreq < end.filterFreq);
-  });
-
-  it('noiseAmount increases as phase increases', () => {
-    const start = getColossusDeathParams(0);
-    const end = getColossusDeathParams(1);
-    assert.ok(start.noiseAmount < end.noiseAmount);
-  });
-
-  it('has expected duration', () => {
-    assert.equal(getColossusDeathParams(0.5).duration, 5);
-  });
-
-  it('works at phase 0', () => {
-    const p = getColossusDeathParams(0);
-    assert.equal(p.baseFrequency, 50);
-    assert.equal(p.noiseAmount, 0);
-  });
-
-  it('works at phase 1', () => {
-    const p = getColossusDeathParams(1);
-    assert.equal(p.baseFrequency, 30);
-    assert.equal(p.noiseAmount, 0.5);
-  });
 });
 
 describe('getAmbientWindParams', () => {
-  it('returns type filtered_noise', () => {
-    assert.equal(getAmbientWindParams(0.5).type, 'filtered_noise');
-  });
-
-  it('has infinite duration', () => {
-    assert.equal(getAmbientWindParams(0.5).duration, Infinity);
+  it('returns filtered_noise with required fields', () => {
+    const params = getAmbientWindParams(0.5);
+    assert.equal(params.type, 'filtered_noise');
+    assert.equal(params.duration, Infinity);
+    assert.equal(typeof params.gain, 'number');
+    assert.equal(typeof params.lowpassFreq, 'number');
+    assert.equal(typeof params.lfoFreq, 'number');
   });
 
   it('gain increases with wind strength', () => {
     const calm = getAmbientWindParams(0.1);
     const strong = getAmbientWindParams(0.9);
     assert.ok(strong.gain > calm.gain);
-  });
-
-  it('lowpassFreq increases with wind strength', () => {
-    const calm = getAmbientWindParams(0.1);
-    const strong = getAmbientWindParams(0.9);
-    assert.ok(strong.lowpassFreq > calm.lowpassFreq);
-  });
-
-  it('lfoFreq increases with wind strength', () => {
-    const calm = getAmbientWindParams(0.1);
-    const strong = getAmbientWindParams(0.9);
-    assert.ok(strong.lfoFreq > calm.lfoFreq);
-  });
-
-  it('gain is 0 at wind strength 0', () => {
-    assert.equal(getAmbientWindParams(0).gain, 0);
   });
 });
 

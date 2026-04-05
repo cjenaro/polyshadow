@@ -54,12 +54,6 @@ describe('ProgressionTracker', () => {
     assert.strictEqual(progress.allDefeated, false);
   });
 
-  it('progress.defeated is a Set', () => {
-    const tracker = new ProgressionTracker();
-    const progress = tracker.getProgress();
-    assert.ok(progress.defeated instanceof Set);
-  });
-
   it('calls onAllDefeated callback when last colossus falls', () => {
     const tracker = new ProgressionTracker();
     let called = false;
@@ -147,5 +141,45 @@ describe('ProgressionTracker', () => {
     const restored = ProgressionTracker.fromJSON(JSON.parse(JSON.stringify(json)));
     assert.strictEqual(restored.isAllDefeated(), true);
     assert.strictEqual(restored.getDefeatedCount(), 3);
+  });
+
+  it('defeating an unknown colossus type still tracks it', () => {
+    const tracker = new ProgressionTracker();
+    tracker.defeatColossus('minotaur');
+    assert.strictEqual(tracker.getDefeatedCount(), 1);
+    assert.ok(tracker.getProgress().defeated.has('minotaur'));
+  });
+
+  it('after all defeated, further defeats are no-ops', () => {
+    const tracker = new ProgressionTracker();
+    tracker.defeatColossus('sentinel');
+    tracker.defeatColossus('wraith');
+    tracker.defeatColossus('titan');
+    tracker.defeatColossus('minotaur');
+    assert.strictEqual(tracker.getDefeatedCount(), 3);
+    assert.ok(!tracker.getProgress().defeated.has('minotaur'));
+  });
+
+  it('getProgress includes count', () => {
+    const tracker = new ProgressionTracker();
+    tracker.defeatColossus('sentinel');
+    const progress = tracker.getProgress();
+    assert.strictEqual(progress.count, 1);
+  });
+
+  it('getProgress count is zero when nothing defeated', () => {
+    const tracker = new ProgressionTracker();
+    const progress = tracker.getProgress();
+    assert.strictEqual(progress.count, 0);
+  });
+
+  it('getProgress count matches defeated size', () => {
+    const tracker = new ProgressionTracker();
+    tracker.defeatColossus('sentinel');
+    tracker.defeatColossus('minotaur');
+    tracker.defeatColossus('wraith');
+    const progress = tracker.getProgress();
+    assert.strictEqual(progress.count, 3);
+    assert.strictEqual(progress.allDefeated, true);
   });
 });

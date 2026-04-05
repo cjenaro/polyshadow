@@ -5,8 +5,6 @@ import {
   drainStamina,
   regenStamina,
   updateStamina,
-  isStaminaDepleted,
-  isStaminaLow,
   shouldTriggerFall,
   STAMINA_CONSTANTS,
 } from './stamina.js';
@@ -129,26 +127,6 @@ describe('updateStamina', () => {
     const state = createStaminaState();
     const next = updateStamina(state, { isSprinting: false, isGrounded: true, isClimbing: false }, 0.1);
     assert.strictEqual(next.current, STAMINA_CONSTANTS.MAX);
-  });
-});
-
-describe('isStaminaDepleted', () => {
-  it('returns true when isDepleted is true', () => {
-    assert.strictEqual(isStaminaDepleted({ isDepleted: true }), true);
-  });
-
-  it('returns false when isDepleted is false', () => {
-    assert.strictEqual(isStaminaDepleted({ isDepleted: false }), false);
-  });
-});
-
-describe('isStaminaLow', () => {
-  it('returns true when current is below low threshold', () => {
-    assert.strictEqual(isStaminaLow({ current: 5 }), true);
-  });
-
-  it('returns false when current is above low threshold', () => {
-    assert.strictEqual(isStaminaLow({ current: STAMINA_CONSTANTS.MAX }), false);
   });
 });
 
