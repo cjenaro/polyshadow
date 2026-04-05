@@ -39,7 +39,7 @@ export function createCannonAdapter() {
             shape = new CANNON.Sphere(shapeOpts.radius || 0.5);
             break;
           case 'capsule':
-            shape = new CANNON.Capsule(shapeOpts.radius || 0.3, shapeOpts.height || 1.0);
+            shape = new CANNON.Cylinder(shapeOpts.radius || 0.3, shapeOpts.radius || 0.3, shapeOpts.height || 1.0, 8);
             break;
         }
       }
