@@ -537,4 +537,102 @@ describe('UISystem', () => {
       assert.ok(config.vignetteAmount >= 0.1);
     });
   });
+
+  describe('getInputPrompt', () => {
+    it('returns Space for jump with keyboard', () => {
+      const ui = new UISystem();
+      assert.equal(ui.getInputPrompt('jump', 'keyboard'), 'Space');
+    });
+
+    it('returns E for grab with keyboard', () => {
+      const ui = new UISystem();
+      assert.equal(ui.getInputPrompt('grab', 'keyboard'), 'E');
+    });
+
+    it('returns Click for attack with keyboard', () => {
+      const ui = new UISystem();
+      assert.equal(ui.getInputPrompt('attack', 'keyboard'), 'Click');
+    });
+
+    it('returns Esc for pause with keyboard', () => {
+      const ui = new UISystem();
+      assert.equal(ui.getInputPrompt('pause', 'keyboard'), 'Esc');
+    });
+
+    it('returns A for jump with gamepad', () => {
+      const ui = new UISystem();
+      assert.equal(ui.getInputPrompt('jump', 'gamepad'), 'A');
+    });
+
+    it('returns B for grab with gamepad', () => {
+      const ui = new UISystem();
+      assert.equal(ui.getInputPrompt('grab', 'gamepad'), 'B');
+    });
+
+    it('returns X for attack with gamepad', () => {
+      const ui = new UISystem();
+      assert.equal(ui.getInputPrompt('attack', 'gamepad'), 'X');
+    });
+
+    it('returns Start for pause with gamepad', () => {
+      const ui = new UISystem();
+      assert.equal(ui.getInputPrompt('pause', 'gamepad'), 'Start');
+    });
+
+    it('returns empty string for unknown action', () => {
+      const ui = new UISystem();
+      assert.equal(ui.getInputPrompt('unknown', 'keyboard'), '');
+    });
+
+    it('returns empty string for unknown input type', () => {
+      const ui = new UISystem();
+      assert.equal(ui.getInputPrompt('jump', 'touch'), '');
+    });
+  });
+
+  describe('gamepad hint', () => {
+    it('initially shouldShowGamepadHint returns false', () => {
+      const ui = new UISystem();
+      assert.equal(ui.shouldShowGamepadHint(), false);
+    });
+
+    it('showGamepadHint sets shouldShowGamepadHint to true', () => {
+      const ui = new UISystem();
+      ui.showGamepadHint();
+      assert.equal(ui.shouldShowGamepadHint(), true);
+    });
+
+    it('hideGamepadHint sets shouldShowGamepadHint to false', () => {
+      const ui = new UISystem();
+      ui.showGamepadHint();
+      ui.hideGamepadHint();
+      assert.equal(ui.shouldShowGamepadHint(), false);
+    });
+
+    it('hint auto-hides after 3 seconds via update', () => {
+      const ui = new UISystem();
+      ui.showGamepadHint();
+      ui.update(2.9);
+      assert.equal(ui.shouldShowGamepadHint(), true);
+      ui.update(0.2);
+      assert.equal(ui.shouldShowGamepadHint(), false);
+    });
+
+    it('hint only shows once per session', () => {
+      const ui = new UISystem();
+      ui.showGamepadHint();
+      ui.update(3.0);
+      assert.equal(ui.shouldShowGamepadHint(), false);
+      ui.showGamepadHint();
+      assert.equal(ui.shouldShowGamepadHint(), false);
+    });
+
+    it('hideGamepadHint clears timer so reconnect shows again', () => {
+      const ui = new UISystem();
+      ui.showGamepadHint();
+      ui.hideGamepadHint();
+      ui.showGamepadHint();
+      assert.equal(ui.shouldShowGamepadHint(), true);
+    });
+  });
 });

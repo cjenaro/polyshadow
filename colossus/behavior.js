@@ -1,4 +1,5 @@
 import { distance3D, randomRange } from '../utils/math.js';
+import { moveToward2D } from './steering.js';
 
 export const ColossusState = {
   IDLE: 'idle',
@@ -51,23 +52,6 @@ export function createBehaviorState(overrides = {}) {
     shakeOffTimer: 0,
     lastShakeOffTime: 0,
     ...overrides,
-  };
-}
-
-function moveToward(position, target, speed, dt) {
-  const dx = target.x - position.x;
-  const dz = target.z - position.z;
-  const dist = Math.sqrt(dx * dx + dz * dz);
-  if (dist < 0.01) return position;
-
-  const step = Math.min(speed * dt, dist);
-  const nx = dx / dist;
-  const nz = dz / dist;
-
-  return {
-    x: position.x + nx * step,
-    y: position.y,
-    z: position.z + nz * step,
   };
 }
 
@@ -136,7 +120,7 @@ export function updateBehavior(aiState, config, deltaTime, playerPosition, colos
     }
 
     const target = state.patrolWaypoints[state.currentWaypointIndex];
-    state.position = moveToward(colossusPosition, target, config.patrolSpeed, deltaTime);
+    state.position = moveToward2D(colossusPosition, target, config.patrolSpeed, deltaTime);
     state.rotation = faceToward(colossusPosition, target);
     state.stateTimer += deltaTime;
 
@@ -168,7 +152,7 @@ export function updateBehavior(aiState, config, deltaTime, playerPosition, colos
       return { ...state, shouldAttack: false };
     }
 
-    state.position = moveToward(colossusPosition, playerPosition, config.aggroSpeed, deltaTime);
+    state.position = moveToward2D(colossusPosition, playerPosition, config.aggroSpeed, deltaTime);
     state.rotation = faceToward(colossusPosition, playerPosition);
     state.targetPosition = { x: playerPosition.x, z: playerPosition.z };
     state.shakeOffTimer += deltaTime;

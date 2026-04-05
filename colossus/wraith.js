@@ -1,6 +1,7 @@
 import { vec3Add, vec3Scale } from '../utils/math.js';
 import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from './base.js';
 import { distance3D } from '../utils/math.js';
+import { moveToward2D, moveToward3D } from './steering.js';
 
 export const WIND_WRAITH_SCALE = 30;
 
@@ -284,42 +285,6 @@ export function createWraithBehaviorState(overrides = {}) {
     flightPhase: 0,
     windPushTimer: 0,
     ...overrides,
-  };
-}
-
-function moveToward3D(position, target, speed, dt) {
-  const dx = target.x - position.x;
-  const dy = target.y - position.y;
-  const dz = target.z - position.z;
-  const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  if (dist < 0.01) return position;
-
-  const step = Math.min(speed * dt, dist);
-  const nx = dx / dist;
-  const ny = dy / dist;
-  const nz = dz / dist;
-
-  return {
-    x: position.x + nx * step,
-    y: position.y + ny * step,
-    z: position.z + nz * step,
-  };
-}
-
-function moveToward2D(position, target, speed, dt) {
-  const dx = target.x - position.x;
-  const dz = target.z - position.z;
-  const dist = Math.sqrt(dx * dx + dz * dz);
-  if (dist < 0.01) return position;
-
-  const step = Math.min(speed * dt, dist);
-  const nx = dx / dist;
-  const nz = dz / dist;
-
-  return {
-    x: position.x + nx * step,
-    y: position.y,
-    z: position.z + nz * step,
   };
 }
 

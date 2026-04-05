@@ -1,3 +1,4 @@
+// Cape uses its own Verlet integration rather than the physics engine — it's cosmetic cloth simulation, not gameplay physics, and already has test coverage.
 import { clamp } from '../utils/math.js';
 
 export const CAPE_CONSTANTS = {

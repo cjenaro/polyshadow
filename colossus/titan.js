@@ -1,6 +1,7 @@
 import { vec3Add, vec3Scale, distance3D, randomRange, clamp } from '../utils/math.js';
 import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from './base.js';
 import { ColossusState } from './behavior.js';
+import { moveToward2D } from './steering.js';
 
 let _THREE = null;
 
@@ -349,23 +350,6 @@ function generatePatrolWaypoints(center, radius, count = 4) {
   return waypoints;
 }
 
-function moveToward(position, target, speed, dt) {
-  const dx = target.x - position.x;
-  const dz = target.z - position.z;
-  const dist = Math.sqrt(dx * dx + dz * dz);
-  if (dist < 0.01) return position;
-
-  const step = Math.min(speed * dt, dist);
-  const nx = dx / dist;
-  const nz = dz / dist;
-
-  return {
-    x: position.x + nx * step,
-    y: position.y,
-    z: position.z + nz * step,
-  };
-}
-
 function faceToward(position, target) {
   const dx = target.x - position.x;
   const dz = target.z - position.z;
@@ -490,7 +474,7 @@ export function updateTitanBehavior(aiState, config, deltaTime, playerPosition, 
     }
 
     const target = state.patrolWaypoints[state.currentWaypointIndex];
-    state.position = moveToward(colossusPosition, target, config.patrolSpeed * speedMul, deltaTime);
+    state.position = moveToward2D(colossusPosition, target, config.patrolSpeed * speedMul, deltaTime);
     state.rotation = faceToward(colossusPosition, target);
     state.stateTimer += deltaTime;
 
@@ -524,7 +508,7 @@ export function updateTitanBehavior(aiState, config, deltaTime, playerPosition, 
       return { ...state, shouldAttack: false };
     }
 
-    state.position = moveToward(colossusPosition, playerPosition, config.aggroSpeed * speedMul, deltaTime);
+    state.position = moveToward2D(colossusPosition, playerPosition, config.aggroSpeed * speedMul, deltaTime);
     state.rotation = faceToward(colossusPosition, playerPosition);
     state.targetPosition = { x: playerPosition.x, z: playerPosition.z };
     state.shakeOffTimer += deltaTime;

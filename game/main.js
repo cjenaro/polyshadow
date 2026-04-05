@@ -18,6 +18,10 @@ import { createIntegratedStamina, updateIntegratedStamina, getStaminaForUI } fro
 import { createIntegratedCombat, updateIntegratedCombat, handleShakeOff, getCombatStats } from '../player/combat-integration.js';
 import { enterFall, updateFall, checkFall, respawn, getFreefallCameraData, FALL_CONSTANTS } from '../player/fall.js';
 import { createDeathIntegration, triggerDeathSequence, updateDeathIntegration, applyDeathToMesh } from '../colossus/death-integration.js';
+import {
+  createEndingState, updateEndingState, getSkyConfig, getIslandPositions,
+  getCreditsAlpha, shouldShowCredits, isEndingComplete,
+} from './ending-sequence.js';
 import { createSteppingStonesPath, generatePathPoints, isOnPath } from '../world/paths.js';
 import { createDirectionIndicator, updateIndicators, isIndicatorVisible } from '../world/indicators.js';
 import { MusicSystem } from '../engine/music.js';
@@ -63,6 +67,7 @@ let prevClimbing = false;
 let ambientWindNode = null;
 let ambientWindGain = null;
 let postProcess = createPostProcessState();
+let endingState = null;
 
 function ensureAudio() {
   if (audioCtx) return;
@@ -297,7 +302,15 @@ gameState.onTransition((from, to) => {
     ui.hidePauseOverlay();
     music.resume();
   }
-  if (to === 'victory') music.setState('victory');
+  if (to === 'victory') {
+    music.setState('victory');
+    endingState = createEndingState();
+  }
+  if (to === 'title') {
+    endingState = null;
+    const creditsEl = document.getElementById('credits-overlay');
+    if (creditsEl) creditsEl.style.display = 'none';
+  }
 });
 
 setSentinelTHREE(THREE);
@@ -315,14 +328,16 @@ const arenaConfigs = [
   { type: 'wraith', center: { x: -60, z: -110 } },
 ];
 
-const arenaIslands = arenaConfigs.map(({ type, center }) => {
+const arenaIslands = [];
+const arenaIslandMeshes = arenaConfigs.map(({ type, center }) => {
   const arena = createArenaIsland(type);
   arena.center = center;
   const generated = generateIslandGeometry(arena);
+  arenaIslands.push(generated);
   const mesh = createIslandMesh(generated);
   mesh.setPosition(center.x, 0, center.z);
   scene.add(mesh);
-  return generated;
+  return mesh;
 });
 
 const allIslands = [hubIsland, ...arenaIslands];
@@ -540,6 +555,7 @@ canvas.addEventListener('click', () => {
 });
 
 let prevAttack = false;
+let prevGamepadConnected = false;
 let lastTime = performance.now();
 
 function animate(now) {
@@ -549,6 +565,15 @@ function animate(now) {
   lastTime = now;
 
   const inputState = updateIntegratedInput(input);
+
+  const gamepadConnected = input.gamepad && input.gamepad.isGamepadConnected();
+  if (gamepadConnected && !prevGamepadConnected) {
+    ui.showGamepadHint();
+  }
+  if (!gamepadConnected && prevGamepadConnected) {
+    ui.hideGamepadHint();
+  }
+  prevGamepadConnected = gamepadConnected;
 
   if (gameState.isPlaying()) {
     windSystem = updateWindSystem(windSystem, dt);
@@ -746,6 +771,47 @@ function animate(now) {
     camera.syncFromOrbit(orbitResult);
 
     audioState = cleanupSounds(audioState, now * 0.001);
+  }
+
+  const currentState = gameState.getState();
+  if (endingState && (currentState === 'victory' || currentState === 'credits')) {
+    const originalPositions = arenaConfigs.map(c => ({ x: c.center.x, y: 0, z: c.center.z }));
+    const hubPos = { x: hubIsland.center.x, y: 0, z: hubIsland.center.z };
+    endingState = updateEndingState(endingState, dt, originalPositions, hubPos);
+
+    const skyCfg = getSkyConfig(endingState);
+    if (skyCfg.cosmicTint > 0) {
+      const r = 0.1 + skyCfg.goldenTint * 0.3;
+      const g = 0.05 + skyCfg.goldenTint * 0.2;
+      const b = 0.2 + skyCfg.cosmicTint * 0.6;
+      scene.impl.background = new THREE.Color(r, g, b);
+      scene.impl.fog = scene.impl.fog || new THREE.FogExp2(0xc9a84c, 0.005);
+      scene.impl.fog.density = 0.005 * skyCfg.fogDensity;
+    }
+
+    const islandPositions = getIslandPositions(endingState, originalPositions, hubPos);
+    for (let i = 0; i < arenaIslandMeshes.length; i++) {
+      const mesh = arenaIslandMeshes[i];
+      if (mesh) mesh.setPosition(islandPositions[i].x, 0, islandPositions[i].z);
+    }
+
+    const creditsEl = document.getElementById('credits-overlay');
+    if (creditsEl) {
+      if (shouldShowCredits(endingState)) {
+        creditsEl.style.display = 'flex';
+        creditsEl.style.opacity = getCreditsAlpha(endingState);
+      } else {
+        creditsEl.style.display = 'none';
+      }
+    }
+
+    if (currentState !== 'playing') {
+      const pos = player.state.position;
+      playerMesh.setPosition(pos.x, pos.y + 0.6, pos.z);
+      const adjustedTarget = { x: pos.x, y: pos.y + 1, z: pos.z };
+      const orbitResult = orbit.update(dt, inputState.look, adjustedTarget);
+      camera.syncFromOrbit(orbitResult);
+    }
   }
 
   music.update(dt);

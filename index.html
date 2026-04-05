@@ -84,6 +84,35 @@
       z-index: 5;
       pointer-events: none;
     }
+    #credits-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 8;
+      pointer-events: none;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      line-height: 2;
+    }
+    #credits-overlay h2 {
+      font-size: 2rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      font-weight: 300;
+      margin-bottom: 1rem;
+    }
+    #credits-overlay p {
+      font-size: 1rem;
+      letter-spacing: 0.15em;
+      opacity: 0.8;
+    }
   </style>
   <script async src="https://ga.jspm.io/npm:es-module-shims@1.10.1/dist/es-module-shims.js"></script>
   <script type="importmap">
@@ -105,6 +134,12 @@
   <div id="pause-overlay">
     <h2>Paused</h2>
   </div>
+  <div id="credits-overlay">
+    <h2>Polyshadow</h2>
+    <p>The shadows have lifted</p>
+    <p style="margin-top: 2rem;">Thank you for playing</p>
+  </div>
+  <div id="gamepad-hint">Gamepad connected</div>
   <script type="module" src="game/main.js"></script>
 </body>
 </html>

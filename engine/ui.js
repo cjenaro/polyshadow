@@ -6,12 +6,20 @@ const DAMAGE_COOLDOWN = 3;
 const LOW_HEALTH_PULSE_THRESHOLD = 0.3;
 const MAX_HINT_DISTANCE = 100;
 const VIGNETTE_BASE = 0.3;
+const GAMEPAD_HINT_DURATION = 3;
+
+const INPUT_PROMPTS = {
+  keyboard: { jump: 'Space', grab: 'E', attack: 'Click', pause: 'Esc' },
+  gamepad: { jump: 'A', grab: 'B', attack: 'X', pause: 'Start' },
+};
 
 export class UISystem {
   constructor() {
     this._titleState = 'visible';
     this._fadeTimer = 0;
     this._damageTimer = 0;
+    this._gamepadHintTimer = 0;
+    this._gamepadHintShown = false;
   }
 
   getStaminaArc(currentStamina, maxStamina, time = 0, isClimbing = false) {
@@ -134,6 +142,16 @@ export class UISystem {
     if (this._damageTimer > 0) {
       this._damageTimer = Math.max(0, this._damageTimer - deltaTime);
     }
+
+    if (this._gamepadHintTimer > 0) {
+      this._gamepadHintTimer = Math.max(0, this._gamepadHintTimer - deltaTime);
+      if (this._gamepadHintTimer === 0) {
+        if (typeof document !== 'undefined') {
+          const el = document.getElementById('gamepad-hint');
+          if (el) el.style.display = 'none';
+        }
+      }
+    }
   }
 
   showTitleScreen() {
@@ -154,5 +172,34 @@ export class UISystem {
   hidePauseOverlay() {
     const el = document.getElementById('pause-overlay');
     if (el) el.style.display = 'none';
+  }
+
+  showGamepadHint() {
+    if (!this._gamepadHintShown) {
+      this._gamepadHintShown = true;
+      this._gamepadHintTimer = GAMEPAD_HINT_DURATION;
+    }
+    if (typeof document !== 'undefined') {
+      const el = document.getElementById('gamepad-hint');
+      if (el) el.style.display = 'block';
+    }
+  }
+
+  hideGamepadHint() {
+    this._gamepadHintTimer = 0;
+    this._gamepadHintShown = false;
+    if (typeof document !== 'undefined') {
+      const el = document.getElementById('gamepad-hint');
+      if (el) el.style.display = 'none';
+    }
+  }
+
+  shouldShowGamepadHint() {
+    return this._gamepadHintTimer > 0;
+  }
+
+  getInputPrompt(action, inputType) {
+    const type = INPUT_PROMPTS[inputType];
+    return type ? (type[action] || '') : '';
   }
 }
