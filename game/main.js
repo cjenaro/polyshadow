@@ -104,7 +104,7 @@ const progression = new ProgressionTracker();
 
 const stamina = createIntegratedStamina();
 const climbing = createClimbingState();
-const combat = createIntegratedCombat();
+let combat = createIntegratedCombat();
 const dodge = createDodgeState();
 const music = new MusicSystem();
 let audioCtx = null;
