@@ -1,4 +1,4 @@
-import { BlockType, getBlockColor, getBlockEmissive } from './block-types.js';
+import { BlockType, getBlockColor, getBlockEmissive } from "./block-types.js";
 
 const GRASS_SIDE_COLOR = [0.36, 0.25, 0.13];
 
@@ -45,11 +45,11 @@ export function createVoxelMesh(meshData) {
   if (!T) return null;
 
   const geometry = new T.BufferGeometry();
-  geometry.setAttribute('position', new T.Float32BufferAttribute(meshData.positions, 3));
-  geometry.setAttribute('normal', new T.Float32BufferAttribute(meshData.normals, 3));
-  geometry.setAttribute('color', new T.Float32BufferAttribute(meshData.colors, 3));
+  geometry.setAttribute("position", new T.Float32BufferAttribute(meshData.positions, 3));
+  geometry.setAttribute("normal", new T.Float32BufferAttribute(meshData.normals, 3));
+  geometry.setAttribute("color", new T.Float32BufferAttribute(meshData.colors, 3));
   if (meshData.emissives && meshData.emissives.length > 0) {
-    geometry.setAttribute('aEmissive', new T.Float32BufferAttribute(meshData.emissives, 3));
+    geometry.setAttribute("aEmissive", new T.Float32BufferAttribute(meshData.emissives, 3));
   }
   geometry.setIndex(Array.from(meshData.indices));
 

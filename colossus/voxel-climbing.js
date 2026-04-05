@@ -137,7 +137,12 @@ export function findVoxelJumpTarget(grabPoints, playerPos, climbNormal, jumpDist
   let nearestDist = jumpDist;
 
   for (const gp of grabPoints) {
-    if (gp.normal.x === climbNormal.x && gp.normal.y === climbNormal.y && gp.normal.z === climbNormal.z) continue;
+    if (
+      gp.normal.x === climbNormal.x &&
+      gp.normal.y === climbNormal.y &&
+      gp.normal.z === climbNormal.z
+    )
+      continue;
 
     const dx = gp.position.x - playerPos.x;
     const dy = gp.position.y - playerPos.y;
@@ -154,7 +159,7 @@ export function findVoxelJumpTarget(grabPoints, playerPos, climbNormal, jumpDist
 }
 
 export function findVoxelRestSpots(grabPoints) {
-  const topFaces = grabPoints.filter(p => p.normal.y === 1);
+  const topFaces = grabPoints.filter((p) => p.normal.y === 1);
   if (topFaces.length === 0) return [];
 
   const byPart = new Map();
@@ -165,7 +170,9 @@ export function findVoxelRestSpots(grabPoints) {
 
   const spots = [];
   for (const [partId, faces] of byPart) {
-    let cx = 0, cy = 0, cz = 0;
+    let cx = 0,
+      cy = 0,
+      cz = 0;
     for (const f of faces) {
       cx += f.position.x;
       cy += f.position.y;
@@ -184,13 +191,13 @@ export function findVoxelRestSpots(grabPoints) {
 export function updateVoxelClimbSurfaces(voxelParts, destroyedVoxels) {
   const filteredParts = {};
   for (const [partId, part] of Object.entries(voxelParts)) {
-    const destroyedForPart = destroyedVoxels.filter(v => v.bodyPartId === partId);
+    const destroyedForPart = destroyedVoxels.filter((v) => v.bodyPartId === partId);
     if (destroyedForPart.length === 0) {
       filteredParts[partId] = part;
       continue;
     }
-    const destroyedSet = new Set(destroyedForPart.map(v => `${v.x},${v.y},${v.z}`));
-    const remaining = part.voxels.filter(v => !destroyedSet.has(`${v.x},${v.y},${v.z}`));
+    const destroyedSet = new Set(destroyedForPart.map((v) => `${v.x},${v.y},${v.z}`));
+    const remaining = part.voxels.filter((v) => !destroyedSet.has(`${v.x},${v.y},${v.z}`));
     filteredParts[partId] = { ...part, voxels: remaining };
   }
   return generateVoxelSurfacePatches(filteredParts);

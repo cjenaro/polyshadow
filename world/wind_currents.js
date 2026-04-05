@@ -1,5 +1,5 @@
-import { lerp, smoothstep } from '../utils/math.js';
-import { noise2D } from '../utils/noise.js';
+import { lerp, smoothstep } from "../utils/math.js";
+import { noise2D } from "../utils/noise.js";
 
 export function createWindCurrent({
   start,
@@ -96,12 +96,14 @@ export function getWindForce(current, position) {
   const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
   if (len === 0) return { x: 0, y: 0, z: 0 };
 
-  const fadeIn = current.fadeInDuration <= 0 ? 1 : smoothstep(0, current.fadeInDuration, current.time);
+  const fadeIn =
+    current.fadeInDuration <= 0 ? 1 : smoothstep(0, current.fadeInDuration, current.time);
   const fadeOut = 1;
   let effectiveStrength = current.strength * fadeIn * fadeOut;
   if (current.fadingOut) {
     const outProgress = current.time - current.fadeOutStart;
-    effectiveStrength *= current.fadeOutDuration <= 0 ? 0 : 1 - smoothstep(0, current.fadeOutDuration, outProgress);
+    effectiveStrength *=
+      current.fadeOutDuration <= 0 ? 0 : 1 - smoothstep(0, current.fadeOutDuration, outProgress);
   }
   const pulseFactor = 1 + Math.sin(current.phase) * current.pulseAmplitude;
   effectiveStrength *= pulseFactor;
@@ -133,7 +135,7 @@ export function addCurrent(system, current) {
 }
 
 export function removeCurrent(system, id) {
-  return { currents: system.currents.filter(c => c.id !== id) };
+  return { currents: system.currents.filter((c) => c.id !== id) };
 }
 
 export function fadeOutCurrent(current) {
@@ -142,11 +144,15 @@ export function fadeOutCurrent(current) {
 
 export function isCurrentFaded(current) {
   if (!current.fadingOut) return false;
-  return (current.time - current.fadeOutStart) >= current.fadeOutDuration;
+  return current.time - current.fadeOutStart >= current.fadeOutDuration;
 }
 
 export function updateCurrents(system, dt) {
-  return { currents: system.currents.map(c => updateWindCurrent(c, dt)).filter(c => !isCurrentFaded(c)) };
+  return {
+    currents: system.currents
+      .map((c) => updateWindCurrent(c, dt))
+      .filter((c) => !isCurrentFaded(c)),
+  };
 }
 
 export function getForceAt(system, position) {
@@ -163,5 +169,5 @@ export function getForceAt(system, position) {
 }
 
 export function isInAnyCurrent(system, position) {
-  return system.currents.some(c => isInWindCurrent(c, position));
+  return system.currents.some((c) => isInWindCurrent(c, position));
 }

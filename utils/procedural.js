@@ -1,8 +1,8 @@
-import { fbm2D, noise2D } from './noise.js';
-import { randomRange } from './math.js';
+import { fbm2D, noise2D } from "./noise.js";
+import { randomRange } from "./math.js";
 
 function seededRandom(seed) {
-  let s = (seed | 0) || 1;
+  let s = seed | 0 || 1;
   return function () {
     s = (s * 16807) % 2147483647;
     return (s - 1) / 2147483646;
@@ -41,11 +41,7 @@ export function generateIslandShape(radius, heightScale, seed) {
       const dist = Math.sqrt(dx * dx + dy * dy);
       const normalizedDist = dist / radius;
 
-      const noiseVal = fbm2D(
-        x * 0.05 + offsetX,
-        y * 0.05 + offsetY,
-        4, 2, 0.5
-      );
+      const noiseVal = fbm2D(x * 0.05 + offsetX, y * 0.05 + offsetY, 4, 2, 0.5);
 
       let falloff = 1 - normalizedDist;
       falloff = falloff * falloff;
@@ -88,7 +84,7 @@ export function generateGrassPatches(islandHeightMap, density, seed) {
       x: gx,
       y: h,
       z: gz,
-      scale: 0.5 + rng() * 1.5
+      scale: 0.5 + rng() * 1.5,
     });
   }
 

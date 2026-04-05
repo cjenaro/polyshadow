@@ -11,7 +11,7 @@ import {
   isInAnyCurrent,
   fadeOutCurrent,
   isCurrentFaded,
-} from './wind_currents.js';
+} from "./wind_currents.js";
 
 export {
   createWindCurrent,

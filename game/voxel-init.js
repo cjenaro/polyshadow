@@ -1,10 +1,14 @@
-import { createVoxelStorage } from '../world/voxel-storage.js';
-import { createChunkManager } from '../world/voxel-chunk-manager.js';
-import { generateVoxelIsland, generateVoxelSteppingStones, generateVoxelRuins } from '../world/voxel-island-generator.js';
-import { voxelGroundHeight } from '../world/voxel-physics.js';
-import { getVoxelLODLevel, shouldRenderChunk } from '../world/voxel-lod.js';
-import { buildColossusVoxels } from '../colossus/voxel-builder.js';
-import { generateVoxelSurfacePatches } from '../colossus/voxel-climbing.js';
+import { createVoxelStorage } from "../world/voxel-storage.js";
+import { createChunkManager } from "../world/voxel-chunk-manager.js";
+import {
+  generateVoxelIsland,
+  generateVoxelSteppingStones,
+  generateVoxelRuins,
+} from "../world/voxel-island-generator.js";
+import { voxelGroundHeight } from "../world/voxel-physics.js";
+import { getVoxelLODLevel, shouldRenderChunk } from "../world/voxel-lod.js";
+import { buildColossusVoxels } from "../colossus/voxel-builder.js";
+import { generateVoxelSurfacePatches } from "../colossus/voxel-climbing.js";
 
 const HUB_CENTER = { x: 0, z: 0 };
 const HUB_RADIUS = 60;
@@ -12,9 +16,9 @@ const HUB_SEED = 42;
 const ARENA_RADIUS = 40;
 
 const ARENA_CONFIGS = [
-  { type: 'sentinel', centerX: 120, centerZ: 0 },
-  { type: 'titan', centerX: -100, centerZ: 80 },
-  { type: 'wraith', centerX: -60, centerZ: -110 },
+  { type: "sentinel", centerX: 120, centerZ: 0 },
+  { type: "titan", centerX: -100, centerZ: 80 },
+  { type: "wraith", centerX: -60, centerZ: -110 },
 ];
 
 export function initVoxelSystems() {
@@ -50,7 +54,7 @@ export function generateVoxelWorld(voxelCtx) {
   });
 
   islands.push({
-    type: 'hub',
+    type: "hub",
     centerX: HUB_CENTER.x,
     centerZ: HUB_CENTER.z,
     radius: HUB_RADIUS,

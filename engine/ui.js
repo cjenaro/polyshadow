@@ -9,13 +9,13 @@ const VIGNETTE_BASE = 0.3;
 const GAMEPAD_HINT_DURATION = 3;
 
 const INPUT_PROMPTS = {
-  keyboard: { jump: 'Space', grab: 'E', attack: 'Click', pause: 'Esc' },
-  gamepad: { jump: 'A', grab: 'B', attack: 'X', pause: 'Start' },
+  keyboard: { jump: "Space", grab: "E", attack: "Click", pause: "Esc" },
+  gamepad: { jump: "A", grab: "B", attack: "X", pause: "Start" },
 };
 
 export class UISystem {
   constructor() {
-    this._titleState = 'visible';
+    this._titleState = "visible";
     this._fadeTimer = 0;
     this._damageTimer = 0;
     this._gamepadHintTimer = 0;
@@ -50,7 +50,8 @@ export class UISystem {
     const ratio = Math.max(0, Math.min(1, health / maxHealth));
 
     const opacity = 0.3 + 0.7 * ratio;
-    const pulseRate = ratio < LOW_HEALTH_PULSE_THRESHOLD ? (1 - ratio / LOW_HEALTH_PULSE_THRESHOLD) * 2 : 0;
+    const pulseRate =
+      ratio < LOW_HEALTH_PULSE_THRESHOLD ? (1 - ratio / LOW_HEALTH_PULSE_THRESHOLD) * 2 : 0;
 
     return { opacity, pulseRate };
   }
@@ -76,20 +77,20 @@ export class UISystem {
   }
 
   showTitle() {
-    this._titleState = 'visible';
+    this._titleState = "visible";
     this._fadeTimer = 0;
   }
 
   hideTitle() {
-    if (this._titleState === 'visible') {
-      this._titleState = 'fading';
+    if (this._titleState === "visible") {
+      this._titleState = "fading";
       this._fadeTimer = 0;
     }
   }
 
   getFadeProgress() {
-    if (this._titleState === 'visible') return 0;
-    if (this._titleState === 'hidden') return 1;
+    if (this._titleState === "visible") return 0;
+    if (this._titleState === "hidden") return 1;
     return Math.min(1, this._fadeTimer / FADE_DURATION);
   }
 
@@ -102,7 +103,8 @@ export class UISystem {
   }
 
   getHUDState(gameState) {
-    const { isClimbing, currentStamina, maxStamina, inCombat, recentlyDamaged, idleTime } = gameState;
+    const { isClimbing, currentStamina, maxStamina, inCombat, recentlyDamaged, idleTime } =
+      gameState;
     const ratio = currentStamina / maxStamina;
 
     const showStamina = isClimbing || ratio < 1;
@@ -113,13 +115,13 @@ export class UISystem {
   }
 
   getPostProcessConfig(gameState, distToColossus) {
-    if (gameState === 'combat') {
+    if (gameState === "combat") {
       const proximityFactor = Math.max(0, 1 - distToColossus / 50);
       return {
         bloomIntensity: 0.4 + proximityFactor * 0.6,
         bloomThreshold: 0.8,
         vignetteAmount: Math.min(0.9, VIGNETTE_BASE + proximityFactor * 0.4),
-        colorGrade: 'desaturated',
+        colorGrade: "desaturated",
       };
     }
 
@@ -127,15 +129,15 @@ export class UISystem {
       bloomIntensity: 0,
       bloomThreshold: 1.0,
       vignetteAmount: Math.max(0.1, VIGNETTE_BASE - distToColossus / 500),
-      colorGrade: 'warm',
+      colorGrade: "warm",
     };
   }
 
   update(deltaTime) {
-    if (this._titleState === 'fading') {
+    if (this._titleState === "fading") {
       this._fadeTimer += deltaTime;
       if (this._fadeTimer >= FADE_DURATION) {
-        this._titleState = 'hidden';
+        this._titleState = "hidden";
       }
     }
 
@@ -146,32 +148,32 @@ export class UISystem {
     if (this._gamepadHintTimer > 0) {
       this._gamepadHintTimer = Math.max(0, this._gamepadHintTimer - deltaTime);
       if (this._gamepadHintTimer === 0) {
-        if (typeof document !== 'undefined') {
-          const el = document.getElementById('gamepad-hint');
-          if (el) el.style.display = 'none';
+        if (typeof document !== "undefined") {
+          const el = document.getElementById("gamepad-hint");
+          if (el) el.style.display = "none";
         }
       }
     }
   }
 
   showTitleScreen() {
-    const el = document.getElementById('title-screen');
-    if (el) el.style.display = 'flex';
+    const el = document.getElementById("title-screen");
+    if (el) el.style.display = "flex";
   }
 
   hideTitleScreen() {
-    const el = document.getElementById('title-screen');
-    if (el) el.style.display = 'none';
+    const el = document.getElementById("title-screen");
+    if (el) el.style.display = "none";
   }
 
   showPauseOverlay() {
-    const el = document.getElementById('pause-overlay');
-    if (el) el.style.display = 'flex';
+    const el = document.getElementById("pause-overlay");
+    if (el) el.style.display = "flex";
   }
 
   hidePauseOverlay() {
-    const el = document.getElementById('pause-overlay');
-    if (el) el.style.display = 'none';
+    const el = document.getElementById("pause-overlay");
+    if (el) el.style.display = "none";
   }
 
   showGamepadHint() {
@@ -179,18 +181,18 @@ export class UISystem {
       this._gamepadHintShown = true;
       this._gamepadHintTimer = GAMEPAD_HINT_DURATION;
     }
-    if (typeof document !== 'undefined') {
-      const el = document.getElementById('gamepad-hint');
-      if (el) el.style.display = 'block';
+    if (typeof document !== "undefined") {
+      const el = document.getElementById("gamepad-hint");
+      if (el) el.style.display = "block";
     }
   }
 
   hideGamepadHint() {
     this._gamepadHintTimer = 0;
     this._gamepadHintShown = false;
-    if (typeof document !== 'undefined') {
-      const el = document.getElementById('gamepad-hint');
-      if (el) el.style.display = 'none';
+    if (typeof document !== "undefined") {
+      const el = document.getElementById("gamepad-hint");
+      if (el) el.style.display = "none";
     }
   }
 
@@ -200,6 +202,6 @@ export class UISystem {
 
   getInputPrompt(action, inputType) {
     const type = INPUT_PROMPTS[inputType];
-    return type ? (type[action] || '') : '';
+    return type ? type[action] || "" : "";
   }
 }

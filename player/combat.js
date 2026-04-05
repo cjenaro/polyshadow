@@ -1,5 +1,5 @@
-import { distance3D, vec3Add, vec3Scale, clamp } from '../utils/math.js';
-import { drainStamina } from './stamina.js';
+import { distance3D, vec3Add, vec3Scale, clamp } from "../utils/math.js";
+import { drainStamina } from "./stamina.js";
 
 export const COMBAT_CONFIG = {
   SLASH_RANGE: 5,
@@ -45,8 +45,12 @@ export function findHitWeakPoint(playerPosition, weakPoints, range) {
   for (const wp of weakPoints) {
     if (!wp.isActive || wp.isDestroyed) continue;
     const d = distance3D(
-      playerPosition.x, playerPosition.y, playerPosition.z,
-      wp.position.x, wp.position.y, wp.position.z
+      playerPosition.x,
+      playerPosition.y,
+      playerPosition.z,
+      wp.position.x,
+      wp.position.y,
+      wp.position.z,
     );
     if (d < nearestDist) {
       nearestDist = d;
@@ -71,13 +75,15 @@ export function trySlash(combatState, playerPosition, playerRotation, weakPoints
   if (combatState.slashCooldown > 0) return { attacked: false, combatState };
 
   const slashOrigin = getSlashAttackOrigin(playerPosition, playerRotation);
-  const hitIndex = weakPoints.findIndex(wp => wp === findHitWeakPoint(slashOrigin, weakPoints, COMBAT_CONFIG.SLASH_RANGE));
+  const hitIndex = weakPoints.findIndex(
+    (wp) => wp === findHitWeakPoint(slashOrigin, weakPoints, COMBAT_CONFIG.SLASH_RANGE),
+  );
 
   if (hitIndex === -1) return { attacked: false, combatState };
 
   const damage = COMBAT_CONFIG.SLASH_DAMAGE;
   const updatedWeakPoints = weakPoints.map((wp, i) =>
-    i === hitIndex ? applyDamageToWeakPointObj(wp, damage) : wp
+    i === hitIndex ? applyDamageToWeakPointObj(wp, damage) : wp,
   );
 
   return {
@@ -110,7 +116,7 @@ export function updateStabCharge(combatState, dt) {
     stabChargeProgress: clamp(
       combatState.stabChargeProgress + dt / COMBAT_CONFIG.STAB_CHARGE_TIME,
       0,
-      1
+      1,
     ),
   };
 }
@@ -126,13 +132,15 @@ export function cancelStabCharge(combatState) {
 export function tryStab(combatState, chargeProgress, playerPosition, weakPoints) {
   if (chargeProgress < 0.8) return { attacked: false, combatState };
 
-  const hitIndex = weakPoints.findIndex(wp => wp === findHitWeakPoint(playerPosition, weakPoints, COMBAT_CONFIG.STAB_RANGE));
+  const hitIndex = weakPoints.findIndex(
+    (wp) => wp === findHitWeakPoint(playerPosition, weakPoints, COMBAT_CONFIG.STAB_RANGE),
+  );
 
   if (hitIndex === -1) return { attacked: false, combatState };
 
   const damage = chargeProgress * COMBAT_CONFIG.STAB_DAMAGE;
   const updatedWeakPoints = weakPoints.map((wp, i) =>
-    i === hitIndex ? applyDamageToWeakPointObj(wp, damage) : wp
+    i === hitIndex ? applyDamageToWeakPointObj(wp, damage) : wp,
   );
 
   return {

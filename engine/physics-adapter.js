@@ -14,7 +14,7 @@ export function createMockAdapter() {
         friction: opts.friction !== undefined ? opts.friction : 0.6,
         restitution: opts.restitution !== undefined ? opts.restitution : 0.1,
       };
-      const handle = { impl: Symbol('world') };
+      const handle = { impl: Symbol("world") };
       worlds.set(handle, internal);
       return handle;
     },
@@ -24,11 +24,11 @@ export function createMockAdapter() {
       const vel = { x: 0, y: 0, z: 0 };
       const forceAccum = { x: 0, y: 0, z: 0 };
       const impulseAccum = { x: 0, y: 0, z: 0 };
-      const mass = opts.type === 'static' ? 0 : (opts.mass || 1);
+      const mass = opts.type === "static" ? 0 : opts.mass || 1;
 
       const body = {
-        impl: Symbol('body'),
-        type: opts.type || 'dynamic',
+        impl: Symbol("body"),
+        type: opts.type || "dynamic",
         mass,
         shape: opts.shape,
         _position: { x: pos.x, y: pos.y, z: pos.z },
@@ -62,7 +62,7 @@ export function createMockAdapter() {
       const { gravity, bodies, collisionListeners } = internal;
 
       for (const body of bodies) {
-        if (body.type !== 'dynamic') continue;
+        if (body.type !== "dynamic") continue;
 
         const mass = body.mass || 1;
 
@@ -91,8 +91,8 @@ export function createMockAdapter() {
       const dynamicBodies = [];
       const staticBodies = [];
       for (const b of bodies) {
-        if (b.type === 'dynamic') dynamicBodies.push(b);
-        else if (b.type === 'static' || b.type === 'kinematic') staticBodies.push(b);
+        if (b.type === "dynamic") dynamicBodies.push(b);
+        else if (b.type === "static" || b.type === "kinematic") staticBodies.push(b);
       }
 
       for (const dyn of dynamicBodies) {
@@ -105,8 +105,14 @@ export function createMockAdapter() {
             const n = penetration.normal;
             const velDotN = dyn._velocity.x * n.x + dyn._velocity.y * n.y + dyn._velocity.z * n.z;
 
-            const friction = dyn.friction !== null && dyn.friction !== undefined ? dyn.friction : internal.friction;
-            const restitution = dyn.restitution !== null && dyn.restitution !== undefined ? dyn.restitution : internal.restitution;
+            const friction =
+              dyn.friction !== null && dyn.friction !== undefined
+                ? dyn.friction
+                : internal.friction;
+            const restitution =
+              dyn.restitution !== null && dyn.restitution !== undefined
+                ? dyn.restitution
+                : internal.restitution;
 
             if (velDotN < 0) {
               const bounce = -(1 + restitution) * velDotN;
@@ -115,7 +121,8 @@ export function createMockAdapter() {
               dyn._velocity.z += bounce * n.z;
             }
 
-            const newVelDotN = dyn._velocity.x * n.x + dyn._velocity.y * n.y + dyn._velocity.z * n.z;
+            const newVelDotN =
+              dyn._velocity.x * n.x + dyn._velocity.y * n.y + dyn._velocity.z * n.z;
             const tanVelX = dyn._velocity.x - newVelDotN * n.x;
             const tanVelY = dyn._velocity.y - newVelDotN * n.y;
             const tanVelZ = dyn._velocity.z - newVelDotN * n.z;
@@ -205,7 +212,12 @@ export function createMockAdapter() {
 
       for (const body of internal.bodies) {
         const result = raycastAABB(from, dirX, dirY, dirZ, body);
-        if (result && result.distance < closestDist && result.distance >= 0 && result.distance <= len) {
+        if (
+          result &&
+          result.distance < closestDist &&
+          result.distance >= 0 &&
+          result.distance <= len
+        ) {
           closestDist = result.distance;
           closestHit = {
             body,
@@ -229,10 +241,10 @@ export function createMockAdapter() {
     createTrimeshCollider(world, opts) {
       const pos = opts.position || { x: 0, y: 0, z: 0 };
       const body = {
-        impl: Symbol('trimesh'),
-        type: 'static',
+        impl: Symbol("trimesh"),
+        type: "static",
         mass: 0,
-        shape: { type: 'trimesh', vertices: opts.vertices, indices: opts.indices },
+        shape: { type: "trimesh", vertices: opts.vertices, indices: opts.indices },
         _position: { x: pos.x, y: pos.y, z: pos.z },
         _velocity: { x: 0, y: 0, z: 0 },
         _force: { x: 0, y: 0, z: 0 },
@@ -253,21 +265,25 @@ export function createMockAdapter() {
 function getHalfExtents(body) {
   const s = body.shape;
   if (!s) return { x: 0.5, y: 0.5, z: 0.5 };
-  if (s.type === 'box') return { x: s.halfExtents.x, y: s.halfExtents.y, z: s.halfExtents.z };
-  if (s.type === 'capsule') {
+  if (s.type === "box") return { x: s.halfExtents.x, y: s.halfExtents.y, z: s.halfExtents.z };
+  if (s.type === "capsule") {
     const r = s.radius || 0.3;
     const h = (s.height || 1.0) / 2 + r;
     return { x: r, y: h, z: r };
   }
-  if (s.type === 'sphere') {
+  if (s.type === "sphere") {
     const r = s.radius || 0.5;
     return { x: r, y: r, z: r };
   }
-  if (s.type === 'trimesh') {
+  if (s.type === "trimesh") {
     const verts = s.vertices;
     if (!verts || verts.length === 0) return { x: 50, y: 0.5, z: 50 };
-    let minX = Infinity, minY = Infinity, minZ = Infinity;
-    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      minZ = Infinity;
+    let maxX = -Infinity,
+      maxY = -Infinity,
+      maxZ = -Infinity;
     for (let i = 0; i < verts.length; i += 3) {
       const vx = verts[i] + body._position.x;
       const vy = verts[i + 1] + body._position.y;
@@ -353,8 +369,16 @@ function raycastAABB(origin, dirX, dirY, dirZ, body) {
     let t1 = (minX - origin.x) / dirX;
     let t2 = (maxX - origin.x) / dirX;
     let nx1 = -1;
-    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; nx1 = 1; }
-    if (t1 > tmin) { tmin = t1; hitNormal = { x: nx1, y: 0, z: 0 }; }
+    if (t1 > t2) {
+      const tmp = t1;
+      t1 = t2;
+      t2 = tmp;
+      nx1 = 1;
+    }
+    if (t1 > tmin) {
+      tmin = t1;
+      hitNormal = { x: nx1, y: 0, z: 0 };
+    }
     tmax = Math.min(tmax, t2);
   } else {
     if (origin.x < minX || origin.x > maxX) return null;
@@ -364,8 +388,16 @@ function raycastAABB(origin, dirX, dirY, dirZ, body) {
     let t1 = (minY - origin.y) / dirY;
     let t2 = (maxY - origin.y) / dirY;
     let ny1 = -1;
-    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; ny1 = 1; }
-    if (t1 > tmin) { tmin = t1; hitNormal = { x: 0, y: ny1, z: 0 }; }
+    if (t1 > t2) {
+      const tmp = t1;
+      t1 = t2;
+      t2 = tmp;
+      ny1 = 1;
+    }
+    if (t1 > tmin) {
+      tmin = t1;
+      hitNormal = { x: 0, y: ny1, z: 0 };
+    }
     tmax = Math.min(tmax, t2);
   } else {
     if (origin.y < minY || origin.y > maxY) return null;
@@ -375,8 +407,16 @@ function raycastAABB(origin, dirX, dirY, dirZ, body) {
     let t1 = (minZ - origin.z) / dirZ;
     let t2 = (maxZ - origin.z) / dirZ;
     let nz1 = -1;
-    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; nz1 = 1; }
-    if (t1 > tmin) { tmin = t1; hitNormal = { x: 0, y: 0, z: nz1 }; }
+    if (t1 > t2) {
+      const tmp = t1;
+      t1 = t2;
+      t2 = tmp;
+      nz1 = 1;
+    }
+    if (t1 > tmin) {
+      tmin = t1;
+      hitNormal = { x: 0, y: 0, z: nz1 };
+    }
     tmax = Math.min(tmax, t2);
   } else {
     if (origin.z < minZ || origin.z > maxZ) return null;
@@ -397,5 +437,3 @@ function raycastAABB(origin, dirX, dirY, dirZ, body) {
     normal: tmin >= 0 ? hitNormal : { x: 0, y: 0, z: 0 },
   };
 }
-
-

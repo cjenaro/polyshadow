@@ -1,8 +1,8 @@
-import { vec3Add, vec3Scale, distance3D, randomRange, clamp } from '../utils/math.js';
-import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from './base.js';
-import { ColossusState } from './behavior.js';
-import { moveToward2D } from './steering.js';
-import { generateNormalMapData } from '../utils/normal-map.js';
+import { vec3Add, vec3Scale, distance3D, randomRange, clamp } from "../utils/math.js";
+import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from "./base.js";
+import { ColossusState } from "./behavior.js";
+import { moveToward2D } from "./steering.js";
+import { generateNormalMapData } from "../utils/normal-map.js";
 
 let _THREE = null;
 
@@ -64,116 +64,207 @@ export function createTitanDefinition() {
 
   const parts = [
     {
-      id: 'shell_main', name: 'Shell Main', type: 'core',
+      id: "shell_main",
+      name: "Shell Main",
+      type: "core",
       position: { x: 0, y: shellY, z: 0 },
       dimensions: { width: shellW, height: shellH, depth: shellD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: null, isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
+      parent: null,
+      isClimbable: true,
+      isWeakPoint: false,
+      isRestSpot: true,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'shell_front', name: 'Shell Front', type: 'core',
+      id: "shell_front",
+      name: "Shell Front",
+      type: "core",
       position: { x: 0, y: shellY - shellH * 0.1, z: shellFrontZ },
       dimensions: { width: shellFrontW, height: shellFrontH, depth: shellFrontD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'shell_main', isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
+      parent: "shell_main",
+      isClimbable: true,
+      isWeakPoint: false,
+      isRestSpot: true,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'shell_rear', name: 'Shell Rear', type: 'core',
+      id: "shell_rear",
+      name: "Shell Rear",
+      type: "core",
       position: { x: 0, y: shellY - shellH * 0.1, z: shellRearZ },
       dimensions: { width: shellRearW, height: shellRearH, depth: shellRearD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'shell_main', isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
+      parent: "shell_main",
+      isClimbable: true,
+      isWeakPoint: false,
+      isRestSpot: true,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'underbelly', name: 'Underbelly', type: 'core',
+      id: "underbelly",
+      name: "Underbelly",
+      type: "core",
       position: { x: 0, y: underbellyY, z: 0 },
       dimensions: { width: underbellyW, height: underbellyH, depth: underbellyD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'shell_main', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "shell_main",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'head', name: 'Head', type: 'head',
+      id: "head",
+      name: "Head",
+      type: "head",
       position: { x: 0, y: headY, z: headZ },
       dimensions: { width: headW, height: headH, depth: headD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'shell_front', isClimbable: false, isWeakPoint: true, healthMultiplier: 3.0,
+      parent: "shell_front",
+      isClimbable: false,
+      isWeakPoint: true,
+      healthMultiplier: 3.0,
     },
     {
-      id: 'left_claw_upper', name: 'Left Claw Upper', type: 'limb_upper',
+      id: "left_claw_upper",
+      name: "Left Claw Upper",
+      type: "limb_upper",
       position: { x: -clawSpreadX, y: clawUpperY, z: shellD * 0.3 },
       dimensions: { width: clawUpperW, height: clawUpperH, depth: clawUpperD },
       rotation: { x: 0, y: 0, z: 0.2 },
-      parent: 'shell_main', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "shell_main",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'left_claw_lower', name: 'Left Claw Lower', type: 'limb_lower',
-      position: { x: -(clawSpreadX + clawLowerW * 0.3), y: clawLowerY, z: shellD * 0.35 + clawLowerD * 0.3 },
+      id: "left_claw_lower",
+      name: "Left Claw Lower",
+      type: "limb_lower",
+      position: {
+        x: -(clawSpreadX + clawLowerW * 0.3),
+        y: clawLowerY,
+        z: shellD * 0.35 + clawLowerD * 0.3,
+      },
       dimensions: { width: clawLowerW, height: clawLowerH, depth: clawLowerD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'left_claw_upper', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "left_claw_upper",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'right_claw_upper', name: 'Right Claw Upper', type: 'limb_upper',
+      id: "right_claw_upper",
+      name: "Right Claw Upper",
+      type: "limb_upper",
       position: { x: clawSpreadX, y: clawUpperY, z: shellD * 0.3 },
       dimensions: { width: clawUpperW, height: clawUpperH, depth: clawUpperD },
       rotation: { x: 0, y: 0, z: -0.2 },
-      parent: 'shell_main', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "shell_main",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'right_claw_lower', name: 'Right Claw Lower', type: 'limb_lower',
-      position: { x: clawSpreadX + clawLowerW * 0.3, y: clawLowerY, z: shellD * 0.35 + clawLowerD * 0.3 },
+      id: "right_claw_lower",
+      name: "Right Claw Lower",
+      type: "limb_lower",
+      position: {
+        x: clawSpreadX + clawLowerW * 0.3,
+        y: clawLowerY,
+        z: shellD * 0.35 + clawLowerD * 0.3,
+      },
       dimensions: { width: clawLowerW, height: clawLowerH, depth: clawLowerD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'right_claw_upper', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "right_claw_upper",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'left_leg_front', name: 'Left Leg Front', type: 'limb_upper',
+      id: "left_leg_front",
+      name: "Left Leg Front",
+      type: "limb_upper",
       position: { x: -legSpreadX, y: legY, z: shellD * 0.3 },
       dimensions: { width: legW, height: legH, depth: legW },
       rotation: { x: 0, y: 0, z: 0.1 },
-      parent: 'shell_main', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "shell_main",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'left_leg_rear', name: 'Left Leg Rear', type: 'limb_upper',
+      id: "left_leg_rear",
+      name: "Left Leg Rear",
+      type: "limb_upper",
       position: { x: -legSpreadX, y: legY, z: -shellD * 0.3 },
       dimensions: { width: legW, height: legH, depth: legW },
       rotation: { x: 0, y: 0, z: 0.1 },
-      parent: 'shell_main', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "shell_main",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'right_leg_front', name: 'Right Leg Front', type: 'limb_upper',
+      id: "right_leg_front",
+      name: "Right Leg Front",
+      type: "limb_upper",
       position: { x: legSpreadX, y: legY, z: shellD * 0.3 },
       dimensions: { width: legW, height: legH, depth: legW },
       rotation: { x: 0, y: 0, z: -0.1 },
-      parent: 'shell_main', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "shell_main",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'right_leg_rear', name: 'Right Leg Rear', type: 'limb_upper',
+      id: "right_leg_rear",
+      name: "Right Leg Rear",
+      type: "limb_upper",
       position: { x: legSpreadX, y: legY, z: -shellD * 0.3 },
       dimensions: { width: legW, height: legH, depth: legW },
       rotation: { x: 0, y: 0, z: -0.1 },
-      parent: 'shell_main', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "shell_main",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'shell_rune_left', name: 'Shell Rune Left', type: 'core',
+      id: "shell_rune_left",
+      name: "Shell Rune Left",
+      type: "core",
       position: { x: -shellW * 0.25, y: shellY + shellH / 2 + 0.05, z: 0 },
       dimensions: { width: S * 0.075, height: 0.1, depth: S * 0.075 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'shell_main', isClimbable: false, isWeakPoint: true, healthMultiplier: 2.0,
+      parent: "shell_main",
+      isClimbable: false,
+      isWeakPoint: true,
+      healthMultiplier: 2.0,
     },
     {
-      id: 'shell_rune_right', name: 'Shell Rune Right', type: 'core',
+      id: "shell_rune_right",
+      name: "Shell Rune Right",
+      type: "core",
       position: { x: shellW * 0.25, y: shellY + shellH / 2 + 0.05, z: 0 },
       dimensions: { width: S * 0.075, height: 0.1, depth: S * 0.075 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'shell_main', isClimbable: false, isWeakPoint: true, healthMultiplier: 2.0,
+      parent: "shell_main",
+      isClimbable: false,
+      isWeakPoint: true,
+      healthMultiplier: 2.0,
     },
     {
-      id: 'shell_rune_center', name: 'Shell Rune Center', type: 'core',
+      id: "shell_rune_center",
+      name: "Shell Rune Center",
+      type: "core",
       position: { x: 0, y: shellY + shellH / 2 + 0.05, z: 0 },
       dimensions: { width: S * 0.1, height: 0.1, depth: S * 0.1 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'shell_main', isClimbable: false, isWeakPoint: true, healthMultiplier: 2.5,
+      parent: "shell_main",
+      isClimbable: false,
+      isWeakPoint: true,
+      healthMultiplier: 2.5,
     },
   ];
 
@@ -294,7 +385,12 @@ export function getTitanWeakPointPositions(definition, colossusPosition, colossu
 export const WEAK_POINT_BASE_HEALTH = 50;
 export const TITAN_STUN_DAMAGE_THRESHOLD = 80;
 
-export function buildCombatWeakPoints(definition, colossusPosition, colossusRotation, isStunned = false) {
+export function buildCombatWeakPoints(
+  definition,
+  colossusPosition,
+  colossusRotation,
+  isStunned = false,
+) {
   const body = definition.parts instanceof Map ? definition : createColossusBody(definition);
   const weak = getWeakPoints(body);
   const combatWeakPoints = [];
@@ -303,7 +399,7 @@ export function buildCombatWeakPoints(definition, colossusPosition, colossusRota
     const pos = getBodyPartWorldPosition(body, part.id, colossusPosition, colossusRotation);
     if (pos) {
       const maxHealth = Math.round(WEAK_POINT_BASE_HEALTH * part.healthMultiplier);
-      const isActive = part.type === 'head' ? isStunned : true;
+      const isActive = part.type === "head" ? isStunned : true;
       combatWeakPoints.push({
         id: part.id,
         position: { ...pos },
@@ -401,10 +497,15 @@ export function updateTitanBehavior(aiState, config, deltaTime, playerPosition, 
   }
 
   const speedMul = state.phase === 2 ? config.phase2SpeedMultiplier : 1;
-  const currentAttackCooldown = state.phase === 2 ? config.phase2AttackCooldown : config.attackCooldown;
+  const currentAttackCooldown =
+    state.phase === 2 ? config.phase2AttackCooldown : config.attackCooldown;
   const currentMaxTilt = state.phase === 2 ? config.tiltMaxAngle * 1.5 : config.tiltMaxAngle;
 
-  if (state.phase === 2 && state.state !== ColossusState.STUNNED && state.state !== ColossusState.DYING) {
+  if (
+    state.phase === 2 &&
+    state.state !== ColossusState.STUNNED &&
+    state.state !== ColossusState.DYING
+  ) {
     if (!state.submergeActive) {
       state.submergeTimer += deltaTime;
       if (state.submergeTimer >= config.submergeInterval - config.submergeWarningTime) {
@@ -443,8 +544,12 @@ export function updateTitanBehavior(aiState, config, deltaTime, playerPosition, 
 
   if (state.state === ColossusState.PATROL) {
     const dist = distance3D(
-      colossusPosition.x, colossusPosition.y, colossusPosition.z,
-      playerPosition.x, playerPosition.y, playerPosition.z
+      colossusPosition.x,
+      colossusPosition.y,
+      colossusPosition.z,
+      playerPosition.x,
+      playerPosition.y,
+      playerPosition.z,
     );
 
     if (dist <= config.detectionRange) {
@@ -457,7 +562,10 @@ export function updateTitanBehavior(aiState, config, deltaTime, playerPosition, 
 
     state.tiltAngle = Math.max(0, state.tiltAngle - config.tiltRecoverySpeed * deltaTime);
 
-    if (state.patrolWaypoints.length === 0 || state.currentWaypointIndex >= state.patrolWaypoints.length) {
+    if (
+      state.patrolWaypoints.length === 0 ||
+      state.currentWaypointIndex >= state.patrolWaypoints.length
+    ) {
       state.state = ColossusState.IDLE;
       state.stateTimer = 0;
       return { ...state, shouldAttack: false };
@@ -465,7 +573,7 @@ export function updateTitanBehavior(aiState, config, deltaTime, playerPosition, 
 
     const waypoint = state.patrolWaypoints[state.currentWaypointIndex];
     const wpDist = Math.sqrt(
-      (colossusPosition.x - waypoint.x) ** 2 + (colossusPosition.z - waypoint.z) ** 2
+      (colossusPosition.x - waypoint.x) ** 2 + (colossusPosition.z - waypoint.z) ** 2,
     );
 
     if (wpDist < 2) {
@@ -478,7 +586,12 @@ export function updateTitanBehavior(aiState, config, deltaTime, playerPosition, 
     }
 
     const target = state.patrolWaypoints[state.currentWaypointIndex];
-    state.position = moveToward2D(colossusPosition, target, config.patrolSpeed * speedMul, deltaTime);
+    state.position = moveToward2D(
+      colossusPosition,
+      target,
+      config.patrolSpeed * speedMul,
+      deltaTime,
+    );
     state.rotation = faceToward(colossusPosition, target);
     state.stateTimer += deltaTime;
 
@@ -499,8 +612,12 @@ export function updateTitanBehavior(aiState, config, deltaTime, playerPosition, 
 
   if (state.state === ColossusState.AGGRO) {
     const dist = distance3D(
-      colossusPosition.x, colossusPosition.y, colossusPosition.z,
-      playerPosition.x, playerPosition.y, playerPosition.z
+      colossusPosition.x,
+      colossusPosition.y,
+      colossusPosition.z,
+      playerPosition.x,
+      playerPosition.y,
+      playerPosition.z,
     );
 
     if (dist > config.loseInterestRange) {
@@ -512,7 +629,12 @@ export function updateTitanBehavior(aiState, config, deltaTime, playerPosition, 
       return { ...state, shouldAttack: false };
     }
 
-    state.position = moveToward2D(colossusPosition, playerPosition, config.aggroSpeed * speedMul, deltaTime);
+    state.position = moveToward2D(
+      colossusPosition,
+      playerPosition,
+      config.aggroSpeed * speedMul,
+      deltaTime,
+    );
     state.rotation = faceToward(colossusPosition, playerPosition);
     state.targetPosition = { x: playerPosition.x, z: playerPosition.z };
     state.shakeOffTimer += deltaTime;
@@ -594,13 +716,19 @@ export function getTitanStunProgress(aiState) {
 
 export function getShockwaveForce(aiState, config, playerPosition, colossusPosition) {
   const dist = distance3D(
-    playerPosition.x, playerPosition.y, playerPosition.z,
-    colossusPosition.x, colossusPosition.y, colossusPosition.z
+    playerPosition.x,
+    playerPosition.y,
+    playerPosition.z,
+    colossusPosition.x,
+    colossusPosition.y,
+    colossusPosition.z,
   );
   if (dist > config.shockwaveRadius || dist < 0.01) return null;
 
   const direction = vec3Add(playerPosition, vec3Scale(colossusPosition, -1));
-  const len = Math.sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
+  const len = Math.sqrt(
+    direction.x * direction.x + direction.y * direction.y + direction.z * direction.z,
+  );
   const normalized = { x: direction.x / len, y: direction.y / len, z: direction.z / len };
 
   const strength = config.shockwaveDamage * (1 - dist / config.shockwaveRadius);
@@ -612,12 +740,12 @@ let _colossusNormalMap = null;
 function getColossusNormalMap() {
   if (_colossusNormalMap) return _colossusNormalMap;
   const T = getTHREE();
-  if (!T || typeof document === 'undefined') return null;
+  if (!T || typeof document === "undefined") return null;
   const { data, width, height } = generateNormalMapData(256, 256, 0.1, 99, 2.5);
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   const imageData = ctx.createImageData(width, height);
   imageData.data.set(data);
   ctx.putImageData(imageData, 0, 0);
@@ -631,41 +759,55 @@ function createMaterial(type) {
   const T = getTHREE();
   const normalMap = getColossusNormalMap();
   const normalProps = normalMap ? { normalMap, normalScale: new T.Vector2(0.6, 0.6) } : {};
-  if (type === 'shell') {
+  if (type === "shell") {
     return new T.MeshStandardMaterial({
-      color: 0x5a5046, roughness: 0.95, metalness: 0.1, flatShading: true,
+      color: 0x5a5046,
+      roughness: 0.95,
+      metalness: 0.1,
+      flatShading: true,
       ...normalProps,
     });
   }
-  if (type === 'underbelly') {
+  if (type === "underbelly") {
     return new T.MeshStandardMaterial({
-      color: 0x8a7e6e, roughness: 0.6, metalness: 0.05,
+      color: 0x8a7e6e,
+      roughness: 0.6,
+      metalness: 0.05,
       ...normalProps,
     });
   }
-  if (type === 'rune') {
+  if (type === "rune") {
     return new T.MeshStandardMaterial({
-      color: 0x00ccff, roughness: 0.3, metalness: 0.8,
-      emissive: new T.Color(0x00ccff), emissiveIntensity: 0.5,
+      color: 0x00ccff,
+      roughness: 0.3,
+      metalness: 0.8,
+      emissive: new T.Color(0x00ccff),
+      emissiveIntensity: 0.5,
     });
   }
-  if (type === 'head') {
+  if (type === "head") {
     return new T.MeshStandardMaterial({
-      color: 0x4a4036, roughness: 0.85, metalness: 0.15, flatShading: true,
+      color: 0x4a4036,
+      roughness: 0.85,
+      metalness: 0.15,
+      flatShading: true,
       ...normalProps,
     });
   }
   return new T.MeshStandardMaterial({
-    color: 0x6a6056, roughness: 0.8, metalness: 0.1, flatShading: true,
+    color: 0x6a6056,
+    roughness: 0.8,
+    metalness: 0.1,
+    flatShading: true,
     ...normalProps,
   });
 }
 
 function getGeometryType(partId) {
-  if (partId === 'shell_main') return 'sphere';
-  if (partId === 'underbelly') return 'sphere';
-  if (partId.startsWith('left_leg') || partId.startsWith('right_leg')) return 'cylinder';
-  return 'box';
+  if (partId === "shell_main") return "sphere";
+  if (partId === "underbelly") return "sphere";
+  if (partId.startsWith("left_leg") || partId.startsWith("right_leg")) return "cylinder";
+  return "box";
 }
 
 function createPartMesh(part) {
@@ -674,28 +816,28 @@ function createPartMesh(part) {
   let geometry;
   const geoType = getGeometryType(id);
 
-  if (geoType === 'sphere') {
+  if (geoType === "sphere") {
     const radius = Math.max(dim.width, dim.depth) / 2;
     const heightScale = dim.height / radius;
     geometry = new T.SphereGeometry(radius, 32, 16, 0, Math.PI * 2, 0, Math.PI);
     geometry.scale(1, heightScale, 1);
-  } else if (geoType === 'cylinder') {
+  } else if (geoType === "cylinder") {
     geometry = new T.CylinderGeometry(dim.width / 2, dim.width / 2, dim.height, 8);
   } else {
     geometry = new T.BoxGeometry(dim.width, dim.height, dim.depth);
   }
 
   let material;
-  if (id === 'underbelly') {
-    material = createMaterial('underbelly');
-  } else if (id === 'head') {
-    material = createMaterial('head');
-  } else if (id.startsWith('shell_rune')) {
-    material = createMaterial('rune');
-  } else if (id.startsWith('shell')) {
-    material = createMaterial('shell');
+  if (id === "underbelly") {
+    material = createMaterial("underbelly");
+  } else if (id === "head") {
+    material = createMaterial("head");
+  } else if (id.startsWith("shell_rune")) {
+    material = createMaterial("rune");
+  } else if (id.startsWith("shell")) {
+    material = createMaterial("shell");
   } else {
-    material = createMaterial('default');
+    material = createMaterial("default");
   }
 
   const mesh = new T.Mesh(geometry, material);
@@ -742,14 +884,14 @@ export function createTitanMesh(definition) {
 
 export function animateTitan(mesh, time, aiState) {
   const { meshByPart, originalPositions } = mesh;
-  const shell = meshByPart.get('shell_main');
+  const shell = meshByPart.get("shell_main");
   if (!shell) return;
 
   const tilt = getShellTilt(aiState || {});
   shell.rotation.x = tilt.angle * tilt.direction.z;
   shell.rotation.z = tilt.angle * tilt.direction.x;
 
-  const legs = ['left_leg_front', 'left_leg_rear', 'right_leg_front', 'right_leg_rear'];
+  const legs = ["left_leg_front", "left_leg_rear", "right_leg_front", "right_leg_rear"];
   for (let i = 0; i < legs.length; i++) {
     const leg = meshByPart.get(legs[i]);
     const orig = originalPositions ? originalPositions.get(legs[i]) : null;
@@ -759,7 +901,7 @@ export function animateTitan(mesh, time, aiState) {
     leg.position.y = (orig ? orig.y : leg.position.y) + Math.sin(phase) * 0.3;
   }
 
-  const claws = ['left_claw_lower', 'right_claw_lower'];
+  const claws = ["left_claw_lower", "right_claw_lower"];
   for (let i = 0; i < claws.length; i++) {
     const claw = meshByPart.get(claws[i]);
     if (!claw) continue;
@@ -767,7 +909,7 @@ export function animateTitan(mesh, time, aiState) {
     claw.rotation.z = snapPhase * 0.4;
   }
 
-  const runes = ['shell_rune_left', 'shell_rune_right', 'shell_rune_center'];
+  const runes = ["shell_rune_left", "shell_rune_right", "shell_rune_center"];
   for (const runeId of runes) {
     const rune = meshByPart.get(runeId);
     if (!rune) continue;

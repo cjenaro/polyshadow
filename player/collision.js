@@ -4,7 +4,12 @@ const SURROUND_DIST = 0.5;
 const GROUND_RAY_DOWN = 3;
 const GROUND_RAY_UP = 2;
 const WALL_HEIGHTS = [0.1, 0.7, 1.3];
-const CARDINALS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const CARDINALS = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
 
 export function resolveCollisions(pos, vel, adapter, world) {
   if (!adapter || !world) {

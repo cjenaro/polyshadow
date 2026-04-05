@@ -1,5 +1,5 @@
 // Cape uses its own Verlet integration rather than the physics engine — it's cosmetic cloth simulation, not gameplay physics, and already has test coverage.
-import { clamp } from '../utils/math.js';
+import { clamp } from "../utils/math.js";
 
 export const CAPE_CONSTANTS = {
   NUM_NODES: 8,
@@ -46,8 +46,12 @@ export function applyChainForces(particles, dt, wind) {
     const nz = p.z + vz + wz * dt;
 
     return {
-      x: nx, y: ny, z: nz,
-      px: p.x, py: p.y, pz: p.z,
+      x: nx,
+      y: ny,
+      z: nz,
+      px: p.x,
+      py: p.y,
+      pz: p.z,
       pinned: false,
     };
   });
@@ -71,7 +75,7 @@ export function solveChainConstraints(particles, iterations) {
       if (dist === 0) continue;
 
       const diff = (len - dist) / dist;
-      const correctionScale = (a.pinned === b.pinned) ? 0.5 : 1.0;
+      const correctionScale = a.pinned === b.pinned ? 0.5 : 1.0;
       const ox = dx * correctionScale * diff;
       const oy = dy * correctionScale * diff;
       const oz = dz * correctionScale * diff;
@@ -92,8 +96,12 @@ export function updateChain(chain, anchor, dt, wind) {
   const withAnchor = chain.particles.map((p, i) => {
     if (i === 0) {
       return {
-        x: anchor.x, y: anchor.y, z: anchor.z,
-        px: anchor.x, py: anchor.y, pz: anchor.z,
+        x: anchor.x,
+        y: anchor.y,
+        z: anchor.z,
+        px: anchor.x,
+        py: anchor.y,
+        pz: anchor.z,
         pinned: true,
       };
     }

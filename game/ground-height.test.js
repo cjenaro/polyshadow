@@ -1,6 +1,6 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { createIsland, generateIslandGeometry, getIslandSurfaceHeight } from '../world/island.js';
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { createIsland, generateIslandGeometry, getIslandSurfaceHeight } from "../world/island.js";
 
 function getGroundHeight(islands, x, z) {
   let maxH = 0;
@@ -11,65 +11,65 @@ function getGroundHeight(islands, x, z) {
   return maxH;
 }
 
-describe('getGroundHeight (multi-island)', () => {
-  it('returns 0 when no islands generated', () => {
+describe("getGroundHeight (multi-island)", () => {
+  it("returns 0 when no islands generated", () => {
     const islands = [];
     assert.strictEqual(getGroundHeight(islands, 0, 0), 0);
   });
 
-  it('returns surface height when on a single island', () => {
+  it("returns surface height when on a single island", () => {
     const island = createIsland({
       center: { x: 0, z: 0 },
       radius: 32,
       maxHeight: 10,
       seed: 42,
-      type: 'hub'
+      type: "hub",
     });
     const generated = generateIslandGeometry(island);
     const h = getGroundHeight([generated], 0, 0);
     assert.ok(h > 0, `should be > 0 at island center, got ${h}`);
   });
 
-  it('returns 0 when far from all islands', () => {
+  it("returns 0 when far from all islands", () => {
     const island = createIsland({
       center: { x: 0, z: 0 },
       radius: 32,
       maxHeight: 10,
       seed: 42,
-      type: 'hub'
+      type: "hub",
     });
     const generated = generateIslandGeometry(island);
     const h = getGroundHeight([generated], 500, 500);
     assert.strictEqual(h, 0);
   });
 
-  it('returns max height when overlapping islands', () => {
+  it("returns max height when overlapping islands", () => {
     const a = createIsland({
       center: { x: 0, z: 0 },
       radius: 50,
       maxHeight: 10,
       seed: 42,
-      type: 'hub'
+      type: "hub",
     });
     const genA = generateIslandGeometry(a);
     const h = getGroundHeight([genA], 0, 0);
     assert.ok(h > 0, `should have height at center`);
   });
 
-  it('checks each island independently', () => {
+  it("checks each island independently", () => {
     const a = createIsland({
       center: { x: 0, z: 0 },
       radius: 32,
       maxHeight: 10,
       seed: 1,
-      type: 'hub'
+      type: "hub",
     });
     const b = createIsland({
       center: { x: 100, z: 0 },
       radius: 32,
       maxHeight: 10,
       seed: 2,
-      type: 'arena'
+      type: "arena",
     });
     const genA = generateIslandGeometry(a);
     const genB = generateIslandGeometry(b);

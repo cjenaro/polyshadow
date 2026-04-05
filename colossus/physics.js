@@ -1,18 +1,18 @@
 const SHAPES = {
-  sentinel: { type: 'capsule', radius: 4, height: 14 },
-  wraith: { type: 'box', halfExtents: { x: 10, y: 3, z: 8 } },
-  titan: { type: 'sphere', radius: 15 },
+  sentinel: { type: "capsule", radius: 4, height: 14 },
+  wraith: { type: "box", halfExtents: { x: 10, y: 3, z: 8 } },
+  titan: { type: "sphere", radius: 15 },
 };
 
 export function createColossusBody(adapter, world, type, position) {
   const shape = SHAPES[type];
   const body = adapter.createBody(world, {
-    type: 'kinematic',
+    type: "kinematic",
     position,
     shape,
-    userData: { entity: 'colossus', type },
+    userData: { entity: "colossus", type },
   });
-  body.userData = { entity: 'colossus', type };
+  body.userData = { entity: "colossus", type };
   adapter.addBody(world, body);
   return body;
 }

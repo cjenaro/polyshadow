@@ -6,22 +6,22 @@ const PHASE_COMPLETE = 18;
 const CREDITS_FADE_DURATION = 3;
 
 export function createEndingState() {
-  return { phase: 'active', elapsed: 0 };
+  return { phase: "active", elapsed: 0 };
 }
 
 export function updateEndingState(state, dt, defeatedColossiPositions, hubPosition) {
   const next = { ...state, elapsed: state.elapsed + dt };
 
   if (next.elapsed >= PHASE_COMPLETE) {
-    next.phase = 'complete';
+    next.phase = "complete";
   } else if (next.elapsed >= PHASE_CREDITS) {
-    next.phase = 'credits';
+    next.phase = "credits";
   } else if (next.elapsed >= PHASE_ISLANDS_CONVERGING) {
-    next.phase = 'islandsConverging';
+    next.phase = "islandsConverging";
   } else if (next.elapsed >= PHASE_SKY_OPENING) {
-    next.phase = 'skyOpening';
+    next.phase = "skyOpening";
   } else {
-    next.phase = 'active';
+    next.phase = "active";
   }
 
   return next;
@@ -59,7 +59,7 @@ export function getIslandPositions(state, originalPositions, hubPosition) {
   const t = state.elapsed;
 
   if (t < PHASE_ISLANDS_CONVERGING) {
-    return originalPositions.map(p => ({ x: p.x, y: p.y, z: p.z }));
+    return originalPositions.map((p) => ({ x: p.x, y: p.y, z: p.z }));
   }
 
   let progress;
@@ -71,7 +71,7 @@ export function getIslandPositions(state, originalPositions, hubPosition) {
 
   const eased = easeInOutCubic(progress);
 
-  return originalPositions.map(p => ({
+  return originalPositions.map((p) => ({
     x: p.x + (hubPosition.x - p.x) * eased,
     y: p.y,
     z: p.z + (hubPosition.z - p.z) * eased,
@@ -79,29 +79,31 @@ export function getIslandPositions(state, originalPositions, hubPosition) {
 }
 
 export function getCreditsAlpha(state) {
-  if (state.phase !== 'credits' && state.phase !== 'complete') return 0;
+  if (state.phase !== "credits" && state.phase !== "complete") return 0;
 
   const fadeElapsed = state.elapsed - PHASE_CREDITS;
   return Math.min(1, fadeElapsed / CREDITS_FADE_DURATION);
 }
 
 export function shouldShowCredits(state) {
-  return state.phase === 'credits' || state.phase === 'complete';
+  return state.phase === "credits" || state.phase === "complete";
 }
 
 export function isEndingComplete(state) {
-  return state.phase === 'complete';
+  return state.phase === "complete";
 }
 
 export function skipEnding(state) {
-  if (state.phase === 'credits' || state.phase === 'complete') {
+  if (state.phase === "credits" || state.phase === "complete") {
     return { ...state };
   }
   return updateEndingState({ ...state, elapsed: 0 }, PHASE_CREDITS, [], { x: 0, y: 0, z: 0 });
 }
 
 export function shouldShowSkipHint(state) {
-  return state.phase === 'active' || state.phase === 'skyOpening' || state.phase === 'islandsConverging';
+  return (
+    state.phase === "active" || state.phase === "skyOpening" || state.phase === "islandsConverging"
+  );
 }
 
 function easeInOutCubic(t) {

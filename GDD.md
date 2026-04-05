@@ -3,7 +3,7 @@
 ## Overview
 
 **Title:** Polyshadow
-**Tagline:** *"Ascend the sky. Defeat the giants. Feel the vibe."*
+**Tagline:** _"Ascend the sky. Defeat the giants. Feel the vibe."_
 **Genre:** 3D Action-Adventure / Exploration
 **Inspiration:** Shadow of the Colossus, Journey
 **Engine:** Three.js (ES Modules, no build tools)
@@ -45,6 +45,7 @@ A lone caped wanderer traverses floating sky islands to find and defeat colossal
   - Roll/Dodge (i-frames, stamina cost)
 
 ### Stamina System
+
 - Climbing and sprinting drain stamina
 - Stamina regenerates when standing on ground / resting grip
 - Running out of stamina while climbing = fall
@@ -64,6 +65,7 @@ A lone caped wanderer traverses floating sky islands to find and defeat colossal
 ## World Design
 
 ### Theme: Sky World, Golden Hour
+
 - **Color palette:**
   - Sky: warm gradient (deep gold → soft peach → pale blue at zenith)
   - Islands: warm grey stone, golden grass patches, white crystalline accents
@@ -77,20 +79,24 @@ A lone caped wanderer traverses floating sky islands to find and defeat colossal
   - Distant colossi visible as silhouettes
 
 ### Level Structure: Open Traversal
+
 The world is a vertical sky space with floating islands at different heights.
 
 **Hub Island (Start)**
+
 - Small starting platform with a shrine/monument
 - Directions to each colossus indicated by light pillars or wind streams
 - Safe zone, no enemies
 
 **Traversal**
+
 - Islands connected by natural-looking paths (narrow bridges, stepping stones, floating debris)
 - Wind currents the player can "ride" (gliding segments)
 - Hidden paths for secrets
 - Open feel - player can choose colossus order
 
 **Arena Islands (3 colossi)**
+
 - Larger islands serving as boss arenas
 - Unique terrain per colossus (ruins, crags, water pools)
 - Environmental hazards or climbing aids
@@ -100,6 +106,7 @@ The world is a vertical sky space with floating islands at different heights.
 ## Colossi Design
 
 Each colossus has:
+
 - **Climbable body** with procedurally generated geometry
 - **Weak points** (glowing sigils) that must be stabbed
 - **Behavior states:** Idle, Patrol, Aggro, Stunned, Dying
@@ -107,6 +114,7 @@ Each colossus has:
 - **Unique movement pattern**
 
 ### Colossus 1: The Stone Sentinel (Land)
+
 - **Type:** Quadruped, golem-like
 - **Location:** First island (lowest), easiest path
 - **Size:** ~20x player height
@@ -117,6 +125,7 @@ Each colossus has:
 - **Difficulty:** Easy - tutorial colossus
 
 ### Colossus 2: The Wind Wraith (Air)
+
 - **Type:** Serpentine/dragon-like flying creature
 - **Location:** Second island (mid-height), accessed via wind current bridge
 - **Size:** ~30x player length
@@ -127,6 +136,7 @@ Each colossus has:
 - **Difficulty:** Medium - timing and precision
 
 ### Colossus 3: The Tide Titan (Water/Sky)
+
 - **Type:** Massive turtle-crab hybrid floating on a cloud-sea
 - **Location:** Highest island, most dangerous traversal
 - **Size:** ~40x player width
@@ -161,6 +171,7 @@ Core mechanic. Must feel physical and tense.
 - **Fall:** Running out of stamina or being shaken off → freefall with camera drama
 
 ### Collision for Climbing
+
 - Colossus body represented as a combination of:
   - Convex shapes for broad collision
   - Surface patches for grab points
@@ -187,6 +198,7 @@ Core mechanic. Must feel physical and tense.
 ## UI / HUD
 
 **Minimal by design:**
+
 - **Stamina bar:** Thin arc around player (subtle, color fades from white → red)
 - **Colossus health:** Shown as fading opacity of the colossus itself (no bar)
 - **No health bar for player**
@@ -221,6 +233,7 @@ All audio generated via Web Audio API:
 ## Input System
 
 ### Abstraction Layer
+
 ```
 Input {
   move: { x: -1..1, y: -1..1 }  // normalized
@@ -234,6 +247,7 @@ Input {
 ```
 
 ### Keyboard + Mouse
+
 - WASD / Arrow keys: Move
 - Mouse: Look
 - Space: Jump
@@ -243,6 +257,7 @@ Input {
 - ESC: Pause
 
 ### Gamepad
+
 - Left stick: Move
 - Right stick: Look
 - A / Cross: Jump
@@ -252,6 +267,7 @@ Input {
 - Start: Pause
 
 ### Mobile Touch Overlay
+
 - Left side: Virtual joystick (move)
 - Right side: Touch drag (look)
 - Jump button (bottom right)
@@ -321,6 +337,7 @@ Note: For the jam, this will be bundled into a single HTML file with all JS inli
 ## Development Phases
 
 ### Phase 1: Foundation (Days 1-3)
+
 - Three.js setup with importmap/es-module-shims
 - Camera system (3rd person orbit)
 - Input abstraction (keyboard+mouse first)
@@ -330,6 +347,7 @@ Note: For the jam, this will be bundled into a single HTML file with all JS inli
 - Basic sky and lighting
 
 ### Phase 2: Climbing (Days 4-6)
+
 - Grab system (detect climbable surfaces)
 - Surface-relative movement
 - Stamina system
@@ -338,6 +356,7 @@ Note: For the jam, this will be bundled into a single HTML file with all JS inli
 - Fall + respawn
 
 ### Phase 3: First Colossus (Days 7-9)
+
 - Stone Sentinel geometry (procedural quadruped)
 - Basic AI behavior (patrol, aggro)
 - Climbable surface generation on colossus
@@ -348,6 +367,7 @@ Note: For the jam, this will be bundled into a single HTML file with all JS inli
 - Arena island
 
 ### Phase 4: World Building (Days 10-12)
+
 - Connect islands with traversal paths
 - Wind current mechanics
 - Fog/atmosphere layers
@@ -356,11 +376,13 @@ Note: For the jam, this will be bundled into a single HTML file with all JS inli
 - Hub island with shrine
 
 ### Phase 5: Remaining Colossi (Days 13-16)
+
 - Wind Wraith: flying behavior, aerial combat, swoop-grab mechanic
 - Tide Titan: multi-phase, water hazards, tilting shell
 - Unique arenas for each
 
 ### Phase 6: Polish (Days 17-19)
+
 - Procedural audio system (all sounds)
 - Layered music system
 - Post-processing (bloom, color grading)
@@ -370,6 +392,7 @@ Note: For the jam, this will be bundled into a single HTML file with all JS inli
 - UI refinement (stamina arc, title card, credits)
 
 ### Phase 7: Jam Prep (Days 20-21)
+
 - Performance optimization
 - Final testing across browsers
 - Deploy to hosting
@@ -379,12 +402,12 @@ Note: For the jam, this will be bundled into a single HTML file with all JS inli
 
 ## Key Risks & Mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Climbing feels bad | Start with simple "snap to surface" approach, iterate on feel |
-| Performance on mobile | LOD system, reduced particles, lower shadow quality on mobile |
-| Scope creep with 3 colossi | Colossus 2 and 3 reuse climbing/combat systems, only behavior differs |
-| Single file gets too large | Minify for production, develop with separate modules |
+| Risk                        | Mitigation                                                             |
+| --------------------------- | ---------------------------------------------------------------------- |
+| Climbing feels bad          | Start with simple "snap to surface" approach, iterate on feel          |
+| Performance on mobile       | LOD system, reduced particles, lower shadow quality on mobile          |
+| Scope creep with 3 colossi  | Colossus 2 and 3 reuse climbing/combat systems, only behavior differs  |
+| Single file gets too large  | Minify for production, develop with separate modules                   |
 | Procedural audio sounds bad | Use simple, proven techniques (filtered noise, sine waves); test early |
 
 ---

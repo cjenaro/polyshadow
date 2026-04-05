@@ -1,6 +1,6 @@
-import { CHUNK_SIZE } from './voxel-chunk.js';
-import { buildChunkMeshData } from './voxel-mesher.js';
-import { isChunkEmpty } from './voxel-chunk.js';
+import { CHUNK_SIZE } from "./voxel-chunk.js";
+import { buildChunkMeshData } from "./voxel-mesher.js";
+import { isChunkEmpty } from "./voxel-chunk.js";
 
 export function createChunkManager(voxelStorage, opts = {}) {
   const viewDistance = opts.viewDistance ?? 128;
@@ -41,7 +41,7 @@ export function createChunkManager(voxelStorage, opts = {}) {
 
     while (dirtyQueue.length > 0 && processed < count) {
       const key = dirtyQueue.shift();
-      const [cx, cy, cz] = key.split(',').map(Number);
+      const [cx, cy, cz] = key.split(",").map(Number);
       const chunk = voxelStorage.getChunk(cx, cy, cz);
       if (!chunk) continue;
 
@@ -79,7 +79,7 @@ export function createChunkManager(voxelStorage, opts = {}) {
   function getVisibleChunks(centerX, centerY, centerZ) {
     const visible = [];
     for (const chunk of chunkMeshes.keys()) {
-      const [cx, cy, cz] = chunk.split(',').map(Number);
+      const [cx, cy, cz] = chunk.split(",").map(Number);
       const wx = (cx + 0.5) * CHUNK_SIZE;
       const wy = (cy + 0.5) * CHUNK_SIZE;
       const wz = (cz + 0.5) * CHUNK_SIZE;

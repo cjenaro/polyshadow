@@ -107,15 +107,20 @@ export function createWeakPointVisuals(scene) {
         } else {
           const t = 1 - wp.flashTimer / FLASH_DURATION;
           wp.mesh.material.emissiveIntensity = 2.0 * (1 - t) + EMISSIVE_INTENSITY_MIN * t;
-          if (wp.light) wp.light.intensity = (LIGHT_INTENSITY * 3) * (1 - t) + LIGHT_INTENSITY * t;
+          if (wp.light) wp.light.intensity = LIGHT_INTENSITY * 3 * (1 - t) + LIGHT_INTENSITY * t;
         }
         continue;
       }
       const pulse = 1 + Math.sin(time * PULSE_SPEED + id.length) * PULSE_AMOUNT;
       wp.mesh.scale.set(pulse, pulse, pulse);
-      const emPulse = EMISSIVE_INTENSITY_MIN + Math.sin(time * PULSE_SPEED + id.length) * (EMISSIVE_INTENSITY_MAX - EMISSIVE_INTENSITY_MIN);
+      const emPulse =
+        EMISSIVE_INTENSITY_MIN +
+        Math.sin(time * PULSE_SPEED + id.length) *
+          (EMISSIVE_INTENSITY_MAX - EMISSIVE_INTENSITY_MIN);
       wp.mesh.material.emissiveIntensity = emPulse;
-      if (wp.light) wp.light.intensity = LIGHT_INTENSITY * (0.7 + 0.3 * Math.sin(time * PULSE_SPEED + id.length));
+      if (wp.light)
+        wp.light.intensity =
+          LIGHT_INTENSITY * (0.7 + 0.3 * Math.sin(time * PULSE_SPEED + id.length));
     }
   }
 
@@ -132,6 +137,8 @@ export function createWeakPointVisuals(scene) {
     destroyWeakPoint,
     update,
     clearAll,
-    setPositionProvider(fn) { positionProvider = fn; },
+    setPositionProvider(fn) {
+      positionProvider = fn;
+    },
   };
 }

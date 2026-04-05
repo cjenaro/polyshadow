@@ -4,7 +4,7 @@ import {
   getPartTransform,
   getDeathShakeIntensity,
   isDeathComplete,
-} from './death.js';
+} from "./death.js";
 
 export function createDeathIntegration(colossusEntity) {
   return {
@@ -42,12 +42,7 @@ export function applyDeathToMesh(integration, meshGroup) {
   const { deathState } = integration;
 
   for (const [partId, mesh] of meshGroup.meshByPart) {
-    const transform = getPartTransform(
-      partId,
-      mesh.position,
-      mesh.rotation,
-      deathState,
-    );
+    const transform = getPartTransform(partId, mesh.position, mesh.rotation, deathState);
 
     mesh.position.x = transform.position.x;
     mesh.position.y = transform.position.y;

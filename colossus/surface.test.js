@@ -1,39 +1,35 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { createSentinelDefinition, generateSentinelSurfacePatches } from './sentinel.js';
-import {
-  getPatchesPerPart,
-  getPatchCoverageStats,
-  validateSurfacePatches,
-} from './surface.js';
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { createSentinelDefinition, generateSentinelSurfacePatches } from "./sentinel.js";
+import { getPatchesPerPart, getPatchCoverageStats, validateSurfacePatches } from "./surface.js";
 
-describe('getPatchesPerPart', () => {
-  it('groups patches by bodyPartId', () => {
+describe("getPatchesPerPart", () => {
+  it("groups patches by bodyPartId", () => {
     const patches = [
-      { bodyPartId: 'torso', position: { x: 0, y: 1, z: 0 } },
-      { bodyPartId: 'torso', position: { x: 1, y: 1, z: 0 } },
-      { bodyPartId: 'hips', position: { x: 0, y: 0, z: 0 } },
+      { bodyPartId: "torso", position: { x: 0, y: 1, z: 0 } },
+      { bodyPartId: "torso", position: { x: 1, y: 1, z: 0 } },
+      { bodyPartId: "hips", position: { x: 0, y: 0, z: 0 } },
     ];
     const grouped = getPatchesPerPart(patches);
-    assert.strictEqual(grouped.get('torso').length, 2);
-    assert.strictEqual(grouped.get('hips').length, 1);
-    assert.strictEqual(grouped.has('head'), false);
+    assert.strictEqual(grouped.get("torso").length, 2);
+    assert.strictEqual(grouped.get("hips").length, 1);
+    assert.strictEqual(grouped.has("head"), false);
   });
 
-  it('returns empty map for empty patches', () => {
+  it("returns empty map for empty patches", () => {
     const grouped = getPatchesPerPart([]);
     assert.strictEqual(grouped.size, 0);
   });
 
-  it('does not modify original patches', () => {
-    const patches = [{ bodyPartId: 'torso', position: { x: 0, y: 0, z: 0 } }];
+  it("does not modify original patches", () => {
+    const patches = [{ bodyPartId: "torso", position: { x: 0, y: 0, z: 0 } }];
     getPatchesPerPart(patches);
     assert.strictEqual(patches.length, 1);
   });
 });
 
-describe('getPatchCoverageStats', () => {
-  it('returns total patch count', () => {
+describe("getPatchCoverageStats", () => {
+  it("returns total patch count", () => {
     const def = createSentinelDefinition();
     const patches = generateSentinelSurfacePatches(def);
     const stats = getPatchCoverageStats(patches, def);
@@ -41,7 +37,7 @@ describe('getPatchCoverageStats', () => {
     assert.ok(stats.totalPatches > 0);
   });
 
-  it('returns number of parts with patches', () => {
+  it("returns number of parts with patches", () => {
     const def = createSentinelDefinition();
     const patches = generateSentinelSurfacePatches(def);
     const stats = getPatchCoverageStats(patches, def);
@@ -49,23 +45,23 @@ describe('getPatchCoverageStats', () => {
     assert.ok(stats.partsWithPatches > 0);
   });
 
-  it('returns patchesPerPart as a Map', () => {
+  it("returns patchesPerPart as a Map", () => {
     const def = createSentinelDefinition();
     const patches = generateSentinelSurfacePatches(def);
     const stats = getPatchCoverageStats(patches, def);
     assert.ok(stats.patchesPerPart instanceof Map);
   });
 
-  it('returns min and max patches per part', () => {
+  it("returns min and max patches per part", () => {
     const def = createSentinelDefinition();
     const patches = generateSentinelSurfacePatches(def);
     const stats = getPatchCoverageStats(patches, def);
-    assert.ok(typeof stats.minPatchesPerPart === 'number');
-    assert.ok(typeof stats.maxPatchesPerPart === 'number');
+    assert.ok(typeof stats.minPatchesPerPart === "number");
+    assert.ok(typeof stats.maxPatchesPerPart === "number");
     assert.ok(stats.minPatchesPerPart <= stats.maxPatchesPerPart);
   });
 
-  it('returns climbablePartsMissingPatches list', () => {
+  it("returns climbablePartsMissingPatches list", () => {
     const def = createSentinelDefinition();
     const patches = generateSentinelSurfacePatches(def);
     const stats = getPatchCoverageStats(patches, def);
@@ -73,31 +69,31 @@ describe('getPatchCoverageStats', () => {
   });
 });
 
-describe('validateSurfacePatches', () => {
-  it('returns valid true for well-formed sentinel patches', () => {
+describe("validateSurfacePatches", () => {
+  it("returns valid true for well-formed sentinel patches", () => {
     const def = createSentinelDefinition();
     const patches = generateSentinelSurfacePatches(def);
     const result = validateSurfacePatches(patches, def);
     assert.strictEqual(result.valid, true);
   });
 
-  it('returns valid false when climbable parts have no patches', () => {
+  it("returns valid false when climbable parts have no patches", () => {
     const def = createSentinelDefinition();
     const result = validateSurfacePatches([], def);
     assert.strictEqual(result.valid, false);
     assert.ok(result.missingParts.length > 0);
   });
 
-  it('missingParts contains ids of parts without patches', () => {
+  it("missingParts contains ids of parts without patches", () => {
     const def = createSentinelDefinition();
     const result = validateSurfacePatches([], def);
-    const climbableIds = def.parts.filter(p => p.isClimbable).map(p => p.id);
+    const climbableIds = def.parts.filter((p) => p.isClimbable).map((p) => p.id);
     for (const id of result.missingParts) {
       assert.ok(climbableIds.includes(id), `${id} not climbable`);
     }
   });
 
-  it('every climbable part has at least one patch for sentinel', () => {
+  it("every climbable part has at least one patch for sentinel", () => {
     const def = createSentinelDefinition();
     const patches = generateSentinelSurfacePatches(def);
     const result = validateSurfacePatches(patches, def);
@@ -105,23 +101,26 @@ describe('validateSurfacePatches', () => {
     assert.strictEqual(result.missingParts.length, 0);
   });
 
-  it('parts with larger surface area have more patches', () => {
+  it("parts with larger surface area have more patches", () => {
     const def = createSentinelDefinition();
     const patches = generateSentinelSurfacePatches(def);
     const stats = getPatchCoverageStats(patches, def);
-    const torsoPatches = stats.patchesPerPart.get('torso')?.length || 0;
-    const legPatches = stats.patchesPerPart.get('front_left_lower')?.length || 0;
-    assert.ok(torsoPatches > legPatches, `torso ${torsoPatches} should have more patches than leg ${legPatches}`);
+    const torsoPatches = stats.patchesPerPart.get("torso")?.length || 0;
+    const legPatches = stats.patchesPerPart.get("front_left_lower")?.length || 0;
+    assert.ok(
+      torsoPatches > legPatches,
+      `torso ${torsoPatches} should have more patches than leg ${legPatches}`,
+    );
   });
 
-  it('returns all patch IDs in the result', () => {
+  it("returns all patch IDs in the result", () => {
     const def = createSentinelDefinition();
     const patches = generateSentinelSurfacePatches(def);
     const result = validateSurfacePatches(patches, def);
     assert.ok(Array.isArray(result.patchPartIds));
   });
 
-  it('patches have no duplicates (same position and normal on same part)', () => {
+  it("patches have no duplicates (same position and normal on same part)", () => {
     const def = createSentinelDefinition();
     const patches = generateSentinelSurfacePatches(def);
     const seen = new Set();
@@ -132,11 +131,11 @@ describe('validateSurfacePatches', () => {
     }
   });
 
-  it('all patches are on the surface of their body part', () => {
+  it("all patches are on the surface of their body part", () => {
     const def = createSentinelDefinition();
     const patches = generateSentinelSurfacePatches(def);
     for (const patch of patches) {
-      const part = def.parts.find(p => p.id === patch.bodyPartId);
+      const part = def.parts.find((p) => p.id === patch.bodyPartId);
       if (!part) continue;
       const { position: pos, dimensions: dim } = part;
       const hw = dim.width / 2;

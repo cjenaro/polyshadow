@@ -1,6 +1,6 @@
 // Particles are purely cosmetic (visual dust/embers) with no collision — moving them to cannon-es would add overhead for no gameplay benefit.
-import { clamp, lerp, randomRange } from '../utils/math.js';
-import { noise3D } from '../utils/noise.js';
+import { clamp, lerp, randomRange } from "../utils/math.js";
+import { noise3D } from "../utils/noise.js";
 
 export const PARTICLE_DEFAULTS = {
   minLifetime: 3,
@@ -15,9 +15,12 @@ export const PARTICLE_DEFAULTS = {
 };
 
 export const DEFAULT_BOUNDS = {
-  xMin: -30, xMax: 30,
-  yMin: 0, yMax: 60,
-  zMin: -30, zMax: 30,
+  xMin: -30,
+  xMax: 30,
+  yMin: 0,
+  yMax: 60,
+  zMin: -30,
+  zMax: 30,
 };
 
 const EMBER_COLORS = [
@@ -67,7 +70,7 @@ export function updateParticleSystem(system, wind, dt) {
   const turbScale = PARTICLE_DEFAULTS.turbulenceScale;
   const time = system.elapsed;
 
-  const updated = particles.map(p => {
+  const updated = particles.map((p) => {
     const dead = p.lifetime <= 0;
     const current = dead ? respawnParticle(bounds) : p;
 

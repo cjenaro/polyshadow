@@ -1,4 +1,4 @@
-import { distance2D, normalize2D } from '../utils/math.js';
+import { distance2D, normalize2D } from "../utils/math.js";
 
 const FADE_NEAR = 15;
 const FADE_FAR = 800;
@@ -9,7 +9,7 @@ export function createDirectionIndicator(colossusId, direction) {
     colossusId,
     direction: { x: norm.x, z: norm.y },
     visible: true,
-    opacity: 1
+    opacity: 1,
   };
 }
 
@@ -23,8 +23,8 @@ export function isIndicatorVisible(indicator, playerPos) {
 }
 
 export function updateIndicators(indicators, playerPos, colossusPositions) {
-  return indicators.map(indicator => {
-    const colossus = colossusPositions.find(c => c.id === indicator.colossusId);
+  return indicators.map((indicator) => {
+    const colossus = colossusPositions.find((c) => c.id === indicator.colossusId);
     if (!colossus || colossus.defeated) {
       return { ...indicator, visible: false, opacity: 0 };
     }
@@ -58,6 +58,6 @@ export function createShrine(defeated = []) {
     },
     remainingCount(total) {
       return total - this.defeated.length;
-    }
+    },
   };
 }

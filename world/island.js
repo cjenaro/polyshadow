@@ -1,6 +1,6 @@
-import { normalize2D, distance2D, clamp } from '../utils/math.js';
-import { generateIslandShape } from '../utils/procedural.js';
-import { fbm2D } from '../utils/noise.js';
+import { normalize2D, distance2D, clamp } from "../utils/math.js";
+import { generateIslandShape } from "../utils/procedural.js";
+import { fbm2D } from "../utils/noise.js";
 
 const RESOLUTION_MULTIPLIER = 2;
 
@@ -12,7 +12,7 @@ export function createIsland(params) {
     seed: params.seed,
     type: params.type,
     generated: false,
-    safeZone: params.type === 'hub'
+    safeZone: params.type === "hub",
   };
 }
 
@@ -25,7 +25,7 @@ export function generateIslandGeometry(island) {
     generated: true,
     resolution: heightData.side,
     heightData: heightData.heights,
-    radius: heightData.radius
+    radius: heightData.radius,
   };
 }
 
@@ -74,13 +74,13 @@ export function isOnIsland(island, x, z) {
 }
 
 export function findSpawnPoint(island) {
-  if (island.type === 'arena') {
+  if (island.type === "arena") {
     const angle = island.seed * 0.7;
     const spawnDist = island.radius * 0.7;
     return {
       x: island.center.x + Math.cos(angle) * spawnDist,
       y: 0,
-      z: island.center.z + Math.sin(angle) * spawnDist
+      z: island.center.z + Math.sin(angle) * spawnDist,
     };
   }
 
@@ -88,7 +88,7 @@ export function findSpawnPoint(island) {
   return {
     x: island.center.x + offset * 0.5,
     y: 0,
-    z: island.center.z + offset * 0.3
+    z: island.center.z + offset * 0.3,
   };
 }
 
@@ -98,10 +98,10 @@ export function createHubIsland() {
     radius: 60,
     maxHeight: 8,
     seed: 42,
-    type: 'hub',
+    type: "hub",
     generated: false,
     safeZone: true,
-    shrine: { x: 0, z: 0 }
+    shrine: { x: 0, z: 0 },
   };
 }
 
@@ -111,15 +111,15 @@ export function createArenaIsland(colossusType) {
     radius: 40,
     maxHeight: 5,
     seed: colossusType.charCodeAt(0) * 137 + (colossusType.charCodeAt(1) || 0) * 53,
-    type: 'arena',
+    type: "arena",
     generated: false,
     safeZone: false,
-    colossusType: colossusType
+    colossusType: colossusType,
   };
 }
 
 function seededRandom(seed) {
-  let s = (seed | 0) || 1;
+  let s = seed | 0 || 1;
   return function () {
     s = (s * 16807) % 2147483647;
     return (s - 1) / 2147483646;
@@ -144,11 +144,7 @@ export function generateArenaTerrain(arena, resolution = 128) {
       falloff = falloff * falloff;
       if (dist > 1) falloff = 0;
 
-      const noiseVal = fbm2D(
-        x * 0.05 + offsetX,
-        z * 0.05 + offsetZ,
-        5, 2, 0.5
-      );
+      const noiseVal = fbm2D(x * 0.05 + offsetX, z * 0.05 + offsetZ, 5, 2, 0.5);
 
       const h = (noiseVal * 0.5 + 0.5) * falloff * arena.maxHeight;
       heights[z * res + x] = h;
@@ -164,7 +160,7 @@ export function generateRuinPositions(arena, count) {
   const minDist = 8;
   const innerRadius = arena.radius * 0.15;
   const outerRadius = arena.radius * 0.85;
-  const types = ['pillar', 'wall', 'arch', 'rubble'];
+  const types = ["pillar", "wall", "arch", "rubble"];
 
   for (let i = 0; i < count; i++) {
     let placed = false;
@@ -235,6 +231,10 @@ export function getColossusSpawnPoint(arena) {
 export function getArenaBounds(arena) {
   return {
     min: { x: arena.center.x - arena.radius, y: 0, z: arena.center.z - arena.radius },
-    max: { x: arena.center.x + arena.radius, y: arena.maxHeight * 2, z: arena.center.z + arena.radius },
+    max: {
+      x: arena.center.x + arena.radius,
+      y: arena.maxHeight * 2,
+      z: arena.center.z + arena.radius,
+    },
   };
 }

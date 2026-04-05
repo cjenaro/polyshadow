@@ -1,44 +1,57 @@
-import { CHUNK_SIZE, getBlock, getExposedFaces, getChunkWorldPosition } from './voxel-chunk.js';
-import { BlockType, getBlockColor, getBlockEmissive, isBlockSolid } from './block-types.js';
-import { getBlockColorForFace } from './voxel-materials.js';
+import { CHUNK_SIZE, getBlock, getExposedFaces, getChunkWorldPosition } from "./voxel-chunk.js";
+import { BlockType, getBlockColor, getBlockEmissive, isBlockSolid } from "./block-types.js";
+import { getBlockColorForFace } from "./voxel-materials.js";
 
 const FACE_VERTICES = {
   px: [
-    [1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1],
+    [1, 0, 0],
+    [1, 1, 0],
+    [1, 1, 1],
+    [1, 0, 1],
   ],
   nx: [
-    [0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0],
+    [0, 0, 1],
+    [0, 1, 1],
+    [0, 1, 0],
+    [0, 0, 0],
   ],
   py: [
-    [0, 1, 0], [0, 1, 1], [1, 1, 1], [1, 1, 0],
+    [0, 1, 0],
+    [0, 1, 1],
+    [1, 1, 1],
+    [1, 1, 0],
   ],
   ny: [
-    [0, 0, 1], [0, 0, 0], [1, 0, 0], [1, 0, 1],
+    [0, 0, 1],
+    [0, 0, 0],
+    [1, 0, 0],
+    [1, 0, 1],
   ],
   pz: [
-    [1, 0, 1], [1, 1, 1], [0, 1, 1], [0, 0, 1],
+    [1, 0, 1],
+    [1, 1, 1],
+    [0, 1, 1],
+    [0, 0, 1],
   ],
   nz: [
-    [0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0],
+    [0, 0, 0],
+    [0, 1, 0],
+    [1, 1, 0],
+    [1, 0, 0],
   ],
 };
 
 const FACE_INDICES = [0, 1, 2, 0, 2, 3];
 
-const AO_CURVE = [
-  0.45,
-  0.65,
-  0.80,
-  1.0,
-];
+const AO_CURVE = [0.45, 0.65, 0.8, 1.0];
 
 function faceKey(nx, ny, nz) {
-  if (nx === 1) return 'px';
-  if (nx === -1) return 'nx';
-  if (ny === 1) return 'py';
-  if (ny === -1) return 'ny';
-  if (nz === 1) return 'pz';
-  return 'nz';
+  if (nx === 1) return "px";
+  if (nx === -1) return "nx";
+  if (ny === 1) return "py";
+  if (ny === -1) return "ny";
+  if (nz === 1) return "pz";
+  return "nz";
 }
 
 function vertexAO(side1, side2, corner) {
@@ -109,14 +122,28 @@ export function buildChunkMeshData(chunk, getNeighborBlock) {
     for (const face of groupFaces) {
       const fk = faceKey(face.normal.x, face.normal.y, face.normal.z);
       const verts = FACE_VERTICES[fk];
-      const ao = computeFaceAO(chunk, face.x, face.y, face.z, face.normal.x, face.normal.y, face.normal.z, getNeighborBlock);
-      const baseColor = getBlockColorForFace(blockType, face.normal.x, face.normal.y, face.normal.z);
+      const ao = computeFaceAO(
+        chunk,
+        face.x,
+        face.y,
+        face.z,
+        face.normal.x,
+        face.normal.y,
+        face.normal.z,
+        getNeighborBlock,
+      );
+      const baseColor = getBlockColorForFace(
+        blockType,
+        face.normal.x,
+        face.normal.y,
+        face.normal.z,
+      );
 
       for (let i = 0; i < 4; i++) {
         positions.push(
           origin.x + face.x + verts[i][0],
           origin.y + face.y + verts[i][1],
-          origin.z + face.z + verts[i][2]
+          origin.z + face.z + verts[i][2],
         );
         normals.push(face.normal.x, face.normal.y, face.normal.z);
         colors.push(baseColor[0] * ao[i], baseColor[1] * ao[i], baseColor[2] * ao[i]);
@@ -152,13 +179,18 @@ export function buildVoxelGeometryForGroup(faces, origin) {
   for (const face of faces) {
     const fk = faceKey(face.normal.x, face.normal.y, face.normal.z);
     const verts = FACE_VERTICES[fk];
-    const baseColor = getBlockColorForFace(face.blockType, face.normal.x, face.normal.y, face.normal.z);
+    const baseColor = getBlockColorForFace(
+      face.blockType,
+      face.normal.x,
+      face.normal.y,
+      face.normal.z,
+    );
 
     for (let i = 0; i < 4; i++) {
       positions.push(
         origin.x + face.x + verts[i][0],
         origin.y + face.y + verts[i][1],
-        origin.z + face.z + verts[i][2]
+        origin.z + face.z + verts[i][2],
       );
       normals.push(face.normal.x, face.normal.y, face.normal.z);
       colors.push(baseColor[0], baseColor[1], baseColor[2]);

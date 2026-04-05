@@ -41,15 +41,11 @@ export function createIslandCollider(adapter, world, island, downsampleFactor) {
     vertices,
     indices,
     position: { x: 0, y: 0, z: 0 },
-    userData: { entity: 'island', type: island.type },
+    userData: { entity: "island", type: island.type },
   });
 }
 
 export function groundHeightRaycast(adapter, world, x, z, maxDistance) {
-  const hit = adapter.raycast(
-    world,
-    { x, y: maxDistance, z },
-    { x, y: -maxDistance, z }
-  );
+  const hit = adapter.raycast(world, { x, y: maxDistance, z }, { x, y: -maxDistance, z });
   return hit ? hit.point.y : null;
 }

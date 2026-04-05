@@ -1,18 +1,18 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert';
-import { createChunkManager } from '../world/voxel-chunk-manager.js';
-import { createVoxelStorage } from '../world/voxel-storage.js';
-import { BlockType } from '../world/block-types.js';
+import { describe, it } from "node:test";
+import assert from "node:assert";
+import { createChunkManager } from "../world/voxel-chunk-manager.js";
+import { createVoxelStorage } from "../world/voxel-storage.js";
+import { BlockType } from "../world/block-types.js";
 
-describe('voxel-chunk-manager', () => {
-  it('creates chunk manager with defaults', () => {
+describe("voxel-chunk-manager", () => {
+  it("creates chunk manager with defaults", () => {
     const storage = createVoxelStorage();
     const mgr = createChunkManager(storage);
     assert.strictEqual(mgr.getMeshCount(), 0);
     assert.strictEqual(mgr.getDirtyQueueLength(), 0);
   });
 
-  it('processes dirty chunks and builds mesh data', () => {
+  it("processes dirty chunks and builds mesh data", () => {
     const storage = createVoxelStorage();
     const mgr = createChunkManager(storage);
     storage.setBlock(5, 5, 5, BlockType.STONE);
@@ -23,12 +23,12 @@ describe('voxel-chunk-manager', () => {
     assert.strictEqual(mgr.getDirtyQueueLength(), 0);
     assert.strictEqual(mgr.getMeshCount(), 1);
     const mesh = mgr.getChunkMesh(0, 0, 0);
-    assert.ok(mesh, 'should have mesh data');
+    assert.ok(mesh, "should have mesh data");
     assert.ok(mesh.faceCount > 0);
     assert.ok(mesh.vertexCount > 0);
   });
 
-  it('returns null mesh for empty chunk', () => {
+  it("returns null mesh for empty chunk", () => {
     const storage = createVoxelStorage();
     const mgr = createChunkManager(storage);
     storage.getOrCreateChunk(0, 0, 0);
@@ -38,7 +38,7 @@ describe('voxel-chunk-manager', () => {
     assert.strictEqual(mgr.getChunkMesh(0, 0, 0), null);
   });
 
-  it('buildMesh returns mesh data for chunk with blocks', () => {
+  it("buildMesh returns mesh data for chunk with blocks", () => {
     const storage = createVoxelStorage();
     const mgr = createChunkManager(storage);
     storage.setBlock(5, 5, 5, BlockType.STONE);
@@ -50,7 +50,7 @@ describe('voxel-chunk-manager', () => {
     assert.strictEqual(meshData.vertexCount, 24);
   });
 
-  it('enqueues and processes multiple dirty chunks', () => {
+  it("enqueues and processes multiple dirty chunks", () => {
     const storage = createVoxelStorage();
     const mgr = createChunkManager(storage, { maxMeshUpdatesPerFrame: 2 });
     storage.setBlock(5, 5, 5, BlockType.STONE);
@@ -66,7 +66,7 @@ describe('voxel-chunk-manager', () => {
     assert.strictEqual(mgr.getMeshCount(), 3);
   });
 
-  it('getVisibleChunks filters by distance', () => {
+  it("getVisibleChunks filters by distance", () => {
     const storage = createVoxelStorage();
     const mgr = createChunkManager(storage, { viewDistance: 50 });
     storage.setBlock(5, 5, 5, BlockType.STONE);
@@ -78,13 +78,13 @@ describe('voxel-chunk-manager', () => {
     assert.strictEqual(far.length, 0);
   });
 
-  it('getChunkMesh returns null for unknown chunk', () => {
+  it("getChunkMesh returns null for unknown chunk", () => {
     const storage = createVoxelStorage();
     const mgr = createChunkManager(storage);
     assert.strictEqual(mgr.getChunkMesh(99, 99, 99), null);
   });
 
-  it('dispose clears all meshes and queue', () => {
+  it("dispose clears all meshes and queue", () => {
     const storage = createVoxelStorage();
     const mgr = createChunkManager(storage);
     storage.setBlock(5, 5, 5, BlockType.STONE);
@@ -96,7 +96,7 @@ describe('voxel-chunk-manager', () => {
     assert.strictEqual(mgr.getDirtyQueueLength(), 0);
   });
 
-  it('update enqueues and processes dirty chunks', () => {
+  it("update enqueues and processes dirty chunks", () => {
     const storage = createVoxelStorage();
     const mgr = createChunkManager(storage);
     storage.setBlock(5, 5, 5, BlockType.STONE);
@@ -105,7 +105,7 @@ describe('voxel-chunk-manager', () => {
     assert.strictEqual(mgr.getDirtyQueueLength(), 0);
   });
 
-  it('does not enqueue duplicate dirty chunks', () => {
+  it("does not enqueue duplicate dirty chunks", () => {
     const storage = createVoxelStorage();
     const mgr = createChunkManager(storage);
     storage.setBlock(5, 5, 5, BlockType.STONE);

@@ -1,9 +1,9 @@
 export const TRANSITION_STATES = {
-  IDLE: 'idle',
-  FADING_OUT: 'fading_out',
-  TELEPORTING: 'teleporting',
-  FADING_IN: 'fading_in',
-  IN_ARENA: 'in_arena',
+  IDLE: "idle",
+  FADING_OUT: "fading_out",
+  TELEPORTING: "teleporting",
+  FADING_IN: "fading_in",
+  IN_ARENA: "in_arena",
 };
 
 export function createArenaTransitionManager(options = {}) {
@@ -21,7 +21,7 @@ export function startTransitionToArena(mgr, arenaType, arenaConfigs, defeated = 
   if (mgr.state !== TRANSITION_STATES.IDLE) return mgr;
   if (defeated.has(arenaType)) return mgr;
 
-  const config = arenaConfigs.find(c => c.type === arenaType);
+  const config = arenaConfigs.find((c) => c.type === arenaType);
   if (!config) return mgr;
 
   return {
@@ -78,7 +78,10 @@ export function updateArenaTransition(mgr, dt) {
     if (newProgress >= mgr.fadeDuration) {
       if (mgr.returningToHub) {
         return {
-          ...createArenaTransitionManager({ fadeDuration: mgr.fadeDuration, teleportDelay: mgr.teleportDelay }),
+          ...createArenaTransitionManager({
+            fadeDuration: mgr.fadeDuration,
+            teleportDelay: mgr.teleportDelay,
+          }),
         };
       }
       return {

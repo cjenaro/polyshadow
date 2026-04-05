@@ -1,17 +1,12 @@
-import {
-  InputManager,
-  TouchInputManager,
-  GamepadInputManager,
-  createEmptyState,
-} from './input.js';
-import { createTouchLayout } from './touch-overlay.js';
+import { InputManager, TouchInputManager, GamepadInputManager, createEmptyState } from "./input.js";
+import { createTouchLayout } from "./touch-overlay.js";
 
 export function createIntegratedInput(canvas) {
   const integration = {
     keyboard: new InputManager(canvas),
     touch: null,
     gamepad: null,
-    activeType: 'keyboard',
+    activeType: "keyboard",
     _canvas: canvas,
   };
 
@@ -43,7 +38,7 @@ export function updateIntegratedInput(integration) {
   const kbState = integration.keyboard.getState();
 
   if (integration.gamepad && integration.gamepad.isGamepadConnected()) {
-    integration.activeType = 'gamepad';
+    integration.activeType = "gamepad";
     const gpState = integration.gamepad.getState();
     merged.move.x = gpState.move.x;
     merged.move.y = gpState.move.y;
@@ -56,7 +51,7 @@ export function updateIntegratedInput(integration) {
     merged.dodge = gpState.dodge;
     merged.start = gpState.start;
   } else if (integration.touch && integration.touch.getTouchJoystick().active) {
-    integration.activeType = 'touch';
+    integration.activeType = "touch";
     const joystick = integration.touch.getTouchJoystick();
     merged.move.x = joystick.x;
     merged.move.y = joystick.y;
@@ -74,7 +69,7 @@ export function updateIntegratedInput(integration) {
     merged.dodge = actions.dodge || kbState.dodge;
     merged.start = kbState.start;
   } else {
-    integration.activeType = 'keyboard';
+    integration.activeType = "keyboard";
     merged.move.x = kbState.move.x;
     merged.move.y = kbState.move.y;
     merged.look.x = kbState.look.x;

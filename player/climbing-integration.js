@@ -1,5 +1,12 @@
-import { isGrabPressed, tryGrab, applyClimbingMovement, tryJumpClimb, releaseGrab, updateClimbNormal } from './climbing.js';
-import { shouldTriggerFall } from './stamina.js';
+import {
+  isGrabPressed,
+  tryGrab,
+  applyClimbingMovement,
+  tryJumpClimb,
+  releaseGrab,
+  updateClimbNormal,
+} from "./climbing.js";
+import { shouldTriggerFall } from "./stamina.js";
 
 export const CLIMB_CONFIG = {
   MAX_GRAB_DISTANCE: 5,
@@ -15,7 +22,15 @@ export function isPlayerClimbing(climbingState) {
   return !!climbingState.isClimbing;
 }
 
-export function updateClimbing(playerState, climbingState, input, staminaState, surfaces, dt, physicsCtx) {
+export function updateClimbing(
+  playerState,
+  climbingState,
+  input,
+  staminaState,
+  surfaces,
+  dt,
+  physicsCtx,
+) {
   let pState = playerState;
   let cState = climbingState;
 

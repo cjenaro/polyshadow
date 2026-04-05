@@ -7,13 +7,21 @@ import {
   tryStab,
   cancelStabCharge,
   applyShakeOff,
-} from './combat.js';
+} from "./combat.js";
 
 export function createIntegratedCombat(overrides = {}) {
   return createCombatState(overrides);
 }
 
-export function updateIntegratedCombat(combatState, input, playerPosition, playerRotation, weakPoints, isClimbing, dt) {
+export function updateIntegratedCombat(
+  combatState,
+  input,
+  playerPosition,
+  playerRotation,
+  weakPoints,
+  isClimbing,
+  dt,
+) {
   combatState = updateCombat(combatState, dt);
 
   let hitResult = {
@@ -39,7 +47,12 @@ export function updateIntegratedCombat(combatState, input, playerPosition, playe
   if (combatState.isChargingStab) {
     if (!input.attack) {
       if (combatState.stabChargeProgress >= 0.8) {
-        const stabResult = tryStab(combatState, combatState.stabChargeProgress, playerPosition, weakPoints);
+        const stabResult = tryStab(
+          combatState,
+          combatState.stabChargeProgress,
+          playerPosition,
+          weakPoints,
+        );
         hitResult = {
           ...stabResult,
           isSlash: false,

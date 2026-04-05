@@ -1,4 +1,4 @@
-import { shouldTriggerFall } from './stamina.js';
+import { shouldTriggerFall } from "./stamina.js";
 
 export const FALL_CONSTANTS = {
   FREEFALL_THRESHOLD: -50,
@@ -30,7 +30,11 @@ export function updateFall(state, dt, constants, physicsCtx) {
   if (physicsCtx) {
     const { adapter, world, playerBody } = physicsCtx;
     const bodyMass = playerBody.mass || 1;
-    adapter.applyForce(world, playerBody, { x: 0, y: -20 * constants.FALL_GRAVITY_MULTIPLIER * bodyMass, z: 0 });
+    adapter.applyForce(world, playerBody, {
+      x: 0,
+      y: -20 * constants.FALL_GRAVITY_MULTIPLIER * bodyMass,
+      z: 0,
+    });
     const pos = adapter.getPosition(world, playerBody);
     const vel = adapter.getVelocity(world, playerBody);
     return {

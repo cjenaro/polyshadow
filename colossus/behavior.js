@@ -1,12 +1,12 @@
-import { distance3D, randomRange } from '../utils/math.js';
-import { moveToward2D } from './steering.js';
+import { distance3D, randomRange } from "../utils/math.js";
+import { moveToward2D } from "./steering.js";
 
 export const ColossusState = {
-  IDLE: 'idle',
-  PATROL: 'patrol',
-  AGGRO: 'aggro',
-  STUNNED: 'stunned',
-  DYING: 'dying',
+  IDLE: "idle",
+  PATROL: "patrol",
+  AGGRO: "aggro",
+  STUNNED: "stunned",
+  DYING: "dying",
 };
 
 export const SENTINEL_BEHAVIOR_CONFIG = {
@@ -89,8 +89,12 @@ export function updateBehavior(aiState, config, deltaTime, playerPosition, colos
 
   if (state.state === ColossusState.PATROL) {
     const dist = distance3D(
-      colossusPosition.x, colossusPosition.y, colossusPosition.z,
-      playerPosition.x, playerPosition.y, playerPosition.z
+      colossusPosition.x,
+      colossusPosition.y,
+      colossusPosition.z,
+      playerPosition.x,
+      playerPosition.y,
+      playerPosition.z,
     );
 
     if (dist <= config.detectionRange) {
@@ -102,7 +106,10 @@ export function updateBehavior(aiState, config, deltaTime, playerPosition, colos
       return { ...state, shouldAttack: false };
     }
 
-    if (state.patrolWaypoints.length === 0 || state.currentWaypointIndex >= state.patrolWaypoints.length) {
+    if (
+      state.patrolWaypoints.length === 0 ||
+      state.currentWaypointIndex >= state.patrolWaypoints.length
+    ) {
       state.state = ColossusState.IDLE;
       state.stateTimer = 0;
       return { ...state, shouldAttack: false };
@@ -110,7 +117,7 @@ export function updateBehavior(aiState, config, deltaTime, playerPosition, colos
 
     const waypoint = state.patrolWaypoints[state.currentWaypointIndex];
     const wpDist = Math.sqrt(
-      (colossusPosition.x - waypoint.x) ** 2 + (colossusPosition.z - waypoint.z) ** 2
+      (colossusPosition.x - waypoint.x) ** 2 + (colossusPosition.z - waypoint.z) ** 2,
     );
 
     if (wpDist < 2) {
@@ -142,8 +149,12 @@ export function updateBehavior(aiState, config, deltaTime, playerPosition, colos
 
   if (state.state === ColossusState.AGGRO) {
     const dist = distance3D(
-      colossusPosition.x, colossusPosition.y, colossusPosition.z,
-      playerPosition.x, playerPosition.y, playerPosition.z
+      colossusPosition.x,
+      colossusPosition.y,
+      colossusPosition.z,
+      playerPosition.x,
+      playerPosition.y,
+      playerPosition.z,
     );
 
     if (dist > config.loseInterestRange) {
@@ -190,9 +201,11 @@ export function triggerDeath(aiState) {
 }
 
 export function isClimbable(aiState) {
-  return aiState.state === ColossusState.PATROL ||
-         aiState.state === ColossusState.AGGRO ||
-         aiState.state === ColossusState.STUNNED;
+  return (
+    aiState.state === ColossusState.PATROL ||
+    aiState.state === ColossusState.AGGRO ||
+    aiState.state === ColossusState.STUNNED
+  );
 }
 
 export function applySentinelDamage(aiState, config, damage) {

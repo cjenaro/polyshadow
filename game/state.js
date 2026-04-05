@@ -1,18 +1,18 @@
 export class GameState {
   constructor() {
-    this.state = 'title';
+    this.state = "title";
     this.timer = 0;
     this.callbacks = [];
     this.validTransitions = {
-      title: new Set(['playing']),
-      playing: new Set(['victory', 'paused']),
-      victory: new Set(['credits']),
-      credits: new Set(['title']),
-      paused: new Set(['playing']),
+      title: new Set(["playing"]),
+      playing: new Set(["victory", "paused"]),
+      victory: new Set(["credits"]),
+      credits: new Set(["title"]),
+      paused: new Set(["playing"]),
     };
     this.timedStates = {
-      victory: { duration: 5, next: 'credits' },
-      credits: { duration: 15, next: 'title' },
+      victory: { duration: 5, next: "credits" },
+      credits: { duration: 15, next: "title" },
     };
   }
 
@@ -30,7 +30,7 @@ export class GameState {
   }
 
   isPlaying() {
-    return this.state === 'playing';
+    return this.state === "playing";
   }
 
   onTransition(callback) {
@@ -47,7 +47,7 @@ export class GameState {
   }
 
   reset() {
-    this.state = 'title';
+    this.state = "title";
     this.timer = 0;
   }
 }

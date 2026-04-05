@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 
 const BODY_COLOR = 0xccaa77;
 const DARK_COLOR = 0x8b7355;
@@ -61,8 +61,12 @@ export function createCharacterMesh() {
 
   return {
     impl: group,
-    setPosition(x, y, z) { group.position.set(x, y, z); },
-    setRotationY(rad) { group.rotation.y = rad; },
+    setPosition(x, y, z) {
+      group.position.set(x, y, z);
+    },
+    setRotationY(rad) {
+      group.rotation.y = rad;
+    },
     cape,
     sword: swordGroup,
   };

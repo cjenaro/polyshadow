@@ -13,16 +13,16 @@ export function setTHREE(threeModule) {
 
 function createDamageTexture(text) {
   const T = _THREE;
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = 128;
   canvas.height = 64;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, 128, 64);
-  ctx.font = 'bold 48px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#ffffff';
-  ctx.strokeStyle = '#000000';
+  ctx.font = "bold 48px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#000000";
   ctx.lineWidth = 4;
   ctx.strokeText(text, 64, 32);
   ctx.fillText(text, 64, 32);
@@ -43,7 +43,11 @@ export function createCombatFeedback(scene) {
     if (spritePool.length > 0) {
       sprite = spritePool.pop();
     } else {
-      const mat = new T.SpriteMaterial({ transparent: true, depthTest: false, sizeAttenuation: true });
+      const mat = new T.SpriteMaterial({
+        transparent: true,
+        depthTest: false,
+        sizeAttenuation: true,
+      });
       sprite = new T.Sprite(mat);
       sprite.renderOrder = 999;
     }

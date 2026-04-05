@@ -1,5 +1,5 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import {
   createColossusBody,
   getBodyPart,
@@ -12,56 +12,78 @@ import {
   findNearestWeakPoint,
   isNearWeakPoint,
   getRestSpots,
-} from './base.js';
+} from "./base.js";
 
 const SIMPLE_BODY = {
   parts: [
     {
-      id: 'torso', name: 'Torso', type: 'core',
+      id: "torso",
+      name: "Torso",
+      type: "core",
       position: { x: 0, y: 5, z: 0 },
       dimensions: { width: 4, height: 6, depth: 3 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: null, isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: null,
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'head', name: 'Head', type: 'head',
+      id: "head",
+      name: "Head",
+      type: "head",
       position: { x: 0, y: 9, z: 0 },
       dimensions: { width: 2, height: 2, depth: 2 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'torso', isClimbable: false, isWeakPoint: true, healthMultiplier: 2.0,
+      parent: "torso",
+      isClimbable: false,
+      isWeakPoint: true,
+      healthMultiplier: 2.0,
     },
     {
-      id: 'left_arm', name: 'Left Arm', type: 'limb_upper',
+      id: "left_arm",
+      name: "Left Arm",
+      type: "limb_upper",
       position: { x: -3, y: 6, z: 0 },
       dimensions: { width: 1, height: 4, depth: 1 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'torso', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "torso",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'left_forearm', name: 'Left Forearm', type: 'limb_lower',
+      id: "left_forearm",
+      name: "Left Forearm",
+      type: "limb_lower",
       position: { x: -3, y: 2, z: 0 },
       dimensions: { width: 1, height: 4, depth: 1 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'left_arm', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "left_arm",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
   ],
 };
 
-describe('createColossusBody', () => {
-  it('returns a body with all parts indexed by id', () => {
+describe("createColossusBody", () => {
+  it("returns a body with all parts indexed by id", () => {
     const body = createColossusBody(SIMPLE_BODY);
     assert.equal(body.parts.size, 4);
-    assert.ok(body.parts.has('torso'));
-    assert.ok(body.parts.has('head'));
-    assert.ok(body.parts.has('left_arm'));
-    assert.ok(body.parts.has('left_forearm'));
+    assert.ok(body.parts.has("torso"));
+    assert.ok(body.parts.has("head"));
+    assert.ok(body.parts.has("left_arm"));
+    assert.ok(body.parts.has("left_forearm"));
   });
 
-  it('applies defaults for missing optional fields', () => {
+  it("applies defaults for missing optional fields", () => {
     const input = {
       parts: [
         {
-          id: 'p1', name: 'Part', type: 'core',
+          id: "p1",
+          name: "Part",
+          type: "core",
           position: { x: 0, y: 0, z: 0 },
           dimensions: { width: 1, height: 1, depth: 1 },
           rotation: { x: 0, y: 0, z: 0 },
@@ -70,110 +92,114 @@ describe('createColossusBody', () => {
       ],
     };
     const body = createColossusBody(input);
-    const p = body.parts.get('p1');
+    const p = body.parts.get("p1");
     assert.equal(p.isClimbable, true);
     assert.equal(p.isWeakPoint, false);
     assert.equal(p.healthMultiplier, 1.0);
   });
 
-  it('throws if parts array is empty', () => {
+  it("throws if parts array is empty", () => {
     assert.throws(() => createColossusBody({ parts: [] }));
   });
 });
 
-describe('getBodyPart', () => {
-  it('returns the correct part by id', () => {
+describe("getBodyPart", () => {
+  it("returns the correct part by id", () => {
     const body = createColossusBody(SIMPLE_BODY);
-    const part = getBodyPart(body, 'head');
-    assert.equal(part.id, 'head');
-    assert.equal(part.name, 'Head');
+    const part = getBodyPart(body, "head");
+    assert.equal(part.id, "head");
+    assert.equal(part.name, "Head");
   });
 
-  it('returns null for non-existent part', () => {
+  it("returns null for non-existent part", () => {
     const body = createColossusBody(SIMPLE_BODY);
-    assert.equal(getBodyPart(body, 'nonexistent'), null);
+    assert.equal(getBodyPart(body, "nonexistent"), null);
   });
 });
 
-describe('getChildParts', () => {
-  it('returns direct children of a part', () => {
+describe("getChildParts", () => {
+  it("returns direct children of a part", () => {
     const body = createColossusBody(SIMPLE_BODY);
-    const children = getChildParts(body, 'torso');
+    const children = getChildParts(body, "torso");
     assert.equal(children.length, 2);
-    const ids = children.map(c => c.id);
-    assert.ok(ids.includes('head'));
-    assert.ok(ids.includes('left_arm'));
+    const ids = children.map((c) => c.id);
+    assert.ok(ids.includes("head"));
+    assert.ok(ids.includes("left_arm"));
   });
 
-  it('returns empty array for leaf parts', () => {
+  it("returns empty array for leaf parts", () => {
     const body = createColossusBody(SIMPLE_BODY);
-    const children = getChildParts(body, 'left_forearm');
+    const children = getChildParts(body, "left_forearm");
     assert.equal(children.length, 0);
   });
 });
 
-describe('getAllClimbableParts', () => {
-  it('returns only climbable parts', () => {
+describe("getAllClimbableParts", () => {
+  it("returns only climbable parts", () => {
     const body = createColossusBody(SIMPLE_BODY);
     const climbable = getAllClimbableParts(body);
     assert.equal(climbable.length, 3);
-    const ids = climbable.map(p => p.id);
-    assert.ok(ids.includes('torso'));
-    assert.ok(ids.includes('left_arm'));
-    assert.ok(ids.includes('left_forearm'));
-    assert.ok(!ids.includes('head'));
+    const ids = climbable.map((p) => p.id);
+    assert.ok(ids.includes("torso"));
+    assert.ok(ids.includes("left_arm"));
+    assert.ok(ids.includes("left_forearm"));
+    assert.ok(!ids.includes("head"));
   });
 });
 
-describe('getWeakPoints', () => {
-  it('returns only weak point parts', () => {
+describe("getWeakPoints", () => {
+  it("returns only weak point parts", () => {
     const body = createColossusBody(SIMPLE_BODY);
     const weak = getWeakPoints(body);
     assert.equal(weak.length, 1);
-    assert.equal(weak[0].id, 'head');
+    assert.equal(weak[0].id, "head");
   });
 });
 
-describe('getRestSpots', () => {
-  it('returns empty array when no parts are rest spots', () => {
+describe("getRestSpots", () => {
+  it("returns empty array when no parts are rest spots", () => {
     const body = createColossusBody(SIMPLE_BODY);
     const spots = getRestSpots(body);
     assert.equal(spots.length, 0);
   });
 
-  it('returns only parts marked as rest spots', () => {
+  it("returns only parts marked as rest spots", () => {
     const def = {
       parts: [
         {
-          id: 'torso', type: 'core',
+          id: "torso",
+          type: "core",
           position: { x: 0, y: 5, z: 0 },
           dimensions: { width: 4, height: 6, depth: 3 },
           rotation: { x: 0, y: 0, z: 0 },
           parent: null,
         },
         {
-          id: 'shoulder_left', type: 'limb_upper',
+          id: "shoulder_left",
+          type: "limb_upper",
           position: { x: -3, y: 8, z: 0 },
           dimensions: { width: 2, height: 1, depth: 2 },
           rotation: { x: 0, y: 0, z: 0 },
-          parent: 'torso', isRestSpot: true,
+          parent: "torso",
+          isRestSpot: true,
         },
         {
-          id: 'arm', type: 'limb_upper',
+          id: "arm",
+          type: "limb_upper",
           position: { x: -3, y: 6, z: 0 },
           dimensions: { width: 1, height: 4, depth: 1 },
           rotation: { x: 0, y: 0, z: 0 },
-          parent: 'torso',
+          parent: "torso",
         },
       ],
     };
     const body = createColossusBody(def);
     const spots = getRestSpots(body);
     assert.equal(spots.length, 1);
-    assert.equal(spots[0].id, 'shoulder_left');
+    assert.equal(spots[0].id, "shoulder_left");
   });
 
-  it('rest spot parts default isRestSpot to false', () => {
+  it("rest spot parts default isRestSpot to false", () => {
     const body = createColossusBody(SIMPLE_BODY);
     for (const part of body.parts.values()) {
       assert.equal(part.isRestSpot, false, `${part.id} should not be a rest spot`);
@@ -181,8 +207,8 @@ describe('getRestSpots', () => {
   });
 });
 
-describe('getBodyBounds', () => {
-  it('computes overall bounding box', () => {
+describe("getBodyBounds", () => {
+  it("computes overall bounding box", () => {
     const body = createColossusBody(SIMPLE_BODY);
     const bounds = getBodyBounds(body);
     const eps = 0.001;
@@ -193,52 +219,52 @@ describe('getBodyBounds', () => {
   });
 });
 
-describe('getBodyHeight', () => {
-  it('returns total height from lowest to highest point', () => {
+describe("getBodyHeight", () => {
+  it("returns total height from lowest to highest point", () => {
     const body = createColossusBody(SIMPLE_BODY);
     const height = getBodyHeight(body);
     assert.ok(Math.abs(height - 10) < 0.001);
   });
 });
 
-describe('getBodyPartWorldPosition', () => {
-  it('returns world position at origin with no rotation', () => {
+describe("getBodyPartWorldPosition", () => {
+  it("returns world position at origin with no rotation", () => {
     const body = createColossusBody(SIMPLE_BODY);
-    const pos = getBodyPartWorldPosition(body, 'torso', { x: 0, y: 0, z: 0 }, 0);
+    const pos = getBodyPartWorldPosition(body, "torso", { x: 0, y: 0, z: 0 }, 0);
     assert.equal(pos.x, 0);
     assert.equal(pos.y, 5);
     assert.equal(pos.z, 0);
   });
 
-  it('returns offset world position', () => {
+  it("returns offset world position", () => {
     const body = createColossusBody(SIMPLE_BODY);
-    const pos = getBodyPartWorldPosition(body, 'torso', { x: 10, y: 0, z: 10 }, 0);
+    const pos = getBodyPartWorldPosition(body, "torso", { x: 10, y: 0, z: 10 }, 0);
     assert.equal(pos.x, 10);
     assert.equal(pos.y, 5);
     assert.equal(pos.z, 10);
   });
 
-  it('rotates part position around Y axis', () => {
+  it("rotates part position around Y axis", () => {
     const body = createColossusBody(SIMPLE_BODY);
-    const pos = getBodyPartWorldPosition(body, 'torso', { x: 0, y: 0, z: 0 }, Math.PI);
+    const pos = getBodyPartWorldPosition(body, "torso", { x: 0, y: 0, z: 0 }, Math.PI);
     assert.ok(Math.abs(pos.x) < 0.001);
     assert.equal(pos.y, 5);
     assert.ok(Math.abs(pos.z) < 0.001);
   });
 
-  it('rotates offset part position correctly', () => {
+  it("rotates offset part position correctly", () => {
     const body = createColossusBody(SIMPLE_BODY);
-    const pos = getBodyPartWorldPosition(body, 'left_arm', { x: 0, y: 0, z: 0 }, 0);
-    assert.ok(Math.abs(pos.x - (-3)) < 0.001);
+    const pos = getBodyPartWorldPosition(body, "left_arm", { x: 0, y: 0, z: 0 }, 0);
+    assert.ok(Math.abs(pos.x - -3) < 0.001);
     assert.equal(pos.y, 6);
     assert.ok(Math.abs(pos.z) < 0.001);
   });
 });
 
-describe('findNearestWeakPoint', () => {
+describe("findNearestWeakPoint", () => {
   function makeWP(overrides = {}) {
     return {
-      id: 'wp1',
+      id: "wp1",
       position: { x: 0, y: 10, z: -3 },
       isDestroyed: false,
       isActive: true,
@@ -246,60 +272,63 @@ describe('findNearestWeakPoint', () => {
     };
   }
 
-  it('returns null when weak points array is empty', () => {
+  it("returns null when weak points array is empty", () => {
     const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, [], 5);
     assert.strictEqual(result, null);
   });
 
-  it('returns nearest active weak point within range', () => {
+  it("returns nearest active weak point within range", () => {
     const weakPoints = [
-      makeWP({ id: 'far', position: { x: 0, y: 10, z: -10 } }),
-      makeWP({ id: 'near', position: { x: 0, y: 10, z: -2 } }),
+      makeWP({ id: "far", position: { x: 0, y: 10, z: -10 } }),
+      makeWP({ id: "near", position: { x: 0, y: 10, z: -2 } }),
     ];
     const result = findNearestWeakPoint({ x: 0, y: 10, z: 0 }, weakPoints, 5);
     assert.ok(result !== null);
-    assert.strictEqual(result.id, 'near');
+    assert.strictEqual(result.id, "near");
   });
 
-  it('returns null when no weak points within range', () => {
+  it("returns null when no weak points within range", () => {
     const weakPoints = [makeWP({ position: { x: 100, y: 100, z: 100 } })];
     const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
     assert.strictEqual(result, null);
   });
 
-  it('skips destroyed weak points', () => {
+  it("skips destroyed weak points", () => {
     const weakPoints = [
-      makeWP({ id: 'destroyed', position: { x: 0, y: 0, z: -1 }, isDestroyed: true, isActive: false }),
+      makeWP({
+        id: "destroyed",
+        position: { x: 0, y: 0, z: -1 },
+        isDestroyed: true,
+        isActive: false,
+      }),
     ];
     const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
     assert.strictEqual(result, null);
   });
 
-  it('skips inactive weak points', () => {
+  it("skips inactive weak points", () => {
     const weakPoints = [
-      makeWP({ id: 'inactive', position: { x: 0, y: 0, z: -1 }, isActive: false }),
+      makeWP({ id: "inactive", position: { x: 0, y: 0, z: -1 }, isActive: false }),
     ];
     const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
     assert.strictEqual(result, null);
   });
 
-  it('does not return weak point exactly at maxDistance', () => {
+  it("does not return weak point exactly at maxDistance", () => {
     const weakPoints = [makeWP({ position: { x: 5, y: 0, z: 0 } })];
     const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
     assert.strictEqual(result, null);
   });
 
-  it('returns weak point just inside maxDistance', () => {
+  it("returns weak point just inside maxDistance", () => {
     const weakPoints = [makeWP({ position: { x: 4.9, y: 0, z: 0 } })];
     const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
     assert.ok(result !== null);
-    assert.strictEqual(result.id, 'wp1');
+    assert.strictEqual(result.id, "wp1");
   });
 
-  it('considers all three axes for distance', () => {
-    const weakPoints = [
-      makeWP({ position: { x: 1, y: 1, z: 1 } }),
-    ];
+  it("considers all three axes for distance", () => {
+    const weakPoints = [makeWP({ position: { x: 1, y: 1, z: 1 } })];
     const result = findNearestWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 2);
     const expectedDist = Math.sqrt(3);
     assert.ok(result !== null);
@@ -307,10 +336,10 @@ describe('findNearestWeakPoint', () => {
   });
 });
 
-describe('isNearWeakPoint', () => {
+describe("isNearWeakPoint", () => {
   function makeWP(overrides = {}) {
     return {
-      id: 'wp1',
+      id: "wp1",
       position: { x: 0, y: 10, z: -3 },
       isDestroyed: false,
       isActive: true,
@@ -318,42 +347,42 @@ describe('isNearWeakPoint', () => {
     };
   }
 
-  it('returns false when no weak points', () => {
+  it("returns false when no weak points", () => {
     const result = isNearWeakPoint({ x: 0, y: 0, z: 0 }, [], 5);
     assert.strictEqual(result.near, false);
     assert.strictEqual(result.weakPointId, null);
   });
 
-  it('returns true and weak point id when within radius', () => {
-    const weakPoints = [makeWP({ id: 'head', position: { x: 0, y: 0, z: -2 } })];
+  it("returns true and weak point id when within radius", () => {
+    const weakPoints = [makeWP({ id: "head", position: { x: 0, y: 0, z: -2 } })];
     const result = isNearWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 3);
     assert.strictEqual(result.near, true);
-    assert.strictEqual(result.weakPointId, 'head');
+    assert.strictEqual(result.weakPointId, "head");
   });
 
-  it('returns false when outside radius', () => {
-    const weakPoints = [makeWP({ id: 'head', position: { x: 0, y: 0, z: -10 } })];
+  it("returns false when outside radius", () => {
+    const weakPoints = [makeWP({ id: "head", position: { x: 0, y: 0, z: -10 } })];
     const result = isNearWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 3);
     assert.strictEqual(result.near, false);
     assert.strictEqual(result.weakPointId, null);
   });
 
-  it('returns false for destroyed weak points', () => {
+  it("returns false for destroyed weak points", () => {
     const weakPoints = [
-      makeWP({ id: 'head', position: { x: 0, y: 0, z: -2 }, isDestroyed: true, isActive: false }),
+      makeWP({ id: "head", position: { x: 0, y: 0, z: -2 }, isDestroyed: true, isActive: false }),
     ];
     const result = isNearWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 3);
     assert.strictEqual(result.near, false);
     assert.strictEqual(result.weakPointId, null);
   });
 
-  it('returns nearest when multiple within radius', () => {
+  it("returns nearest when multiple within radius", () => {
     const weakPoints = [
-      makeWP({ id: 'back_1', position: { x: 0, y: 0, z: -4 } }),
-      makeWP({ id: 'back_2', position: { x: 0, y: 0, z: -1 } }),
+      makeWP({ id: "back_1", position: { x: 0, y: 0, z: -4 } }),
+      makeWP({ id: "back_2", position: { x: 0, y: 0, z: -1 } }),
     ];
     const result = isNearWeakPoint({ x: 0, y: 0, z: 0 }, weakPoints, 5);
     assert.strictEqual(result.near, true);
-    assert.strictEqual(result.weakPointId, 'back_2');
+    assert.strictEqual(result.weakPointId, "back_2");
   });
 });

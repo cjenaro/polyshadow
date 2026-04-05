@@ -1,7 +1,7 @@
-import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 
 const BLOOM_ENABLE_THRESHOLD = 0.05;
 const LERP_SPEED = 3.0;
@@ -19,7 +19,7 @@ export function createPostProcessState() {
     bloomIntensity: 0,
     bloomThreshold: 1.0,
     vignetteAmount: 0.3,
-    colorGrade: 'warm',
+    colorGrade: "warm",
     warmTint: 0,
     desaturationFactor: 0,
   };
@@ -33,7 +33,7 @@ export function updatePostProcessState(state, config, dt) {
   const vignetteAmount = clamp01(lerp(state.vignetteAmount, config.vignetteAmount, t));
 
   const targetColorGrade = config.colorGrade;
-  const isWarm = targetColorGrade === 'warm';
+  const isWarm = targetColorGrade === "warm";
   const warmTint = lerp(state.warmTint, isWarm ? 0.8 : 0.0, t);
   const desaturationFactor = lerp(state.desaturationFactor, isWarm ? 0.0 : 0.6, t);
 
@@ -41,7 +41,7 @@ export function updatePostProcessState(state, config, dt) {
     bloomIntensity,
     bloomThreshold,
     vignetteAmount,
-    colorGrade: bloomIntensity > BLOOM_ENABLE_THRESHOLD ? 'desaturated' : targetColorGrade,
+    colorGrade: bloomIntensity > BLOOM_ENABLE_THRESHOLD ? "desaturated" : targetColorGrade,
     warmTint,
     desaturationFactor,
   };
@@ -68,7 +68,7 @@ export function createBloomPipeline(rendererImpl, sceneImpl, cameraImpl) {
     new THREE.Vector2(window.innerWidth, window.innerHeight),
     0.5,
     0.4,
-    0.85
+    0.85,
   );
   composer.addPass(bloomPass);
 

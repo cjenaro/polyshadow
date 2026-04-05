@@ -1,16 +1,16 @@
-import { lerp, clamp, smoothstep, randomRange } from '../utils/math.js';
+import { lerp, clamp, smoothstep, randomRange } from "../utils/math.js";
 
 export const DEATH_PHASES = {
-  KNEEL: 'kneel',
-  COLLAPSE: 'collapse',
-  DISSOLVE: 'dissolve',
-  FALLEN: 'fallen',
+  KNEEL: "kneel",
+  COLLAPSE: "collapse",
+  DISSOLVE: "dissolve",
+  FALLEN: "fallen",
 };
 
 export const COLOSSUS_TYPES = {
-  SENTINEL: 'sentinel',
-  WRAITH: 'wraith',
-  TITAN: 'titan',
+  SENTINEL: "sentinel",
+  WRAITH: "wraith",
+  TITAN: "titan",
 };
 
 const KNEEL_DURATION = 2;
@@ -22,23 +22,29 @@ const FALLEN_START = DISSOLVE_START + DISSOLVE_DURATION;
 
 const LIMB_PARTS = {
   sentinel: new Set([
-    'front_left_upper', 'front_left_lower',
-    'front_right_upper', 'front_right_lower',
-    'back_left_upper', 'back_left_lower',
-    'back_right_upper', 'back_right_lower',
+    "front_left_upper",
+    "front_left_lower",
+    "front_right_upper",
+    "front_right_lower",
+    "back_left_upper",
+    "back_left_lower",
+    "back_right_upper",
+    "back_right_lower",
   ]),
-  wraith: new Set([
-    'left_wing', 'right_wing',
-  ]),
+  wraith: new Set(["left_wing", "right_wing"]),
   titan: new Set([
-    'left_leg_front', 'left_leg_rear',
-    'right_leg_front', 'right_leg_rear',
-    'left_claw_upper', 'left_claw_lower',
-    'right_claw_upper', 'right_claw_lower',
+    "left_leg_front",
+    "left_leg_rear",
+    "right_leg_front",
+    "right_leg_rear",
+    "left_claw_upper",
+    "left_claw_lower",
+    "right_claw_upper",
+    "right_claw_lower",
   ]),
 };
 
-const HEAD_PARTS = new Set(['head']);
+const HEAD_PARTS = new Set(["head"]);
 
 const DEFAULT_COLLOSSUS_TYPE = COLOSSUS_TYPES.SENTINEL;
 
@@ -133,7 +139,11 @@ export function getPartTransform(partId, basePosition, baseRotation, state) {
       }
     }
 
-    if (state.phase === DEATH_PHASES.COLLAPSE || state.phase === DEATH_PHASES.DISSOLVE || state.phase === DEATH_PHASES.FALLEN) {
+    if (
+      state.phase === DEATH_PHASES.COLLAPSE ||
+      state.phase === DEATH_PHASES.DISSOLVE ||
+      state.phase === DEATH_PHASES.FALLEN
+    ) {
       const collapseT = clamp((state.timer - COLLAPSE_START) / COLLAPSE_DURATION, 0, 1);
       const collapseEased = smoothstep(0, 1, collapseT);
 

@@ -1,9 +1,9 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
-import { noise2D, noise3D, fbm2D, fbm3D } from './noise.js';
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import { noise2D, noise3D, fbm2D, fbm3D } from "./noise.js";
 
-describe('noise2D', () => {
-  it('returns values in [-1, 1]', () => {
+describe("noise2D", () => {
+  it("returns values in [-1, 1]", () => {
     for (let i = 0; i < 200; i++) {
       const x = (i * 0.37) % 100;
       const y = (i * 0.53) % 100;
@@ -12,13 +12,13 @@ describe('noise2D', () => {
     }
   });
 
-  it('returns same value for same input (deterministic)', () => {
+  it("returns same value for same input (deterministic)", () => {
     const a = noise2D(1.5, 2.5);
     const b = noise2D(1.5, 2.5);
     assert.equal(a, b);
   });
 
-  it('different inputs give different values', () => {
+  it("different inputs give different values", () => {
     const vals = new Set();
     for (let i = 0; i < 50; i++) {
       vals.add(noise2D(i * 1.7, i * 2.3));
@@ -26,7 +26,7 @@ describe('noise2D', () => {
     assert.ok(vals.size > 40, `only ${vals.size} unique values from 50 inputs`);
   });
 
-  it('nearby points give similar values (smooth)', () => {
+  it("nearby points give similar values (smooth)", () => {
     const step = 0.001;
     for (let i = 0; i < 20; i++) {
       const x = i * 3.7;
@@ -35,14 +35,14 @@ describe('noise2D', () => {
       const b = noise2D(x + step, y + step);
       assert.ok(
         Math.abs(a - b) < 0.01,
-        `large jump at (${x},${y}): ${a} vs ${b}, diff=${Math.abs(a - b)}`
+        `large jump at (${x},${y}): ${a} vs ${b}, diff=${Math.abs(a - b)}`,
       );
     }
   });
 });
 
-describe('noise3D', () => {
-  it('returns values in [-1, 1]', () => {
+describe("noise3D", () => {
+  it("returns values in [-1, 1]", () => {
     for (let i = 0; i < 200; i++) {
       const x = (i * 0.37) % 100;
       const y = (i * 0.53) % 100;
@@ -52,13 +52,13 @@ describe('noise3D', () => {
     }
   });
 
-  it('returns same value for same input (deterministic)', () => {
+  it("returns same value for same input (deterministic)", () => {
     const a = noise3D(1.5, 2.5, 3.5);
     const b = noise3D(1.5, 2.5, 3.5);
     assert.equal(a, b);
   });
 
-  it('nearby points give similar values (smooth)', () => {
+  it("nearby points give similar values (smooth)", () => {
     const step = 0.001;
     for (let i = 0; i < 20; i++) {
       const x = i * 3.7;
@@ -66,16 +66,13 @@ describe('noise3D', () => {
       const z = i * 1.3;
       const a = noise3D(x, y, z);
       const b = noise3D(x + step, y + step, z + step);
-      assert.ok(
-        Math.abs(a - b) < 0.01,
-        `large jump at (${x},${y},${z}): ${a} vs ${b}`
-      );
+      assert.ok(Math.abs(a - b) < 0.01, `large jump at (${x},${y},${z}): ${a} vs ${b}`);
     }
   });
 });
 
-describe('fbm2D', () => {
-  it('returns values in expected range', () => {
+describe("fbm2D", () => {
+  it("returns values in expected range", () => {
     for (let i = 0; i < 100; i++) {
       const x = (i * 0.37) % 100;
       const y = (i * 0.53) % 100;
@@ -84,7 +81,7 @@ describe('fbm2D', () => {
     }
   });
 
-  it('produces more detail than single noise call', () => {
+  it("produces more detail than single noise call", () => {
     let singleVar = 0;
     let fbmVar = 0;
     const samples = 200;
@@ -100,19 +97,19 @@ describe('fbm2D', () => {
     fbmVar /= samples;
     assert.ok(
       fbmVar > singleVar * 0.8,
-      `fbm variation (${fbmVar}) not greater than single noise (${singleVar})`
+      `fbm variation (${fbmVar}) not greater than single noise (${singleVar})`,
     );
   });
 
-  it('is deterministic', () => {
+  it("is deterministic", () => {
     const a = fbm2D(5, 10, 4, 2, 0.5);
     const b = fbm2D(5, 10, 4, 2, 0.5);
     assert.equal(a, b);
   });
 });
 
-describe('fbm3D', () => {
-  it('returns values in expected range', () => {
+describe("fbm3D", () => {
+  it("returns values in expected range", () => {
     for (let i = 0; i < 100; i++) {
       const x = (i * 0.37) % 100;
       const y = (i * 0.53) % 100;

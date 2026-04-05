@@ -1,4 +1,4 @@
-export const AO_CURVE = [0.45, 0.65, 0.80, 1.0];
+export const AO_CURVE = [0.45, 0.65, 0.8, 1.0];
 
 const VOXEL_FOG_DENSITY_MULTIPLIER = 1.3;
 const DEFAULT_SCENE_FOG_DENSITY = 0.005;
@@ -26,8 +26,14 @@ export function updateBloomForVoxels(base = {}) {
   const baseIntensity = base.bloomIntensity ?? DEFAULT_BLOOM_INTENSITY;
   const baseThreshold = base.bloomThreshold ?? DEFAULT_BLOOM_THRESHOLD;
   return {
-    bloomThreshold: Math.min(Math.max(baseThreshold, VOXEL_BLOOM_THRESHOLD), VOXEL_BLOOM_THRESHOLD_MAX),
-    bloomIntensity: Math.min(baseIntensity * VOXEL_BLOOM_INTENSITY_MULTIPLIER, VOXEL_BLOOM_INTENSITY_MAX),
+    bloomThreshold: Math.min(
+      Math.max(baseThreshold, VOXEL_BLOOM_THRESHOLD),
+      VOXEL_BLOOM_THRESHOLD_MAX,
+    ),
+    bloomIntensity: Math.min(
+      baseIntensity * VOXEL_BLOOM_INTENSITY_MULTIPLIER,
+      VOXEL_BLOOM_INTENSITY_MAX,
+    ),
   };
 }
 

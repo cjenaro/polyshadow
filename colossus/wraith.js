@@ -1,7 +1,7 @@
-import { vec3Add, vec3Scale, distance3D, lerp } from '../utils/math.js';
-import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from './base.js';
-import { moveToward2D, moveToward3D } from './steering.js';
-import { generateNormalMapData } from '../utils/normal-map.js';
+import { vec3Add, vec3Scale, distance3D, lerp } from "../utils/math.js";
+import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from "./base.js";
+import { moveToward2D, moveToward3D } from "./steering.js";
+import { generateNormalMapData } from "../utils/normal-map.js";
 
 export const WIND_WRAITH_SCALE = 30;
 
@@ -32,67 +32,114 @@ export function createWraithDefinition() {
 
   const parts = [
     {
-      id: 'neck', name: 'Neck', type: 'core',
+      id: "neck",
+      name: "Neck",
+      type: "core",
       position: { x: 0, y: neckY, z: neckZ },
       dimensions: { width: bodyW * 0.8, height: bodyH * 0.9, depth: neckLen },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: null, isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
+      parent: null,
+      isClimbable: true,
+      isWeakPoint: false,
+      isRestSpot: true,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'chest', name: 'Chest', type: 'core',
+      id: "chest",
+      name: "Chest",
+      type: "core",
       position: { x: 0, y: S * 0.55, z: chestZ },
       dimensions: { width: bodyW, height: bodyH, depth: bodyLen * 0.4 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'neck', isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
+      parent: "neck",
+      isClimbable: true,
+      isWeakPoint: false,
+      isRestSpot: true,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'tail_base', name: 'Tail Base', type: 'core',
+      id: "tail_base",
+      name: "Tail Base",
+      type: "core",
       position: { x: 0, y: S * 0.4, z: tailBaseZ },
       dimensions: { width: bodyW * 0.85, height: bodyH * 0.85, depth: bodyLen * 0.25 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'chest', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "chest",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'tail_mid', name: 'Tail Mid', type: 'core',
+      id: "tail_mid",
+      name: "Tail Mid",
+      type: "core",
       position: { x: 0, y: S * 0.2, z: tailMidZ },
       dimensions: { width: bodyW * 0.6, height: bodyH * 0.7, depth: bodyLen * 0.25 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'tail_base', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "tail_base",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'tail_tip', name: 'Tail Tip', type: 'core',
+      id: "tail_tip",
+      name: "Tail Tip",
+      type: "core",
       position: { x: 0, y: S * 0.05, z: tailTipZ },
       dimensions: { width: bodyW * 0.35, height: bodyH * 0.5, depth: bodyLen * 0.2 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'tail_mid', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "tail_mid",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'head', name: 'Head', type: 'head',
+      id: "head",
+      name: "Head",
+      type: "head",
       position: { x: 0, y: headY, z: headZ },
       dimensions: { width: headSize, height: headSize, depth: headSize * 1.3 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'neck', isClimbable: false, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "neck",
+      isClimbable: false,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'left_wing', name: 'Left Wing', type: 'limb_upper',
+      id: "left_wing",
+      name: "Left Wing",
+      type: "limb_upper",
       position: { x: -(bodyW * 0.5 + wingW * 0.5), y: neckY + wingH * 0.5, z: wingZ },
       dimensions: { width: wingW, height: wingH, depth: wingD },
       rotation: { x: 0, y: 0, z: 0.05 },
-      parent: 'chest', isClimbable: true, isWeakPoint: true, healthMultiplier: 2.0,
+      parent: "chest",
+      isClimbable: true,
+      isWeakPoint: true,
+      healthMultiplier: 2.0,
     },
     {
-      id: 'right_wing', name: 'Right Wing', type: 'limb_upper',
+      id: "right_wing",
+      name: "Right Wing",
+      type: "limb_upper",
       position: { x: bodyW * 0.5 + wingW * 0.5, y: neckY + wingH * 0.5, z: wingZ },
       dimensions: { width: wingW, height: wingH, depth: wingD },
       rotation: { x: 0, y: 0, z: -0.05 },
-      parent: 'chest', isClimbable: true, isWeakPoint: true, healthMultiplier: 2.0,
+      parent: "chest",
+      isClimbable: true,
+      isWeakPoint: true,
+      healthMultiplier: 2.0,
     },
     {
-      id: 'neck_rune', name: 'Neck Rune', type: 'core',
+      id: "neck_rune",
+      name: "Neck Rune",
+      type: "core",
       position: { x: 0, y: neckY + bodyH * 0.55, z: neckZ - neckLen * 0.15 },
       dimensions: { width: bodyW * 0.3, height: bodyH * 0.15, depth: 0.1 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'neck', isClimbable: false, isWeakPoint: true, healthMultiplier: 3.0,
+      parent: "neck",
+      isClimbable: false,
+      isWeakPoint: true,
+      healthMultiplier: 3.0,
     },
   ];
 
@@ -237,12 +284,12 @@ export function buildWraithCombatWeakPoints(definition, colossusPosition, coloss
 }
 
 export const WraithState = {
-  IDLE: 'idle',
-  CIRCLING: 'circling',
-  SWOOPING: 'swooping',
-  CLIMBING_BACK: 'climbing_back',
-  STUNNED: 'stunned',
-  DYING: 'dying',
+  IDLE: "idle",
+  CIRCLING: "circling",
+  SWOOPING: "swooping",
+  CLIMBING_BACK: "climbing_back",
+  STUNNED: "stunned",
+  DYING: "dying",
 };
 
 export const WRAITH_BEHAVIOR_CONFIG = {
@@ -320,8 +367,12 @@ export function updateWraithBehavior(aiState, config, deltaTime, playerPosition,
 
   if (state.state === WraithState.CIRCLING) {
     const dist = distance3D(
-      colossusPosition.x, colossusPosition.y, colossusPosition.z,
-      playerPosition.x, playerPosition.y, playerPosition.z
+      colossusPosition.x,
+      colossusPosition.y,
+      colossusPosition.z,
+      playerPosition.x,
+      playerPosition.y,
+      playerPosition.z,
     );
 
     if (dist <= config.detectionRange && state.attackCooldown <= 0) {
@@ -340,7 +391,12 @@ export function updateWraithBehavior(aiState, config, deltaTime, playerPosition,
     const targetX = cx + Math.cos(angle) * config.patrolRadius;
     const targetZ = cz + Math.sin(angle) * config.patrolRadius;
 
-    state.position = moveToward2D(colossusPosition, { x: targetX, z: targetZ }, config.patrolSpeed, deltaTime);
+    state.position = moveToward2D(
+      colossusPosition,
+      { x: targetX, z: targetZ },
+      config.patrolSpeed,
+      deltaTime,
+    );
     state.position.y = state.altitude;
     state.rotation = faceToward(colossusPosition, { x: targetX, z: targetZ });
     state.stateTimer += deltaTime;
@@ -376,8 +432,12 @@ export function updateWraithBehavior(aiState, config, deltaTime, playerPosition,
 
     let shouldAttack = false;
     const dist = distance3D(
-      state.position.x, state.position.y, state.position.z,
-      playerPosition.x, playerPosition.y, playerPosition.z
+      state.position.x,
+      state.position.y,
+      state.position.z,
+      playerPosition.x,
+      playerPosition.y,
+      playerPosition.z,
     );
     if (dist <= config.attackRange && state.attackCooldown <= 0) {
       shouldAttack = true;
@@ -484,10 +544,12 @@ export function getWraithStunProgress(aiState) {
 }
 
 export function isWraithClimbable(aiState) {
-  return aiState.state === WraithState.CIRCLING ||
-         aiState.state === WraithState.SWOOPING ||
-         aiState.state === WraithState.CLIMBING_BACK ||
-         aiState.state === WraithState.STUNNED;
+  return (
+    aiState.state === WraithState.CIRCLING ||
+    aiState.state === WraithState.SWOOPING ||
+    aiState.state === WraithState.CLIMBING_BACK ||
+    aiState.state === WraithState.STUNNED
+  );
 }
 
 let _THREE = null;
@@ -505,12 +567,12 @@ let _colossusNormalMap = null;
 function getColossusNormalMap() {
   if (_colossusNormalMap) return _colossusNormalMap;
   const T = getTHREE();
-  if (!T || typeof document === 'undefined') return null;
+  if (!T || typeof document === "undefined") return null;
   const { data, width, height } = generateNormalMapData(256, 256, 0.15, 55, 1.5);
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   const imageData = ctx.createImageData(width, height);
   imageData.data.set(data);
   ctx.putImageData(imageData, 0, 0);
@@ -533,13 +595,13 @@ function createWraithMaterial(type) {
     ...(normalMap ? { normalMap, normalScale: new T.Vector2(0.4, 0.4) } : {}),
   };
 
-  if (type === 'wing') {
+  if (type === "wing") {
     return new T.MeshStandardMaterial({ ...base, color: 0xbbccdd, opacity: 0.65 });
   }
-  if (type === 'horn') {
+  if (type === "horn") {
     return new T.MeshStandardMaterial({ ...base, color: 0x99aabb, opacity: 0.85 });
   }
-  if (type === 'rune') {
+  if (type === "rune") {
     return new T.MeshStandardMaterial({
       ...base,
       color: 0x88ccff,
@@ -559,7 +621,7 @@ function createBodySegment(part) {
   const geometry = new T.SphereGeometry(radius, 16, 12, 0, Math.PI * 2, 0, Math.PI);
   geometry.scale(1, heightScale, 1);
 
-  const matType = id === 'neck_rune' ? 'rune' : 'body';
+  const matType = id === "neck_rune" ? "rune" : "body";
   const material = createWraithMaterial(matType);
   const mesh = new T.Mesh(geometry, material);
   mesh.position.set(pos.x, pos.y, pos.z);
@@ -576,7 +638,7 @@ function createHeadMesh(part) {
 
   const radius = dim.width / 2;
   const geometry = new T.SphereGeometry(radius, 16, 12);
-  const material = createWraithMaterial('body');
+  const material = createWraithMaterial("body");
   const mesh = new T.Mesh(geometry, material);
   mesh.position.set(pos.x, pos.y, pos.z);
   mesh.castShadow = true;
@@ -591,18 +653,30 @@ function createWingGeometry(dimensions) {
   const hd = dimensions.depth / 2;
 
   const vertices = new Float32Array([
-    0, 0, -hd,
-    0, 0, hd,
-    hw * 0.5, dimensions.height * 0.2, -hd * 0.9,
-    hw * 0.5, dimensions.height * 0.2, hd * 0.9,
-    hw, dimensions.height * 0.5, -hd * 0.7,
-    hw, dimensions.height * 0.5, hd * 0.7,
+    0,
+    0,
+    -hd,
+    0,
+    0,
+    hd,
+    hw * 0.5,
+    dimensions.height * 0.2,
+    -hd * 0.9,
+    hw * 0.5,
+    dimensions.height * 0.2,
+    hd * 0.9,
+    hw,
+    dimensions.height * 0.5,
+    -hd * 0.7,
+    hw,
+    dimensions.height * 0.5,
+    hd * 0.7,
   ]);
 
   const indices = [0, 1, 2, 1, 3, 2, 2, 3, 4, 3, 5, 4, 2, 4, 0];
 
   const geometry = new T.BufferGeometry();
-  geometry.setAttribute('position', new T.BufferAttribute(vertices, 3));
+  geometry.setAttribute("position", new T.BufferAttribute(vertices, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
 
@@ -614,12 +688,12 @@ function createWingMesh(part) {
   const { position: pos, dimensions: dim, id } = part;
 
   const geometry = createWingGeometry(dim);
-  const material = createWraithMaterial('wing');
+  const material = createWraithMaterial("wing");
   const mesh = new T.Mesh(geometry, material);
   mesh.position.set(pos.x, pos.y, pos.z);
   mesh.castShadow = true;
 
-  if (id === 'left_wing') {
+  if (id === "left_wing") {
     mesh.scale.x = -1;
   }
 
@@ -632,13 +706,13 @@ function createHornMeshes(headPart) {
   const hornHeight = WIND_WRAITH_SCALE * 0.12;
 
   const geometry = new T.ConeGeometry(hornRadius, hornHeight, 6);
-  const material = createWraithMaterial('horn');
+  const material = createWraithMaterial("horn");
 
   const leftHorn = new T.Mesh(geometry, material);
   leftHorn.position.set(
     headPart.position.x - headPart.dimensions.width * 0.3,
     headPart.position.y + headPart.dimensions.height * 0.4,
-    headPart.position.z + headPart.dimensions.depth * 0.2
+    headPart.position.z + headPart.dimensions.depth * 0.2,
   );
   leftHorn.rotation.z = 0.3;
   leftHorn.castShadow = true;
@@ -647,7 +721,7 @@ function createHornMeshes(headPart) {
   rightHorn.position.set(
     headPart.position.x + headPart.dimensions.width * 0.3,
     headPart.position.y + headPart.dimensions.height * 0.4,
-    headPart.position.z + headPart.dimensions.depth * 0.2
+    headPart.position.z + headPart.dimensions.depth * 0.2,
   );
   rightHorn.rotation.z = -0.3;
   rightHorn.castShadow = true;
@@ -665,18 +739,18 @@ export function createWraithMesh(definition) {
   for (const part of definition.parts) {
     let mesh;
 
-    if (part.type === 'head') {
+    if (part.type === "head") {
       mesh = createHeadMesh(part);
       const { leftHorn, rightHorn } = createHornMeshes(part);
       group.add(leftHorn);
       group.add(rightHorn);
-      meshByPart.set('left_horn', leftHorn);
-      meshByPart.set('right_horn', rightHorn);
+      meshByPart.set("left_horn", leftHorn);
+      meshByPart.set("right_horn", rightHorn);
       children.push(
-        { partId: 'left_horn', geometryType: 'cone' },
-        { partId: 'right_horn', geometryType: 'cone' }
+        { partId: "left_horn", geometryType: "cone" },
+        { partId: "right_horn", geometryType: "cone" },
       );
-    } else if (part.type === 'limb_upper') {
+    } else if (part.type === "limb_upper") {
       mesh = createWingMesh(part);
     } else {
       mesh = createBodySegment(part);
@@ -687,7 +761,7 @@ export function createWraithMesh(definition) {
     originalPositions.set(part.id, { x: part.position.x, y: part.position.y, z: part.position.z });
     children.push({
       partId: part.id,
-      geometryType: part.type === 'limb_upper' ? 'wing' : 'sphere',
+      geometryType: part.type === "limb_upper" ? "wing" : "sphere",
       position: { x: part.position.x, y: part.position.y, z: part.position.z },
       rotation: { x: part.rotation.x, y: part.rotation.y, z: part.rotation.z },
       material: {
@@ -703,8 +777,8 @@ export function createWraithMesh(definition) {
 export function animateWraith(mesh, time) {
   const { meshByPart, originalPositions } = mesh;
 
-  const leftWing = meshByPart.get('left_wing');
-  const rightWing = meshByPart.get('right_wing');
+  const leftWing = meshByPart.get("left_wing");
+  const rightWing = meshByPart.get("right_wing");
 
   if (leftWing) {
     leftWing.rotation.z = Math.sin(time * 2.5) * 0.4;
@@ -713,7 +787,7 @@ export function animateWraith(mesh, time) {
     rightWing.rotation.z = -Math.sin(time * 2.5) * 0.4;
   }
 
-  const bodySegments = ['neck', 'chest', 'tail_base', 'tail_mid', 'tail_tip'];
+  const bodySegments = ["neck", "chest", "tail_base", "tail_mid", "tail_tip"];
   for (let i = 0; i < bodySegments.length; i++) {
     const id = bodySegments[i];
     const segment = meshByPart.get(id);

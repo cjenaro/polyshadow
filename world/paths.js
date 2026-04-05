@@ -1,5 +1,5 @@
-import { lerp, clamp } from '../utils/math.js';
-import { noise2D } from '../utils/noise.js';
+import { lerp, clamp } from "../utils/math.js";
+import { noise2D } from "../utils/noise.js";
 
 export function createPath({ start, end, type, seed = 42, ...rest }) {
   return {
@@ -23,7 +23,7 @@ export function generatePathPoints(path) {
   const offsetX = seed * 0.137;
   const offsetZ = seed * 0.259;
 
-  if (type === 'stepping_stones') {
+  if (type === "stepping_stones") {
     points.push({ x: start.x, y: start.y, z: start.z });
     const stoneCount = count ?? 4;
     for (let i = 1; i <= stoneCount; i++) {
@@ -53,7 +53,7 @@ export function generatePathPoints(path) {
     const nz = baseZ * 0.02 + offsetZ;
 
     const distFromCenter = Math.abs(t - 0.5) * 2;
-    const curveFactor = type === 'bridge' ? (1 - distFromCenter) : 1;
+    const curveFactor = type === "bridge" ? 1 - distFromCenter : 1;
 
     points.push({
       x: baseX,
@@ -106,10 +106,10 @@ export function isOnPath(points, x, z, tolerance) {
 }
 
 export function getPathWidth(path, t) {
-  if (path.type === 'stepping_stones') {
+  if (path.type === "stepping_stones") {
     return (path.stoneRadius ?? 2) * 2;
   }
-  if (path.type === 'wind_glide') {
+  if (path.type === "wind_glide") {
     return path.width ?? 8;
   }
   const distFromCenter = Math.abs(t - 0.5) * 2;
@@ -120,7 +120,7 @@ export function createBridgePath(start, end, options = {}) {
   return createPath({
     start,
     end,
-    type: 'bridge',
+    type: "bridge",
     maxWidth: options.maxWidth ?? 3,
     minWidth: options.minWidth ?? 1,
     segments: options.segments ?? 20,
@@ -133,7 +133,7 @@ export function createSteppingStonesPath(start, end, count, options = {}) {
   return createPath({
     start,
     end,
-    type: 'stepping_stones',
+    type: "stepping_stones",
     count: count ?? 4,
     stoneRadius: options.stoneRadius ?? 2,
     seed: options.seed ?? 42,

@@ -1,4 +1,4 @@
-import { BlockType } from '../world/block-types.js';
+import { BlockType } from "../world/block-types.js";
 
 export function voxelBox(width, height, depth, blockType = BlockType.STONE) {
   const voxels = [];
@@ -68,7 +68,7 @@ export function voxelHollowBox(width, height, depth, thickness, blockType = Bloc
   if (thickness * 2 >= width && thickness * 2 >= height && thickness * 2 >= depth) {
     return solid;
   }
-  return solid.filter(v => {
+  return solid.filter((v) => {
     const hw = Math.floor(width / 2);
     const hh = Math.floor(height / 2);
     const hd = Math.floor(depth / 2);

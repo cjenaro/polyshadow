@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 
 const RAY_COUNT = 14;
 
@@ -57,7 +57,7 @@ export function createGodRaySystem(sunPos) {
     mesh.position.set(
       sunPos.x + Math.cos(angle) * tiltAmount * 30,
       sunPos.y - length * 0.4,
-      sunPos.z + Math.sin(angle) * tiltAmount * 30
+      sunPos.z + Math.sin(angle) * tiltAmount * 30,
     );
     mesh.rotation.x = Math.cos(angle) * tiltAmount;
     mesh.rotation.z = -Math.sin(angle) * tiltAmount;

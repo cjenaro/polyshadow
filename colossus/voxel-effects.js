@@ -1,11 +1,11 @@
-import { BlockType } from '../world/block-types.js';
-import { clamp } from '../utils/math.js';
+import { BlockType } from "../world/block-types.js";
+import { clamp } from "../utils/math.js";
 
 const HIT_COLORS = {
   [BlockType.STONE]: [0.55, 0.52, 0.48],
   [BlockType.RUNE_GLOW]: [0.0, 0.8, 1.0],
-  [BlockType.CRACKED_STONE]: [0.40, 0.38, 0.35],
-  [BlockType.MOSS_STONE]: [0.35, 0.50, 0.30],
+  [BlockType.CRACKED_STONE]: [0.4, 0.38, 0.35],
+  [BlockType.MOSS_STONE]: [0.35, 0.5, 0.3],
 };
 
 const DEFAULT_HIT_COLOR = [1.0, 1.0, 1.0];
@@ -28,16 +28,16 @@ const COLLAPSE_HEAD_FRACTION = 0.3;
 const DISSOLVE_SCATTER_SPEED_MIN = 3;
 const DISSOLVE_SCATTER_SPEED_MAX = 8;
 
-const LIMB_PATTERNS = ['leg', 'wing', 'claw'];
+const LIMB_PATTERNS = ["leg", "wing", "claw"];
 
 function isLimbPart(partId) {
-  return LIMB_PATTERNS.some(p => partId.includes(p));
+  return LIMB_PATTERNS.some((p) => partId.includes(p));
 }
 
 function getPartCategory(partId) {
-  if (partId === 'head') return 'head';
-  if (isLimbPart(partId)) return 'limb';
-  return 'body';
+  if (partId === "head") return "head";
+  if (isLimbPart(partId)) return "limb";
+  return "body";
 }
 
 function getCenterY(voxels, offset) {
@@ -60,7 +60,7 @@ function randomUnitSphere() {
 export function createVoxelHitEffect(blockType, position) {
   const color = HIT_COLORS[blockType] || DEFAULT_HIT_COLOR;
   return {
-    type: 'cube',
+    type: "cube",
     size: HIT_CUBE_SIZE,
     color,
     duration: HIT_DURATION,
@@ -84,17 +84,17 @@ export function createVoxelDamageNumbers(count, position) {
 export function createVoxelDeathSequence(voxelParts) {
   const partIds = Object.keys(voxelParts);
 
-  const kneelTransforms = partIds.map(partId => {
+  const kneelTransforms = partIds.map((partId) => {
     const part = voxelParts[partId];
     const category = getPartCategory(partId);
     const origY = part.offset.y;
     let newY = origY;
     let rotX = 0;
 
-    if (category === 'limb') {
+    if (category === "limb") {
       newY = origY - origY * KNEEL_LIMB_FRACTION;
       rotX = 0.3;
-    } else if (category === 'head') {
+    } else if (category === "head") {
       newY = origY - KNEEL_HEAD_FRACTION;
       rotX = 0.5;
     } else {
@@ -109,15 +109,15 @@ export function createVoxelDeathSequence(voxelParts) {
     };
   });
 
-  const collapseTransforms = partIds.map(partId => {
+  const collapseTransforms = partIds.map((partId) => {
     const part = voxelParts[partId];
     const category = getPartCategory(partId);
     const origY = part.offset.y;
     let targetY;
 
-    if (category === 'limb') {
+    if (category === "limb") {
       targetY = origY * COLLAPSE_LIMB_FRACTION;
-    } else if (category === 'head') {
+    } else if (category === "head") {
       targetY = origY * COLLAPSE_HEAD_FRACTION;
     } else {
       targetY = origY * COLLAPSE_BODY_FRACTION;
@@ -127,7 +127,7 @@ export function createVoxelDeathSequence(voxelParts) {
       partId,
       position: { x: part.offset.x, y: targetY, z: part.offset.z },
       rotation: {
-        x: category === 'head' ? 1.2 : (category === 'limb' ? 0.3 : 0),
+        x: category === "head" ? 1.2 : category === "limb" ? 0.3 : 0,
         y: Math.random() * 0.4 - 0.2,
         z: Math.random() * 0.2 - 0.1,
       },
@@ -135,11 +135,13 @@ export function createVoxelDeathSequence(voxelParts) {
     };
   });
 
-  const dissolveTransforms = partIds.map(partId => {
+  const dissolveTransforms = partIds.map((partId) => {
     const part = voxelParts[partId];
-    const scatterVoxels = part.voxels.map(v => {
+    const scatterVoxels = part.voxels.map((v) => {
       const dir = randomUnitSphere();
-      const speed = DISSOLVE_SCATTER_SPEED_MIN + Math.random() * (DISSOLVE_SCATTER_SPEED_MAX - DISSOLVE_SCATTER_SPEED_MIN);
+      const speed =
+        DISSOLVE_SCATTER_SPEED_MIN +
+        Math.random() * (DISSOLVE_SCATTER_SPEED_MAX - DISSOLVE_SCATTER_SPEED_MIN);
       return {
         position: { x: v.x + part.offset.x, y: v.y + part.offset.y, z: v.z + part.offset.z },
         velocity: { x: dir.x * speed, y: dir.y * speed, z: dir.z * speed },
@@ -155,7 +157,7 @@ export function createVoxelDeathSequence(voxelParts) {
     };
   });
 
-  const fallenTransforms = partIds.map(partId => {
+  const fallenTransforms = partIds.map((partId) => {
     const part = voxelParts[partId];
     return {
       partId,
@@ -166,15 +168,15 @@ export function createVoxelDeathSequence(voxelParts) {
   });
 
   return [
-    { phase: 'kneel', duration: KNEEL_DURATION, transforms: kneelTransforms },
-    { phase: 'collapse', duration: COLLAPSE_DURATION, transforms: collapseTransforms },
-    { phase: 'dissolve', duration: DISSOLVE_DURATION, transforms: dissolveTransforms },
-    { phase: 'fallen', duration: FALLEN_DURATION, transforms: fallenTransforms },
+    { phase: "kneel", duration: KNEEL_DURATION, transforms: kneelTransforms },
+    { phase: "collapse", duration: COLLAPSE_DURATION, transforms: collapseTransforms },
+    { phase: "dissolve", duration: DISSOLVE_DURATION, transforms: dissolveTransforms },
+    { phase: "fallen", duration: FALLEN_DURATION, transforms: fallenTransforms },
   ];
 }
 
 export function createVoxelWeakPointDestroy(voxels, position) {
-  const removedVoxels = voxels.filter(v => v.blockType === BlockType.RUNE_GLOW);
+  const removedVoxels = voxels.filter((v) => v.blockType === BlockType.RUNE_GLOW);
   const particles = [];
 
   for (const rv of removedVoxels) {
@@ -193,7 +195,7 @@ export function createVoxelWeakPointDestroy(voxels, position) {
   }
 
   return {
-    removedVoxels: removedVoxels.map(v => ({ x: v.x, y: v.y, z: v.z })),
+    removedVoxels: removedVoxels.map((v) => ({ x: v.x, y: v.y, z: v.z })),
     replacementType: BlockType.CRACKED_STONE,
     particles,
   };
@@ -210,7 +212,12 @@ export function createVoxelHealthOpacity(partVoxels, healthPercent) {
   const allVoxels = [];
   for (const [partId, part] of Object.entries(partVoxels)) {
     for (const v of part.voxels) {
-      allVoxels.push({ x: v.x + part.offset.x, y: v.y + part.offset.y, z: v.z + part.offset.z, partId });
+      allVoxels.push({
+        x: v.x + part.offset.x,
+        y: v.y + part.offset.y,
+        z: v.z + part.offset.z,
+        partId,
+      });
     }
   }
 
@@ -218,7 +225,9 @@ export function createVoxelHealthOpacity(partVoxels, healthPercent) {
     return { darken: [], remove: [] };
   }
 
-  let cx = 0, cy = 0, cz = 0;
+  let cx = 0,
+    cy = 0,
+    cz = 0;
   for (const v of allVoxels) {
     cx += v.x;
     cy += v.y;
@@ -236,11 +245,13 @@ export function createVoxelHealthOpacity(partVoxels, healthPercent) {
 
   const damageFraction = 1 - hp / 100;
   const removeThreshold = damageFraction > 0.7;
-  const removeCount = removeThreshold ? Math.floor((damageFraction - 0.7) / 0.3 * allVoxels.length * 0.3) : 0;
+  const removeCount = removeThreshold
+    ? Math.floor(((damageFraction - 0.7) / 0.3) * allVoxels.length * 0.3)
+    : 0;
   const darkenCount = Math.floor(damageFraction * allVoxels.length * 0.5);
 
-  const darken = allVoxels.slice(0, darkenCount).map(v => ({ x: v.x, y: v.y, z: v.z }));
-  const remove = allVoxels.slice(0, removeCount).map(v => ({ x: v.x, y: v.y, z: v.z }));
+  const darken = allVoxels.slice(0, darkenCount).map((v) => ({ x: v.x, y: v.y, z: v.z }));
+  const remove = allVoxels.slice(0, removeCount).map((v) => ({ x: v.x, y: v.y, z: v.z }));
 
   return { darken, remove };
 }

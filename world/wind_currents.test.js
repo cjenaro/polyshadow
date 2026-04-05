@@ -1,5 +1,5 @@
-import { describe, it } from 'node:test';
-import assert from 'node:assert/strict';
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import {
   createWindCurrent,
   generateWindCurrentPath,
@@ -14,10 +14,10 @@ import {
   isInAnyCurrent,
   fadeOutCurrent,
   isCurrentFaded,
-} from './wind_currents.js';
+} from "./wind_currents.js";
 
-describe('createWindCurrent', () => {
-  it('creates a wind current with required properties', () => {
+describe("createWindCurrent", () => {
+  it("creates a wind current with required properties", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 30, z: 50 },
@@ -31,7 +31,7 @@ describe('createWindCurrent', () => {
     assert.equal(current.width, 10);
   });
 
-  it('has initial phase 0 and time 0', () => {
+  it("has initial phase 0 and time 0", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 30, z: 50 },
@@ -42,28 +42,28 @@ describe('createWindCurrent', () => {
     assert.equal(current.active, true);
   });
 
-  it('uses defaults when params omitted', () => {
+  it("uses defaults when params omitted", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 30, z: 50 },
     });
-    assert.ok(typeof current.strength === 'number');
-    assert.ok(typeof current.width === 'number');
+    assert.ok(typeof current.strength === "number");
+    assert.ok(typeof current.width === "number");
     assert.ok(current.strength > 0);
     assert.ok(current.width > 0);
   });
 
-  it('auto-generates and caches path points', () => {
+  it("auto-generates and caches path points", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 30, z: 50 },
       seed: 42,
     });
-    assert.ok(Array.isArray(current.points), 'points should be auto-generated');
-    assert.ok(current.points.length > 0, 'points should not be empty');
+    assert.ok(Array.isArray(current.points), "points should be auto-generated");
+    assert.ok(current.points.length > 0, "points should not be empty");
   });
 
-  it('cached points match generateWindCurrentPath output', () => {
+  it("cached points match generateWindCurrentPath output", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 30, z: 50 },
@@ -79,8 +79,8 @@ describe('createWindCurrent', () => {
   });
 });
 
-describe('generateWindCurrentPath', () => {
-  it('returns an array of 3D points', () => {
+describe("generateWindCurrentPath", () => {
+  it("returns an array of 3D points", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 30, z: 50 },
@@ -91,13 +91,13 @@ describe('generateWindCurrentPath', () => {
     assert.ok(Array.isArray(points));
     assert.ok(points.length > 0);
     for (const p of points) {
-      assert.ok(typeof p.x === 'number');
-      assert.ok(typeof p.y === 'number');
-      assert.ok(typeof p.z === 'number');
+      assert.ok(typeof p.x === "number");
+      assert.ok(typeof p.y === "number");
+      assert.ok(typeof p.z === "number");
     }
   });
 
-  it('first point is near start', () => {
+  it("first point is near start", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 30, z: 50 },
@@ -111,7 +111,7 @@ describe('generateWindCurrentPath', () => {
     assert.ok(Math.abs(first.z - 0) < 0.5);
   });
 
-  it('last point is near end', () => {
+  it("last point is near end", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 30, z: 50 },
@@ -125,7 +125,7 @@ describe('generateWindCurrentPath', () => {
     assert.ok(Math.abs(last.z - 50) < 0.5);
   });
 
-  it('is deterministic with same seed', () => {
+  it("is deterministic with same seed", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 30, z: 50 },
@@ -148,7 +148,7 @@ describe('generateWindCurrentPath', () => {
     }
   });
 
-  it('different seeds produce different paths', () => {
+  it("different seeds produce different paths", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 30, z: 50 },
@@ -165,14 +165,17 @@ describe('generateWindCurrentPath', () => {
     const p2 = generateWindCurrentPath(c2);
     let diff = false;
     for (let i = 0; i < p1.length; i++) {
-      if (p1[i].y !== p2[i].y) { diff = true; break; }
+      if (p1[i].y !== p2[i].y) {
+        diff = true;
+        break;
+      }
     }
-    assert.ok(diff, 'different seeds should produce different paths');
+    assert.ok(diff, "different seeds should produce different paths");
   });
 });
 
-describe('isInWindCurrent', () => {
-  it('returns true for a point on the wind path center', () => {
+describe("isInWindCurrent", () => {
+  it("returns true for a point on the wind path center", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -183,7 +186,7 @@ describe('isInWindCurrent', () => {
     assert.ok(isInWindCurrent(current, { x: 50, y: 20, z: 0 }));
   });
 
-  it('returns true for a point within width of the path', () => {
+  it("returns true for a point within width of the path", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -194,7 +197,7 @@ describe('isInWindCurrent', () => {
     assert.ok(isInWindCurrent(current, { x: 50, y: 20, z: 4 }));
   });
 
-  it('returns false for a point outside the current', () => {
+  it("returns false for a point outside the current", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -205,7 +208,7 @@ describe('isInWindCurrent', () => {
     assert.ok(!isInWindCurrent(current, { x: 50, y: 20, z: 20 }));
   });
 
-  it('returns false for a point past the end', () => {
+  it("returns false for a point past the end", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -216,7 +219,7 @@ describe('isInWindCurrent', () => {
     assert.ok(!isInWindCurrent(current, { x: 150, y: 20, z: 0 }));
   });
 
-  it('returns false when current is inactive', () => {
+  it("returns false when current is inactive", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -229,8 +232,8 @@ describe('isInWindCurrent', () => {
   });
 });
 
-describe('getWindForce', () => {
-  it('returns a force vector with x, y, z', () => {
+describe("getWindForce", () => {
+  it("returns a force vector with x, y, z", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 25, z: 0 },
@@ -238,12 +241,12 @@ describe('getWindForce', () => {
       seed: 42,
     });
     const force = getWindForce(current, { x: 50, y: 22, z: 0 });
-    assert.ok(typeof force.x === 'number');
-    assert.ok(typeof force.y === 'number');
-    assert.ok(typeof force.z === 'number');
+    assert.ok(typeof force.x === "number");
+    assert.ok(typeof force.y === "number");
+    assert.ok(typeof force.z === "number");
   });
 
-  it('force direction follows the path direction', () => {
+  it("force direction follows the path direction", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -252,10 +255,10 @@ describe('getWindForce', () => {
       fadeInDuration: 0,
     });
     const force = getWindForce(current, { x: 50, y: 20, z: 0 });
-    assert.ok(force.x > 0, 'force should push toward end (positive x)');
+    assert.ok(force.x > 0, "force should push toward end (positive x)");
   });
 
-  it('force magnitude is proportional to strength', () => {
+  it("force magnitude is proportional to strength", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -280,7 +283,7 @@ describe('getWindForce', () => {
     assert.ok(mag2 > mag1, `stronger current should produce more force: ${mag2} vs ${mag1}`);
   });
 
-  it('returns zero force when outside current', () => {
+  it("returns zero force when outside current", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -295,8 +298,8 @@ describe('getWindForce', () => {
   });
 });
 
-describe('updateWindCurrent', () => {
-  it('advances time by dt', () => {
+describe("updateWindCurrent", () => {
+  it("advances time by dt", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -308,7 +311,7 @@ describe('updateWindCurrent', () => {
     assert.ok(Math.abs(updated.time - current.time - 0.1) < 0.001);
   });
 
-  it('advances phase for particle animation', () => {
+  it("advances phase for particle animation", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -319,7 +322,7 @@ describe('updateWindCurrent', () => {
     assert.ok(updated.phase !== current.phase || updated.time > current.time);
   });
 
-  it('does not mutate the original', () => {
+  it("does not mutate the original", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -331,7 +334,7 @@ describe('updateWindCurrent', () => {
     assert.equal(current.time, originalTime);
   });
 
-  it('phase wraps around periodically', () => {
+  it("phase wraps around periodically", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -345,7 +348,7 @@ describe('updateWindCurrent', () => {
     assert.ok(updated.phase < Math.PI * 2, `phase should stay bounded, got ${updated.phase}`);
   });
 
-  it('preserves cached points after update', () => {
+  it("preserves cached points after update", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -353,34 +356,34 @@ describe('updateWindCurrent', () => {
       seed: 42,
     });
     const updated = updateWindCurrent(current, 0.1);
-    assert.ok(Array.isArray(updated.points), 'points should be preserved after update');
+    assert.ok(Array.isArray(updated.points), "points should be preserved after update");
     assert.equal(updated.points.length, current.points.length);
   });
 });
 
-describe('createWindCurrentSystem', () => {
-  it('creates a system with empty currents array', () => {
+describe("createWindCurrentSystem", () => {
+  it("creates a system with empty currents array", () => {
     const system = createWindCurrentSystem();
     assert.ok(Array.isArray(system.currents));
     assert.equal(system.currents.length, 0);
   });
 
-  it('creates system from initial currents', () => {
+  it("creates system from initial currents", () => {
     const c = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
       strength: 5,
-      id: 'w1',
+      id: "w1",
       seed: 42,
     });
     const system = createWindCurrentSystem([c]);
     assert.equal(system.currents.length, 1);
-    assert.equal(system.currents[0].id, 'w1');
+    assert.equal(system.currents[0].id, "w1");
   });
 });
 
-describe('addCurrent', () => {
-  it('adds a current to the system', () => {
+describe("addCurrent", () => {
+  it("adds a current to the system", () => {
     const system = createWindCurrentSystem();
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
@@ -393,7 +396,7 @@ describe('addCurrent', () => {
     assert.equal(updated.currents[0].strength, 5);
   });
 
-  it('does not mutate the original system', () => {
+  it("does not mutate the original system", () => {
     const system = createWindCurrentSystem();
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
@@ -406,44 +409,44 @@ describe('addCurrent', () => {
   });
 });
 
-describe('removeCurrent', () => {
-  it('removes a current from the system', () => {
+describe("removeCurrent", () => {
+  it("removes a current from the system", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
       strength: 5,
-      id: 'wind1',
+      id: "wind1",
       seed: 42,
     });
     const c2 = createWindCurrent({
       start: { x: 0, y: 20, z: 50 },
       end: { x: 100, y: 20, z: 50 },
       strength: 3,
-      id: 'wind2',
+      id: "wind2",
       seed: 99,
     });
     const system = createWindCurrentSystem([c1, c2]);
-    const updated = removeCurrent(system, 'wind1');
+    const updated = removeCurrent(system, "wind1");
     assert.equal(updated.currents.length, 1);
-    assert.equal(updated.currents[0].id, 'wind2');
+    assert.equal(updated.currents[0].id, "wind2");
   });
 
-  it('does not mutate the original system', () => {
+  it("does not mutate the original system", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
       strength: 5,
-      id: 'wind1',
+      id: "wind1",
       seed: 42,
     });
     const system = createWindCurrentSystem([c1]);
-    removeCurrent(system, 'wind1');
+    removeCurrent(system, "wind1");
     assert.equal(system.currents.length, 1);
   });
 });
 
-describe('updateCurrents', () => {
-  it('advances all currents', () => {
+describe("updateCurrents", () => {
+  it("advances all currents", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -463,7 +466,7 @@ describe('updateCurrents', () => {
     }
   });
 
-  it('does not mutate the original system', () => {
+  it("does not mutate the original system", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -475,7 +478,7 @@ describe('updateCurrents', () => {
     assert.equal(system.currents[0].time, 0);
   });
 
-  it('preserves cached points on all currents', () => {
+  it("preserves cached points on all currents", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -484,12 +487,12 @@ describe('updateCurrents', () => {
     });
     const system = createWindCurrentSystem([c1]);
     const updated = updateCurrents(system, 0.1);
-    assert.ok(Array.isArray(updated.currents[0].points), 'points should be preserved');
+    assert.ok(Array.isArray(updated.currents[0].points), "points should be preserved");
   });
 });
 
-describe('getForceAt', () => {
-  it('returns combined force from all affecting currents', () => {
+describe("getForceAt", () => {
+  it("returns combined force from all affecting currents", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -500,12 +503,12 @@ describe('getForceAt', () => {
     });
     const system = createWindCurrentSystem([c1]);
     const force = getForceAt(system, { x: 50, y: 20, z: 0 });
-    assert.ok(typeof force.x === 'number');
-    assert.ok(typeof force.y === 'number');
-    assert.ok(typeof force.z === 'number');
+    assert.ok(typeof force.x === "number");
+    assert.ok(typeof force.y === "number");
+    assert.ok(typeof force.z === "number");
   });
 
-  it('returns zero when no currents affect position', () => {
+  it("returns zero when no currents affect position", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -520,7 +523,7 @@ describe('getForceAt', () => {
     assert.equal(force.z, 0);
   });
 
-  it('uses cached points without regenerating', () => {
+  it("uses cached points without regenerating", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -531,10 +534,10 @@ describe('getForceAt', () => {
     const system = createWindCurrentSystem([c1]);
     const originalPoints = c1.points;
     getForceAt(system, { x: 50, y: 20, z: 0 });
-    assert.strictEqual(c1.points, originalPoints, 'should use same cached points reference');
+    assert.strictEqual(c1.points, originalPoints, "should use same cached points reference");
   });
 
-  it('returns zero for empty system', () => {
+  it("returns zero for empty system", () => {
     const system = createWindCurrentSystem();
     const force = getForceAt(system, { x: 50, y: 20, z: 0 });
     assert.equal(force.x, 0);
@@ -543,8 +546,8 @@ describe('getForceAt', () => {
   });
 });
 
-describe('isInAnyCurrent', () => {
-  it('returns true when position is within a current', () => {
+describe("isInAnyCurrent", () => {
+  it("returns true when position is within a current", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -556,7 +559,7 @@ describe('isInAnyCurrent', () => {
     assert.ok(isInAnyCurrent(system, { x: 50, y: 20, z: 0 }));
   });
 
-  it('returns false when position is outside all currents', () => {
+  it("returns false when position is outside all currents", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -568,12 +571,12 @@ describe('isInAnyCurrent', () => {
     assert.ok(!isInAnyCurrent(system, { x: 500, y: 20, z: 500 }));
   });
 
-  it('returns false for empty system', () => {
+  it("returns false for empty system", () => {
     const system = createWindCurrentSystem();
     assert.ok(!isInAnyCurrent(system, { x: 50, y: 20, z: 0 }));
   });
 
-  it('returns true if position is in any of multiple currents', () => {
+  it("returns true if position is in any of multiple currents", () => {
     const c1 = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -594,8 +597,8 @@ describe('isInAnyCurrent', () => {
   });
 });
 
-describe('wind fade in', () => {
-  it('force is zero at time 0', () => {
+describe("wind fade in", () => {
+  it("force is zero at time 0", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -611,7 +614,7 @@ describe('wind fade in', () => {
     assert.equal(force.z, 0);
   });
 
-  it('force is near full strength after fadeInDuration', () => {
+  it("force is near full strength after fadeInDuration", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -630,7 +633,7 @@ describe('wind fade in', () => {
     assert.ok(mag > 8, `force should be near full strength after fade in, got ${mag}`);
   });
 
-  it('force gradually increases during fade in', () => {
+  it("force gradually increases during fade in", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -650,15 +653,19 @@ describe('wind fade in', () => {
     }
     const halfForce = getWindForce(halfCurrent, { x: 50, y: 20, z: 0 });
     const fullForce = getWindForce(fullCurrent, { x: 50, y: 20, z: 0 });
-    const halfMag = Math.sqrt(halfForce.x * halfForce.x + halfForce.y * halfForce.y + halfForce.z * halfForce.z);
-    const fullMag = Math.sqrt(fullForce.x * fullForce.x + fullForce.y * fullForce.y + fullForce.z * fullForce.z);
-    assert.ok(halfMag < fullMag, 'half-way force should be less than full force');
-    assert.ok(halfMag > 0, 'half-way force should be non-zero');
+    const halfMag = Math.sqrt(
+      halfForce.x * halfForce.x + halfForce.y * halfForce.y + halfForce.z * halfForce.z,
+    );
+    const fullMag = Math.sqrt(
+      fullForce.x * fullForce.x + fullForce.y * fullForce.y + fullForce.z * fullForce.z,
+    );
+    assert.ok(halfMag < fullMag, "half-way force should be less than full force");
+    assert.ok(halfMag > 0, "half-way force should be non-zero");
   });
 });
 
-describe('wind fade out', () => {
-  it('fadeOutCurrent marks current as fading', () => {
+describe("wind fade out", () => {
+  it("fadeOutCurrent marks current as fading", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -670,7 +677,7 @@ describe('wind fade out', () => {
     assert.equal(faded.fadeOutStart, current.time);
   });
 
-  it('force decreases after fade out starts', () => {
+  it("force decreases after fade out starts", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -686,7 +693,9 @@ describe('wind fade out', () => {
       updated = updateWindCurrent(updated, 0.01);
     }
     const fullForce = getWindForce(updated, { x: 50, y: 20, z: 0 });
-    const fullMag = Math.sqrt(fullForce.x * fullForce.x + fullForce.y * fullForce.y + fullForce.z * fullForce.z);
+    const fullMag = Math.sqrt(
+      fullForce.x * fullForce.x + fullForce.y * fullForce.y + fullForce.z * fullForce.z,
+    );
 
     const fading = fadeOutCurrent(updated);
     let faded = fading;
@@ -694,13 +703,15 @@ describe('wind fade out', () => {
       faded = updateWindCurrent(faded, 0.01);
     }
     const fadedForce = getWindForce(faded, { x: 50, y: 20, z: 0 });
-    const fadedMag = Math.sqrt(fadedForce.x * fadedForce.x + fadedForce.y * fadedForce.y + fadedForce.z * fadedForce.z);
+    const fadedMag = Math.sqrt(
+      fadedForce.x * fadedForce.x + fadedForce.y * fadedForce.y + fadedForce.z * fadedForce.z,
+    );
 
-    assert.ok(fadedMag < fullMag, 'faded force should be less than full force');
-    assert.ok(fadedMag > 0, 'half-way faded force should be non-zero');
+    assert.ok(fadedMag < fullMag, "faded force should be less than full force");
+    assert.ok(fadedMag > 0, "half-way faded force should be non-zero");
   });
 
-  it('force reaches zero after fadeOutDuration', () => {
+  it("force reaches zero after fadeOutDuration", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -725,7 +736,7 @@ describe('wind fade out', () => {
     assert.ok(mag < 0.01, `force should be ~0 after fade out, got ${mag}`);
   });
 
-  it('isCurrentFaded returns false when not fading', () => {
+  it("isCurrentFaded returns false when not fading", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -735,7 +746,7 @@ describe('wind fade out', () => {
     assert.equal(isCurrentFaded(current), false);
   });
 
-  it('isCurrentFaded returns false before fadeOutDuration', () => {
+  it("isCurrentFaded returns false before fadeOutDuration", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -748,7 +759,7 @@ describe('wind fade out', () => {
     assert.equal(isCurrentFaded(updated), false);
   });
 
-  it('isCurrentFaded returns true after fadeOutDuration', () => {
+  it("isCurrentFaded returns true after fadeOutDuration", () => {
     const current = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },
@@ -763,7 +774,7 @@ describe('wind fade out', () => {
     assert.equal(isCurrentFaded(updated), true);
   });
 
-  it('updateCurrents removes fully faded currents', () => {
+  it("updateCurrents removes fully faded currents", () => {
     const c = createWindCurrent({
       start: { x: 0, y: 20, z: 0 },
       end: { x: 100, y: 20, z: 0 },

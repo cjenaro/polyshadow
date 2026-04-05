@@ -15,7 +15,17 @@ export function calculateMovementDirection(inputMove, cameraYaw) {
   };
 }
 
-export function applyMovement(state, inputMove, cameraYaw, dt, isSprinting, constants, adapter, world, playerBody) {
+export function applyMovement(
+  state,
+  inputMove,
+  cameraYaw,
+  dt,
+  isSprinting,
+  constants,
+  adapter,
+  world,
+  playerBody,
+) {
   const dir = calculateMovementDirection(inputMove, cameraYaw);
   const speed = isSprinting ? constants.RUN_SPEED : constants.WALK_SPEED;
   const factor = state.isGrounded ? 1 : constants.AIR_CONTROL_FACTOR;
@@ -68,7 +78,12 @@ export function applyJump(state, constants, adapter, world, playerBody) {
     return { ...state, isGrounded: false, isJumping: true };
   }
 
-  return { ...state, velocity: { ...state.velocity, y: constants.JUMP_FORCE }, isGrounded: false, isJumping: true };
+  return {
+    ...state,
+    velocity: { ...state.velocity, y: constants.JUMP_FORCE },
+    isGrounded: false,
+    isJumping: true,
+  };
 }
 
 export function applyGravity(state, dt, constants, adapter, world, playerBody) {
@@ -117,7 +132,17 @@ export function updatePlayer(state, input, cameraYaw, dt, constants, physicsCtx)
 
   const { adapter, world, playerBody } = physicsCtx || {};
 
-  newState = applyMovement(newState, input, cameraYaw, dt, newState.isSprinting, constants, adapter, world, playerBody);
+  newState = applyMovement(
+    newState,
+    input,
+    cameraYaw,
+    dt,
+    newState.isSprinting,
+    constants,
+    adapter,
+    world,
+    playerBody,
+  );
 
   if (input.jump) {
     newState = applyJump(newState, constants, adapter, world, playerBody);

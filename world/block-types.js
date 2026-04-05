@@ -41,13 +41,13 @@ export const BLOCK_PROPERTIES = {
   [BlockType.MOSS_STONE]: {
     solid: true,
     transparent: false,
-    color: [0.35, 0.50, 0.30],
+    color: [0.35, 0.5, 0.3],
     emissive: [0, 0, 0],
   },
   [BlockType.SAND]: {
     solid: true,
     transparent: false,
-    color: [0.76, 0.70, 0.50],
+    color: [0.76, 0.7, 0.5],
     emissive: [0, 0, 0],
   },
   [BlockType.WATER]: {
@@ -59,7 +59,7 @@ export const BLOCK_PROPERTIES = {
   [BlockType.WOOD]: {
     solid: true,
     transparent: false,
-    color: [0.40, 0.26, 0.13],
+    color: [0.4, 0.26, 0.13],
     emissive: [0, 0, 0],
   },
   [BlockType.LEAVES]: {
@@ -77,13 +77,13 @@ export const BLOCK_PROPERTIES = {
   [BlockType.CRACKED_STONE]: {
     solid: true,
     transparent: false,
-    color: [0.40, 0.38, 0.35],
+    color: [0.4, 0.38, 0.35],
     emissive: [0, 0, 0],
   },
   [BlockType.MOSS_DIRT]: {
     solid: true,
     transparent: false,
-    color: [0.30, 0.40, 0.18],
+    color: [0.3, 0.4, 0.18],
     emissive: [0, 0, 0],
   },
 };
@@ -95,17 +95,17 @@ export function getBlockProperty(type, prop) {
 }
 
 export function isBlockSolid(type) {
-  return getBlockProperty(type, 'solid') === true;
+  return getBlockProperty(type, "solid") === true;
 }
 
 export function isBlockTransparent(type) {
-  return getBlockProperty(type, 'transparent') === true;
+  return getBlockProperty(type, "transparent") === true;
 }
 
 export function getBlockColor(type) {
-  return getBlockProperty(type, 'color');
+  return getBlockProperty(type, "color");
 }
 
 export function getBlockEmissive(type) {
-  return getBlockProperty(type, 'emissive');
+  return getBlockProperty(type, "emissive");
 }

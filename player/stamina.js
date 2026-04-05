@@ -1,4 +1,4 @@
-import { clamp } from '../utils/math.js';
+import { clamp } from "../utils/math.js";
 
 export const STAMINA_CONSTANTS = {
   MAX: 100,
@@ -46,7 +46,7 @@ export function regenStamina(state, dt) {
 
   const newCurrent = Math.min(
     STAMINA_CONSTANTS.MAX,
-    state.current + STAMINA_CONSTANTS.REGEN_RATE * dt
+    state.current + STAMINA_CONSTANTS.REGEN_RATE * dt,
   );
 
   return {
@@ -77,7 +77,7 @@ export function updateStamina(state, flags, dt) {
     if (!flags.isSprinting && flags.isOnRestSpot) {
       const newCurrent = Math.min(
         STAMINA_CONSTANTS.MAX,
-        next.current + STAMINA_CONSTANTS.REST_REGEN_RATE * dt
+        next.current + STAMINA_CONSTANTS.REST_REGEN_RATE * dt,
       );
       next.current = newCurrent;
     } else {

@@ -1,54 +1,143 @@
-import { createRenderer, initScene, resize, createIslandMesh, createSimplifiedBoxMesh, wrapInLOD, createInstancedMesh, createNormalMapTexture } from '../engine/renderer.js';
-import { noise2D } from '../utils/noise.js';
-import { createCharacterMesh } from '../player/character-mesh.js';
-import { createSky } from '../world/sky.js';
-import { createIntegratedInput, updateIntegratedInput, getActiveInputType, destroyIntegratedInput } from '../engine/input-integration.js';
-import { OrbitCamera } from '../engine/camera.js';
-import { updatePlayer } from '../player/movement.js';
-import { resolveCollisions } from '../player/collision.js';
-import { PlayerCharacter } from '../player/character.js';
-import { GameState } from './state.js';
-import { ProgressionTracker } from './progression.js';
-import { UISystem } from '../engine/ui.js';
-import { createHubIsland, createArenaIsland, generateIslandGeometry, getIslandSurfaceHeight } from '../world/island.js';
-import { createColossus, updateColossi, getColossusSurfaces, getColossusWeakPoints, damageColossus, getColossusByType } from '../colossus/integration.js';
-import { createColossusBody, getBodyBounds } from '../colossus/base.js';
-import { setTHREE as setSentinelTHREE } from '../colossus/sentinel.js';
-import { setTHREE as setWraithTHREE } from '../colossus/wraith.js';
-import { setTHREE as setTitanTHREE } from '../colossus/titan.js';
-import * as THREE from 'three';
-import { createCannonAdapter } from '../engine/cannon-adapter.js';
-import { createClimbingState, isPlayerClimbing, updateClimbing } from '../player/climbing-integration.js';
-import { createChain, updateChain, getChainSegmentPositions, CAPE_CONSTANTS } from '../player/cape.js';
-import { createIntegratedStamina, updateIntegratedStamina, getStaminaForUI } from '../player/stamina-integration.js';
-import { createIntegratedCombat, updateIntegratedCombat, handleShakeOff, getCombatStats } from '../player/combat-integration.js';
-import { createDodgeState, tryStartDodge, updateDodge, applyDodgeMovement, getDodgeStaminaCost, isDodging as isPlayerDodging } from '../player/dodge.js';
-import { enterFall, updateFall, checkFall, respawn, getFreefallCameraData, FALL_CONSTANTS } from '../player/fall.js';
-import { createDeathIntegration, triggerDeathSequence, updateDeathIntegration, applyDeathToMesh } from '../colossus/death-integration.js';
-import { createWeakPointVisuals, setTHREE as setWeakPointTHREE } from '../colossus/weak-point-visuals.js';
 import {
-  createEndingState, updateEndingState, getSkyConfig, getIslandPositions,
-  getCreditsAlpha, shouldShowCredits, isEndingComplete,
-  skipEnding, shouldShowSkipHint,
-} from './ending-sequence.js';
-import { createSteppingStonesPath, generatePathPoints, isOnPath } from '../world/paths.js';
-import { createDirectionIndicator, updateIndicators, isIndicatorVisible } from '../world/indicators.js';
-import { MusicSystem } from '../engine/music.js';
-import { createPostProcessState, updatePostProcessState, getActiveColorGrading, shouldEnableBloom, createBloomPipeline } from '../engine/post-processing.js';
-import { createHUD } from '../engine/hud.js';
-import { applyHealthOpacity } from '../engine/health-visual.js';
-import { setTHREE as setFeedbackTHREE, createCombatFeedback } from '../engine/combat-feedback.js';
-import { LOD_THRESHOLDS, getShadowMapSize, getParticleCount } from '../engine/lod.js';
-import { createTouchOverlay } from '../engine/touch-overlay.js';
+  createRenderer,
+  initScene,
+  resize,
+  createIslandMesh,
+  createSimplifiedBoxMesh,
+  wrapInLOD,
+  createInstancedMesh,
+  createNormalMapTexture,
+} from "../engine/renderer.js";
+import { noise2D } from "../utils/noise.js";
+import { createCharacterMesh } from "../player/character-mesh.js";
+import { createSky } from "../world/sky.js";
 import {
-  createArenaTransitionManager, updateArenaTransition, getTransitionProgress,
-  isTransitioning, startTransitionToArena, startTransitionToHub,
-  shouldTriggerArenaEntry, shouldTriggerHubReturn,
-  getArenaSpawnPoint, getHubSpawnPoint, TRANSITION_STATES,
-} from './arena-transition.js';
-import { createParticleSystem, updateParticleSystem, DEFAULT_BOUNDS } from '../world/particles.js';
-import { createFogSystem, updateFogSystem, DEFAULT_LAYERS } from '../world/fog.js';
-import { createGodRaySystem } from '../world/god-rays.js';
+  createIntegratedInput,
+  updateIntegratedInput,
+  getActiveInputType,
+  destroyIntegratedInput,
+} from "../engine/input-integration.js";
+import { OrbitCamera } from "../engine/camera.js";
+import { updatePlayer } from "../player/movement.js";
+import { resolveCollisions } from "../player/collision.js";
+import { PlayerCharacter } from "../player/character.js";
+import { GameState } from "./state.js";
+import { ProgressionTracker } from "./progression.js";
+import { UISystem } from "../engine/ui.js";
+import {
+  createHubIsland,
+  createArenaIsland,
+  generateIslandGeometry,
+  getIslandSurfaceHeight,
+} from "../world/island.js";
+import {
+  createColossus,
+  updateColossi,
+  getColossusSurfaces,
+  getColossusWeakPoints,
+  damageColossus,
+  getColossusByType,
+} from "../colossus/integration.js";
+import { createColossusBody, getBodyBounds } from "../colossus/base.js";
+import { setTHREE as setSentinelTHREE } from "../colossus/sentinel.js";
+import { setTHREE as setWraithTHREE } from "../colossus/wraith.js";
+import { setTHREE as setTitanTHREE } from "../colossus/titan.js";
+import * as THREE from "three";
+import { createCannonAdapter } from "../engine/cannon-adapter.js";
+import {
+  createClimbingState,
+  isPlayerClimbing,
+  updateClimbing,
+} from "../player/climbing-integration.js";
+import {
+  createChain,
+  updateChain,
+  getChainSegmentPositions,
+  CAPE_CONSTANTS,
+} from "../player/cape.js";
+import {
+  createIntegratedStamina,
+  updateIntegratedStamina,
+  getStaminaForUI,
+} from "../player/stamina-integration.js";
+import {
+  createIntegratedCombat,
+  updateIntegratedCombat,
+  handleShakeOff,
+  getCombatStats,
+} from "../player/combat-integration.js";
+import {
+  createDodgeState,
+  tryStartDodge,
+  updateDodge,
+  applyDodgeMovement,
+  getDodgeStaminaCost,
+  isDodging as isPlayerDodging,
+} from "../player/dodge.js";
+import {
+  enterFall,
+  updateFall,
+  checkFall,
+  respawn,
+  getFreefallCameraData,
+  FALL_CONSTANTS,
+} from "../player/fall.js";
+import {
+  createDeathIntegration,
+  triggerDeathSequence,
+  updateDeathIntegration,
+  applyDeathToMesh,
+} from "../colossus/death-integration.js";
+import {
+  createWeakPointVisuals,
+  setTHREE as setWeakPointTHREE,
+} from "../colossus/weak-point-visuals.js";
+import {
+  createEndingState,
+  updateEndingState,
+  getSkyConfig,
+  getIslandPositions,
+  getCreditsAlpha,
+  shouldShowCredits,
+  isEndingComplete,
+  skipEnding,
+  shouldShowSkipHint,
+} from "./ending-sequence.js";
+import { createSteppingStonesPath, generatePathPoints, isOnPath } from "../world/paths.js";
+import {
+  createDirectionIndicator,
+  updateIndicators,
+  isIndicatorVisible,
+} from "../world/indicators.js";
+import { MusicSystem } from "../engine/music.js";
+import {
+  createPostProcessState,
+  updatePostProcessState,
+  getActiveColorGrading,
+  shouldEnableBloom,
+  createBloomPipeline,
+} from "../engine/post-processing.js";
+import { createHUD } from "../engine/hud.js";
+import { applyHealthOpacity } from "../engine/health-visual.js";
+import { setTHREE as setFeedbackTHREE, createCombatFeedback } from "../engine/combat-feedback.js";
+import { LOD_THRESHOLDS, getShadowMapSize, getParticleCount } from "../engine/lod.js";
+import { createTouchOverlay } from "../engine/touch-overlay.js";
+import {
+  createArenaTransitionManager,
+  updateArenaTransition,
+  getTransitionProgress,
+  isTransitioning,
+  startTransitionToArena,
+  startTransitionToHub,
+  shouldTriggerArenaEntry,
+  shouldTriggerHubReturn,
+  getArenaSpawnPoint,
+  getHubSpawnPoint,
+  TRANSITION_STATES,
+} from "./arena-transition.js";
+import { createParticleSystem, updateParticleSystem, DEFAULT_BOUNDS } from "../world/particles.js";
+import { createFogSystem, updateFogSystem, DEFAULT_LAYERS } from "../world/fog.js";
+import { createGodRaySystem } from "../world/god-rays.js";
 import {
   createWindCurrent,
   createWindCurrentSystem,
@@ -56,19 +145,25 @@ import {
   updateCurrents,
   getWindForce,
   isInAnyCurrent,
-} from '../world/wind.js';
+} from "../world/wind.js";
 import {
-  createAudioState, initAudio, getEffectiveVolume, registerSound, cleanupSounds,
-  getFootstepParams, shouldPlayFootstep,
+  createAudioState,
+  initAudio,
+  getEffectiveVolume,
+  registerSound,
+  cleanupSounds,
+  getFootstepParams,
+  shouldPlayFootstep,
   getClimbingGrabParams,
-  getHeartbeatParams, shouldPlayHeartbeat,
+  getHeartbeatParams,
+  shouldPlayHeartbeat,
   getSwordSlashParams,
   getWeakPointHitParams,
   getColossusDeathParams,
   getAmbientWindParams,
-} from '../engine/audio.js';
+} from "../engine/audio.js";
 
-const canvas = document.getElementById('game-canvas');
+const canvas = document.getElementById("game-canvas");
 const renderer = createRenderer(canvas);
 const { scene, camera } = initScene(renderer);
 const handleResize = resize(renderer, camera);
@@ -113,10 +208,10 @@ let ambientWindNode = null;
 let ambientWindGain = null;
 let postProcess = createPostProcessState();
 let bloomPipeline = null;
-const hudCanvas = document.getElementById('hud-canvas');
+const hudCanvas = document.getElementById("hud-canvas");
 const hud = createHUD(hudCanvas);
 hud.resize(window.innerWidth, window.innerHeight);
-window.addEventListener('resize', () => {
+window.addEventListener("resize", () => {
   hud.resize(window.innerWidth, window.innerHeight);
   if (bloomPipeline) bloomPipeline.resize(window.innerWidth, window.innerHeight);
 });
@@ -126,8 +221,8 @@ let arenaTransition = createArenaTransitionManager();
 const physicsAdapter = createCannonAdapter();
 const physicsWorld = physicsAdapter.createPhysicsWorld();
 const playerPhysicsBody = physicsAdapter.createBody(physicsWorld, {
-  type: 'dynamic',
-  shape: { type: 'capsule', radius: 0.3, height: 1.6 },
+  type: "dynamic",
+  shape: { type: "capsule", radius: 0.3, height: 1.6 },
   mass: 1,
   position: player.state.position,
 });
@@ -164,8 +259,12 @@ const activeAudioNodes = new Map();
 function disconnectNodes(nodes) {
   if (!nodes) return;
   for (const node of nodes) {
-    try { node.disconnect(); } catch {}
-    try { if (node.stop) node.stop(); } catch {}
+    try {
+      node.disconnect();
+    } catch {}
+    try {
+      if (node.stop) node.stop();
+    } catch {}
   }
 }
 
@@ -186,11 +285,11 @@ function playProceduralSound(params) {
   const soundKey = `${params.type}_${t}`;
 
   switch (params.type) {
-    case 'noise_burst': {
+    case "noise_burst": {
       const src = audioCtx.createBufferSource();
       src.buffer = createNoiseBuffer(duration);
       const bp = audioCtx.createBiquadFilter();
-      bp.type = 'bandpass';
+      bp.type = "bandpass";
       bp.frequency.value = params.bandpassFreq || 400;
       bp.Q.value = params.bandpassQ || 1;
       const g = audioCtx.createGain();
@@ -200,15 +299,15 @@ function playProceduralSound(params) {
       src.start(t);
       src.stop(t + duration);
       const nodes = [src, bp, g];
-      src.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      src.addEventListener("ended", onSourceEnded(soundKey, nodes), { once: true });
       activeAudioNodes.set(soundKey, nodes);
       break;
     }
-    case 'filtered_click': {
+    case "filtered_click": {
       const src = audioCtx.createBufferSource();
       src.buffer = createNoiseBuffer(duration);
       const hp = audioCtx.createBiquadFilter();
-      hp.type = 'highpass';
+      hp.type = "highpass";
       hp.frequency.value = params.highpassFreq || 2000;
       hp.Q.value = params.resonance || 3;
       const g = audioCtx.createGain();
@@ -218,13 +317,13 @@ function playProceduralSound(params) {
       src.start(t);
       src.stop(t + duration);
       const nodes = [src, hp, g];
-      src.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      src.addEventListener("ended", onSourceEnded(soundKey, nodes), { once: true });
       activeAudioNodes.set(soundKey, nodes);
       break;
     }
-    case 'pulse': {
+    case "pulse": {
       const osc = audioCtx.createOscillator();
-      osc.type = 'sine';
+      osc.type = "sine";
       osc.frequency.value = params.frequency || 40;
       const g = audioCtx.createGain();
       g.gain.setValueAtTime(0, t);
@@ -234,17 +333,20 @@ function playProceduralSound(params) {
       osc.start(t);
       osc.stop(t + duration);
       const nodes = [osc, g];
-      osc.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      osc.addEventListener("ended", onSourceEnded(soundKey, nodes), { once: true });
       activeAudioNodes.set(soundKey, nodes);
       break;
     }
-    case 'metallic_resonance': {
+    case "metallic_resonance": {
       const osc = audioCtx.createOscillator();
-      osc.type = 'sawtooth';
+      osc.type = "sawtooth";
       osc.frequency.setValueAtTime(params.frequency || 1200, t);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(1, (params.frequency || 1200) * 0.5), t + duration);
+      osc.frequency.exponentialRampToValueAtTime(
+        Math.max(1, (params.frequency || 1200) * 0.5),
+        t + duration,
+      );
       const bp = audioCtx.createBiquadFilter();
-      bp.type = 'bandpass';
+      bp.type = "bandpass";
       bp.frequency.value = params.frequency || 1200;
       bp.Q.value = 10;
       const g = audioCtx.createGain();
@@ -264,17 +366,22 @@ function playProceduralSound(params) {
         nSrc.start(t);
         nSrc.stop(t + duration);
         nodes.push(nSrc, nG);
-        nSrc.addEventListener('ended', onSourceEnded(`${soundKey}_noise`, [nSrc, nG]), { once: true });
+        nSrc.addEventListener("ended", onSourceEnded(`${soundKey}_noise`, [nSrc, nG]), {
+          once: true,
+        });
       }
-      osc.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      osc.addEventListener("ended", onSourceEnded(soundKey, nodes), { once: true });
       activeAudioNodes.set(soundKey, nodes);
       break;
     }
-    case 'low_freq_boom': {
+    case "low_freq_boom": {
       const osc = audioCtx.createOscillator();
-      osc.type = 'sine';
+      osc.type = "sine";
       osc.frequency.setValueAtTime(params.frequency || 30, t);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(1, (params.frequency || 30) * 0.3), t + duration);
+      osc.frequency.exponentialRampToValueAtTime(
+        Math.max(1, (params.frequency || 30) * 0.3),
+        t + duration,
+      );
       const g = audioCtx.createGain();
       g.gain.setValueAtTime(vol, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + (params.decay || duration));
@@ -282,13 +389,13 @@ function playProceduralSound(params) {
       osc.start(t);
       osc.stop(t + duration);
       const nodes = [osc, g];
-      osc.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      osc.addEventListener("ended", onSourceEnded(soundKey, nodes), { once: true });
       activeAudioNodes.set(soundKey, nodes);
       break;
     }
-    case 'resonant_ding': {
+    case "resonant_ding": {
       const osc = audioCtx.createOscillator();
-      osc.type = 'sine';
+      osc.type = "sine";
       osc.frequency.value = params.frequency || 1000;
       const g = audioCtx.createGain();
       g.gain.setValueAtTime(vol, t);
@@ -303,7 +410,7 @@ function playProceduralSound(params) {
         const dG = audioCtx.createGain();
         dG.gain.value = params.reverbMix * 0.5;
         const rOsc = audioCtx.createOscillator();
-        rOsc.type = 'sine';
+        rOsc.type = "sine";
         rOsc.frequency.value = (params.frequency || 1000) * 1.5;
         const rG = audioCtx.createGain();
         rG.gain.setValueAtTime(vol * params.reverbMix * 0.3, t);
@@ -312,21 +419,23 @@ function playProceduralSound(params) {
         rOsc.start(t);
         rOsc.stop(t + duration);
         const reverbNodes = [rOsc, delay, dG, rG];
-        rOsc.addEventListener('ended', onSourceEnded(`${soundKey}_reverb`, reverbNodes), { once: true });
+        rOsc.addEventListener("ended", onSourceEnded(`${soundKey}_reverb`, reverbNodes), {
+          once: true,
+        });
         activeAudioNodes.set(`${soundKey}_reverb`, reverbNodes);
       }
-      osc.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      osc.addEventListener("ended", onSourceEnded(soundKey, nodes), { once: true });
       activeAudioNodes.set(soundKey, nodes);
       break;
     }
-    case 'evolving_drone': {
+    case "evolving_drone": {
       const osc = audioCtx.createOscillator();
-      osc.type = 'sawtooth';
+      osc.type = "sawtooth";
       const baseFreq = params.baseFrequency || 50;
       osc.frequency.setValueAtTime(baseFreq, t);
       osc.frequency.linearRampToValueAtTime(baseFreq * 2, t + duration);
       const lp = audioCtx.createBiquadFilter();
-      lp.type = 'lowpass';
+      lp.type = "lowpass";
       lp.frequency.value = params.filterFreq || 200;
       const g = audioCtx.createGain();
       g.gain.setValueAtTime(vol, t);
@@ -346,13 +455,15 @@ function playProceduralSound(params) {
         nSrc.start(t);
         nSrc.stop(t + duration);
         nodes.push(nSrc, nG);
-        nSrc.addEventListener('ended', onSourceEnded(`${soundKey}_noise`, [nSrc, nG]), { once: true });
+        nSrc.addEventListener("ended", onSourceEnded(`${soundKey}_noise`, [nSrc, nG]), {
+          once: true,
+        });
       }
-      osc.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      osc.addEventListener("ended", onSourceEnded(soundKey, nodes), { once: true });
       activeAudioNodes.set(soundKey, nodes);
       break;
     }
-    case 'filtered_noise': {
+    case "filtered_noise": {
       return null;
     }
   }
@@ -367,7 +478,7 @@ function startAmbientWind() {
   ambientWindNode.buffer = createNoiseBuffer(2);
   ambientWindNode.loop = true;
   const lp = audioCtx.createBiquadFilter();
-  lp.type = 'lowpass';
+  lp.type = "lowpass";
   lp.frequency.value = params.lowpassFreq;
   lp.Q.value = 1;
   ambientWindGain = audioCtx.createGain();
@@ -385,7 +496,7 @@ function updateAmbientWind(strength) {
 
 progression.onAllDefeated(() => {
   if (gameState.isPlaying()) {
-    gameState.transition('victory');
+    gameState.transition("victory");
   }
 });
 
@@ -402,14 +513,14 @@ function getNearestLivingColossusDist(pos) {
 }
 
 gameState.onTransition((from, to) => {
-  if (to === 'title') {
+  if (to === "title") {
     progression.reset();
     ui.showTitleScreen();
-    music.setState('idle');
+    music.setState("idle");
   }
-  if (from === 'title') {
+  if (from === "title") {
     ui.hideTitleScreen();
-    music.setState('exploration');
+    music.setState("exploration");
     if (shouldShowTutorial()) {
       tutorialShown = true;
       tutorialDismissTimer = 0;
@@ -419,24 +530,24 @@ gameState.onTransition((from, to) => {
     controlHintsTimer = 0;
     hud.showControlHints();
   }
-  if (to === 'paused') {
+  if (to === "paused") {
     ui.showPauseOverlay();
     music.pause();
   }
-  if (from === 'paused') {
+  if (from === "paused") {
     ui.hidePauseOverlay();
     music.resume();
   }
-  if (to === 'victory') {
-    music.setState('victory');
+  if (to === "victory") {
+    music.setState("victory");
     endingState = createEndingState();
   }
-  if (to === 'title') {
+  if (to === "title") {
     endingState = null;
     arenaTransition = createArenaTransitionManager();
     hasTeleported = false;
-    const creditsEl = document.getElementById('credits-overlay');
-    if (creditsEl) creditsEl.style.display = 'none';
+    const creditsEl = document.getElementById("credits-overlay");
+    if (creditsEl) creditsEl.style.display = "none";
   }
 });
 
@@ -454,9 +565,9 @@ hubMesh.setPosition(hubIsland.center.x, 0, hubIsland.center.z);
 scene.add(hubMesh);
 
 const arenaConfigs = [
-  { type: 'sentinel', center: { x: 120, z: 0 } },
-  { type: 'titan', center: { x: -100, z: 80 } },
-  { type: 'wraith', center: { x: -60, z: -110 } },
+  { type: "sentinel", center: { x: 120, z: 0 } },
+  { type: "titan", center: { x: -100, z: 80 } },
+  { type: "wraith", center: { x: -60, z: -110 } },
 ];
 
 const arenaIslands = [];
@@ -515,9 +626,11 @@ for (const island of allIslands) {
 }
 
 const pathDefs = arenaConfigs.map(({ center }) =>
-  createSteppingStonesPath({ x: 0, y: 0, z: 0 }, { x: center.x, y: 0, z: center.z }, 5, { stoneRadius: 2 })
+  createSteppingStonesPath({ x: 0, y: 0, z: 0 }, { x: center.x, y: 0, z: center.z }, 5, {
+    stoneRadius: 2,
+  }),
 );
-const pathPoints = pathDefs.map(p => generatePathPoints(p));
+const pathPoints = pathDefs.map((p) => generatePathPoints(p));
 const stoneNormalMap = createNormalMapTexture({ size: 128, scale: 0.12, seed: 88, strength: 1.8 });
 const stoneMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff,
@@ -573,10 +686,9 @@ function getStoneHeight(x, z) {
   return 0;
 }
 
-
 const respawnPoints = [
   { position: { x: 0, y: 2, z: 0 } },
-  ...arenaConfigs.map(c => ({ position: { x: c.center.x, y: 2, z: c.center.z } })),
+  ...arenaConfigs.map((c) => ({ position: { x: c.center.x, y: 2, z: c.center.z } })),
 ];
 
 const colossi = arenaConfigs.map(({ type, center }) => {
@@ -602,10 +714,10 @@ const colossi = arenaConfigs.map(({ type, center }) => {
   return c;
 });
 
-const colossusBodies = colossi.map(c => {
+const colossusBodies = colossi.map((c) => {
   const body = physicsAdapter.createBody(physicsWorld, {
-    type: 'kinematic',
-    shape: { type: 'box', halfExtents: { x: 5, y: 10, z: 5 } },
+    type: "kinematic",
+    shape: { type: "box", halfExtents: { x: 5, y: 10, z: 5 } },
     position: { x: c.aiState.position.x, y: c.aiState.position.y + 5, z: c.aiState.position.z },
     userData: { colossusType: c.type },
   });
@@ -619,7 +731,7 @@ for (const c of colossi) {
 }
 
 const directionIndicators = arenaConfigs.map(({ type, center }) =>
-  createDirectionIndicator(type, { x: center.x, z: center.z })
+  createDirectionIndicator(type, { x: center.x, z: center.z }),
 );
 
 const indicatorMeshes = directionIndicators.map(() => {
@@ -632,7 +744,7 @@ const indicatorMeshes = directionIndicators.map(() => {
 });
 
 function updateDirectionIndicators(playerPos) {
-  const colossusPositions = colossi.map(c => ({
+  const colossusPositions = colossi.map((c) => ({
     id: c.type,
     x: c.aiState.arenaCenter.x,
     z: c.aiState.arenaCenter.z,
@@ -656,7 +768,7 @@ function updateDirectionIndicators(playerPos) {
     mesh.position.set(
       playerPos.x + ind.direction.x * 20,
       playerPos.y + 1.5,
-      playerPos.z + ind.direction.z * 20
+      playerPos.z + ind.direction.z * 20,
     );
     mesh.lookAt(playerPos.x, playerPos.y + 1.5, playerPos.z);
   }
@@ -667,21 +779,21 @@ const particleSystem = createParticleSystem(PARTICLE_COUNT, DEFAULT_BOUNDS);
 const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
 const particleColors = new Float32Array(PARTICLE_COUNT * 3);
 const particleGeometry = new THREE.BufferGeometry();
-particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
-particleGeometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+particleGeometry.setAttribute("position", new THREE.BufferAttribute(particlePositions, 3));
+particleGeometry.setAttribute("color", new THREE.BufferAttribute(particleColors, 3));
 
 function createGlowTexture() {
   const size = 64;
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   const half = size / 2;
   const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
-  gradient.addColorStop(0, 'rgba(255,255,255,1)');
-  gradient.addColorStop(0.15, 'rgba(255,255,255,0.8)');
-  gradient.addColorStop(0.4, 'rgba(255,200,100,0.3)');
-  gradient.addColorStop(1, 'rgba(255,100,0,0)');
+  gradient.addColorStop(0, "rgba(255,255,255,1)");
+  gradient.addColorStop(0.15, "rgba(255,255,255,0.8)");
+  gradient.addColorStop(0.4, "rgba(255,200,100,0.3)");
+  gradient.addColorStop(1, "rgba(255,100,0,0)");
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, size, size);
   const tex = new THREE.CanvasTexture(canvas);
@@ -703,7 +815,7 @@ const particlePoints = new THREE.Points(particleGeometry, particleMaterial);
 scene.impl.add(particlePoints);
 
 const fogSystem = createFogSystem(DEFAULT_LAYERS);
-const fogPlanes = fogSystem.layers.map(layer => {
+const fogPlanes = fogSystem.layers.map((layer) => {
   const geo = new THREE.PlaneGeometry(800, 800);
   const mat = new THREE.MeshBasicMaterial({
     transparent: true,
@@ -757,7 +869,7 @@ for (const current of windSystem.currents) {
     posArr[i * 3 + 2] = pts[segIdx].z + (pts[segIdx + 1].z - pts[segIdx].z) * localT + spreadZ[i];
   }
   const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+  geom.setAttribute("position", new THREE.BufferAttribute(posArr, 3));
   const mat = new THREE.PointsMaterial({
     color: 0xfff5e6,
     size: 0.3,
@@ -781,22 +893,28 @@ function getGroundHeight(x, z) {
   return maxH;
 }
 
-const TUTORIAL_KEY = 'polyshadow_tutorial_seen';
+const TUTORIAL_KEY = "polyshadow_tutorial_seen";
 const TUTORIAL_AUTO_DISMISS = 8;
 
 function shouldShowTutorial() {
-  try { return !localStorage.getItem(TUTORIAL_KEY); } catch { return true; }
+  try {
+    return !localStorage.getItem(TUTORIAL_KEY);
+  } catch {
+    return true;
+  }
 }
 
 function markTutorialSeen() {
-  try { localStorage.setItem(TUTORIAL_KEY, '1'); } catch {}
+  try {
+    localStorage.setItem(TUTORIAL_KEY, "1");
+  } catch {}
 }
 
 function showTutorialOverlay() {
-  const el = document.getElementById('tutorial-overlay');
+  const el = document.getElementById("tutorial-overlay");
   if (el) {
-    el.classList.add('visible');
-    el.classList.remove('fading');
+    el.classList.add("visible");
+    el.classList.remove("fading");
   }
 }
 
@@ -807,25 +925,25 @@ let controlHintsTimer = 0;
 const CONTROL_HINTS_MOVE_DISMISS = 1.5;
 
 const CONTROL_HINTS_LIST = [
-  { keys: 'WASD / Arrows', action: 'Move' },
-  { keys: 'Space', action: 'Jump' },
-  { keys: 'Shift', action: 'Sprint' },
-  { keys: 'Left Click / E', action: 'Attack' },
-  { keys: 'Right Click / E (near colossus)', action: 'Grab / Climb' },
-  { keys: 'C', action: 'Dodge' },
-  { keys: 'Mouse', action: 'Look around' },
-  { keys: 'Escape', action: 'Pause' },
+  { keys: "WASD / Arrows", action: "Move" },
+  { keys: "Space", action: "Jump" },
+  { keys: "Shift", action: "Sprint" },
+  { keys: "Left Click / E", action: "Attack" },
+  { keys: "Right Click / E (near colossus)", action: "Grab / Climb" },
+  { keys: "C", action: "Dodge" },
+  { keys: "Mouse", action: "Look around" },
+  { keys: "Escape", action: "Pause" },
 ];
 
 function dismissTutorial() {
   if (!tutorialShown) return;
   tutorialShown = false;
   markTutorialSeen();
-  const el = document.getElementById('tutorial-overlay');
+  const el = document.getElementById("tutorial-overlay");
   if (el) {
-    el.classList.add('fading');
+    el.classList.add("fading");
     setTimeout(() => {
-      el.classList.remove('visible', 'fading');
+      el.classList.remove("visible", "fading");
     }, 1500);
   }
 }
@@ -840,25 +958,25 @@ function checkTutorialState(dt) {
 
 ui.showTitleScreen();
 
-const loadingScreen = document.getElementById('loading-screen');
+const loadingScreen = document.getElementById("loading-screen");
 if (loadingScreen) loadingScreen.remove();
 
-document.addEventListener('keydown', (e) => {
+document.addEventListener("keydown", (e) => {
   ensureAudio();
   if (tutorialShown) {
     dismissTutorial();
     return;
   }
-  if (gameState.getState() === 'title') {
-    gameState.transition('playing');
+  if (gameState.getState() === "title") {
+    gameState.transition("playing");
     return;
   }
-  if (e.code === 'Escape') {
-    if (gameState.getState() === 'playing') {
-      gameState.transition('paused');
+  if (e.code === "Escape") {
+    if (gameState.getState() === "playing") {
+      gameState.transition("paused");
       input.keyboard.unlockPointer();
-    } else if (gameState.getState() === 'paused') {
-      gameState.transition('playing');
+    } else if (gameState.getState() === "paused") {
+      gameState.transition("playing");
     }
   }
   if (endingState && shouldShowSkipHint(endingState)) {
@@ -866,77 +984,94 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-canvas.addEventListener('click', () => {
+canvas.addEventListener("click", () => {
   ensureAudio();
   if (document.pointerLockElement !== canvas) {
     input.keyboard.lockPointer();
   }
 });
 
-canvas.addEventListener('touchstart', (e) => {
+canvas.addEventListener("touchstart", (e) => {
   ensureAudio();
-  if (gameState.getState() === 'title') {
-    gameState.transition('playing');
+  if (gameState.getState() === "title") {
+    gameState.transition("playing");
     return;
   }
 });
 
 if (touchOverlay && input.touch) {
-  canvas.addEventListener('touchstart', (e) => {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    for (const touch of e.changedTouches) {
-      if (touch.clientX >= w * 0.4) {
-        const layout = input._touchLayout || touchOverlay.getLayout();
-        for (const btn of layout.buttons) {
-          const dx = touch.clientX - btn.x;
-          const dy = touch.clientY - btn.y;
-          if (dx * dx + dy * dy <= btn.radius * btn.radius * 1.5) {
-            touchOverlay.highlightButton(btn.id);
+  canvas.addEventListener(
+    "touchstart",
+    (e) => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      for (const touch of e.changedTouches) {
+        if (touch.clientX >= w * 0.4) {
+          const layout = input._touchLayout || touchOverlay.getLayout();
+          for (const btn of layout.buttons) {
+            const dx = touch.clientX - btn.x;
+            const dy = touch.clientY - btn.y;
+            if (dx * dx + dy * dy <= btn.radius * btn.radius * 1.5) {
+              touchOverlay.highlightButton(btn.id);
+            }
           }
         }
       }
-    }
-  }, { passive: true });
-  canvas.addEventListener('touchend', (e) => {
-    for (const touch of e.changedTouches) {
-      const layout = input._touchLayout || touchOverlay.getLayout();
-      for (const btn of layout.buttons) {
-        touchOverlay.unhighlightButton(btn.id);
-      }
-    }
-  }, { passive: true });
-  canvas.addEventListener('touchmove', (e) => {
-    for (const touch of e.changedTouches) {
-      if (input.touch.joystickTouch !== null && touch.identifier === input.touch.joystickTouch) {
-        const dx = touch.clientX - input.touch.joystickStart.x;
-        const dy = touch.clientY - input.touch.joystickStart.y;
-        const maxR = input.touch.maxJoystickRadius;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > 0) {
-          const clampDist = Math.min(dist, maxR);
-          touchOverlay.updateJoystickThumb(
-            (dx / dist) * clampDist,
-            (dy / dist) * clampDist
-          );
+    },
+    { passive: true },
+  );
+  canvas.addEventListener(
+    "touchend",
+    (e) => {
+      for (const touch of e.changedTouches) {
+        const layout = input._touchLayout || touchOverlay.getLayout();
+        for (const btn of layout.buttons) {
+          touchOverlay.unhighlightButton(btn.id);
         }
       }
-    }
-  }, { passive: true });
-  canvas.addEventListener('touchend', (e) => {
-    for (const touch of e.changedTouches) {
-      if (input.touch.joystickTouch !== null && touch.identifier === input.touch.joystickTouch) {
-        touchOverlay.resetJoystickThumb();
+    },
+    { passive: true },
+  );
+  canvas.addEventListener(
+    "touchmove",
+    (e) => {
+      for (const touch of e.changedTouches) {
+        if (input.touch.joystickTouch !== null && touch.identifier === input.touch.joystickTouch) {
+          const dx = touch.clientX - input.touch.joystickStart.x;
+          const dy = touch.clientY - input.touch.joystickStart.y;
+          const maxR = input.touch.maxJoystickRadius;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 0) {
+            const clampDist = Math.min(dist, maxR);
+            touchOverlay.updateJoystickThumb((dx / dist) * clampDist, (dy / dist) * clampDist);
+          }
+        }
       }
-    }
-  }, { passive: true });
-  canvas.addEventListener('touchcancel', (e) => {
-    for (const touch of e.changedTouches) {
-      if (input.touch.joystickTouch !== null && touch.identifier === input.touch.joystickTouch) {
-        touchOverlay.resetJoystickThumb();
+    },
+    { passive: true },
+  );
+  canvas.addEventListener(
+    "touchend",
+    (e) => {
+      for (const touch of e.changedTouches) {
+        if (input.touch.joystickTouch !== null && touch.identifier === input.touch.joystickTouch) {
+          touchOverlay.resetJoystickThumb();
+        }
       }
-    }
-  }, { passive: true });
+    },
+    { passive: true },
+  );
+  canvas.addEventListener(
+    "touchcancel",
+    (e) => {
+      for (const touch of e.changedTouches) {
+        if (input.touch.joystickTouch !== null && touch.identifier === input.touch.joystickTouch) {
+          touchOverlay.resetJoystickThumb();
+        }
+      }
+    },
+    { passive: true },
+  );
 }
 
 let prevAttack = false;
@@ -984,7 +1119,15 @@ function animate(now) {
     const playerPos = player.state.position;
     const prevClimbingThisFrame = isPlayerClimbing(climbing);
 
-    const climbResult = updateClimbing(player.state, climbing, inputState, stamina, surfaces, dt, physicsCtx);
+    const climbResult = updateClimbing(
+      player.state,
+      climbing,
+      inputState,
+      stamina,
+      surfaces,
+      dt,
+      physicsCtx,
+    );
     player.state = climbResult.playerState;
     climbing.isClimbing = climbResult.climbingState.isClimbing;
     climbing.climbGrabTime = climbResult.climbingState.climbGrabTime;
@@ -993,15 +1136,19 @@ function animate(now) {
     if (isClimbing && !prevClimbingThisFrame) {
       const grabParams = getClimbingGrabParams();
       playProceduralSound(grabParams);
-      audioState = registerSound(audioState, 'climbGrab', grabParams.duration, now * 0.001);
+      audioState = registerSound(audioState, "climbGrab", grabParams.duration, now * 0.001);
     }
 
-    const staminaResult = updateIntegratedStamina(stamina, {
-      isClimbing,
-      isSprinting: inputState.sprint && !isClimbing,
-      isGrounded: player.state.isGrounded,
-      isOnRestSpot: isClimbing && !!(player.state.climbSurface?.isRestSpot),
-    }, dt);
+    const staminaResult = updateIntegratedStamina(
+      stamina,
+      {
+        isClimbing,
+        isSprinting: inputState.sprint && !isClimbing,
+        isGrounded: player.state.isGrounded,
+        isOnRestSpot: isClimbing && !!player.state.climbSurface?.isRestSpot,
+      },
+      dt,
+    );
     Object.assign(stamina, staminaResult.staminaState);
 
     const dodgeJustPressed = inputState.dodge && !prevDodge;
@@ -1032,8 +1179,18 @@ function animate(now) {
       player.state = respawn(player.state, respawnPoints, physicsCtx);
     }
 
-    if (!isPlayerClimbing(climbing) && !player.state.isFalling && !player.state.justRespawned && !isPlayerDodging(dodge)) {
-      const moveInput = { x: inputState.move.x, y: inputState.move.y, jump: inputState.jump, sprint: inputState.sprint && !staminaResult.shouldPreventSprint };
+    if (
+      !isPlayerClimbing(climbing) &&
+      !player.state.isFalling &&
+      !player.state.justRespawned &&
+      !isPlayerDodging(dodge)
+    ) {
+      const moveInput = {
+        x: inputState.move.x,
+        y: inputState.move.y,
+        jump: inputState.jump,
+        sprint: inputState.sprint && !staminaResult.shouldPreventSprint,
+      };
       player.state = updatePlayer(player.state, moveInput, orbit.yaw, dt, player, physicsCtx);
     }
     if (player.state.justRespawned) {
@@ -1059,7 +1216,10 @@ function animate(now) {
     const chainPos = getChainSegmentPositions(capeChain);
     const capePosArr = capeGeo.attributes.position.array;
     for (let iy = 0; iy < CAPE_ROWS; iy++) {
-      const ci = Math.min(Math.round(iy * (CAPE_CONSTANTS.NUM_NODES - 1) / 6), CAPE_CONSTANTS.NUM_NODES - 1);
+      const ci = Math.min(
+        Math.round((iy * (CAPE_CONSTANTS.NUM_NODES - 1)) / 6),
+        CAPE_CONSTANTS.NUM_NODES - 1,
+      );
       const cdx = chainPos[ci].x - capeAnchor.x;
       const cdz = chainPos[ci].z - capeAnchor.z;
       const flutter = Math.sin(now * 0.003 + iy * 0.8) * 0.02;
@@ -1067,7 +1227,8 @@ function animate(now) {
         const vi = (iy * CAPE_COLS + ix) * 3;
         const edgeDist = Math.abs(ix - 2) / 2;
         const edgeFactor = edgeDist * edgeDist;
-        capePosArr[vi] = capeRestPositions[vi] + cdx * (1 - edgeFactor * 0.5) + flutter * edgeFactor;
+        capePosArr[vi] =
+          capeRestPositions[vi] + cdx * (1 - edgeFactor * 0.5) + flutter * edgeFactor;
         capePosArr[vi + 2] = capeRestPositions[vi + 2] + cdz + flutter * edgeFactor * 0.5;
       }
     }
@@ -1092,7 +1253,10 @@ function animate(now) {
       };
 
       const distToGround = player.state.position.y - groundY;
-      if ((physicsGrounded || (distToGround >= -0.5 && distToGround < 0.5)) && player.state.velocity.y <= 0) {
+      if (
+        (physicsGrounded || (distToGround >= -0.5 && distToGround < 0.5)) &&
+        player.state.velocity.y <= 0
+      ) {
         player.state = {
           ...player.state,
           position: { ...player.state.position, y: groundY },
@@ -1109,7 +1273,9 @@ function animate(now) {
     physicsAdapter.setPosition(physicsWorld, playerPhysicsBody, player.state.position);
     physicsAdapter.setVelocity(physicsWorld, playerPhysicsBody, player.state.velocity);
 
-    const isMoving = player.state.isGrounded && !isPlayerClimbing(climbing) &&
+    const isMoving =
+      player.state.isGrounded &&
+      !isPlayerClimbing(climbing) &&
       (Math.abs(inputState.move.x) > 0.1 || Math.abs(inputState.move.y) > 0.1);
     if (controlHintsVisible) {
       controlHintsTimer += dt;
@@ -1123,7 +1289,7 @@ function animate(now) {
       const fsParams = getFootstepParams(isSprinting);
       playProceduralSound(fsParams);
       audioState = { ...audioState, lastFootstepTime: now * 0.001 };
-      audioState = registerSound(audioState, 'footstep', fsParams.duration, now * 0.001);
+      audioState = registerSound(audioState, "footstep", fsParams.duration, now * 0.001);
     }
 
     const staminaRatio = stamina.current / stamina.max;
@@ -1131,16 +1297,24 @@ function animate(now) {
       const hbParams = getHeartbeatParams();
       playProceduralSound(hbParams);
       audioState = { ...audioState, lastHeartbeatTime: now * 0.001 };
-      audioState = registerSound(audioState, 'heartbeat', hbParams.duration, now * 0.001);
+      audioState = registerSound(audioState, "heartbeat", hbParams.duration, now * 0.001);
     }
 
     const attackJustPressed = inputState.attack && !prevAttack;
     if (attackJustPressed) {
       const slashParams = getSwordSlashParams(false);
       playProceduralSound(slashParams);
-      audioState = registerSound(audioState, 'swordSlash', slashParams.duration, now * 0.001);
+      audioState = registerSound(audioState, "swordSlash", slashParams.duration, now * 0.001);
     }
-    const combatResult = updateIntegratedCombat(combat, { ...inputState, attackJustPressed }, player.state.position, player.state.rotation, weakPoints, isPlayerClimbing(climbing), dt);
+    const combatResult = updateIntegratedCombat(
+      combat,
+      { ...inputState, attackJustPressed },
+      player.state.position,
+      player.state.rotation,
+      weakPoints,
+      isPlayerClimbing(climbing),
+      dt,
+    );
     combat = combatResult.combatState;
     weakPoints = combatResult.hitResult.weakPoints || weakPoints;
     prevAttack = inputState.attack;
@@ -1149,9 +1323,9 @@ function animate(now) {
       const hr = combatResult.hitResult;
       const hitParams = getWeakPointHitParams(false);
       playProceduralSound(hitParams);
-      audioState = registerSound(audioState, 'weakPointHit', hitParams.duration, now * 0.001);
+      audioState = registerSound(audioState, "weakPointHit", hitParams.duration, now * 0.001);
       for (const c of colossi) {
-        const wp = c.weakPoints.find(w => w.id === hr.weakPointId);
+        const wp = c.weakPoints.find((w) => w.id === hr.weakPointId);
         if (wp) {
           combatFeedback.spawnDamageNumber(wp.position, hr.damage);
           combatFeedback.spawnHitFlash(wp.position);
@@ -1169,7 +1343,12 @@ function animate(now) {
             if (deathInt) triggerDeathSequence(deathInt);
             const deathParams = getColossusDeathParams(0);
             playProceduralSound(deathParams);
-            audioState = registerSound(audioState, `colossusDeath_${c.type}`, deathParams.duration, now * 0.001);
+            audioState = registerSound(
+              audioState,
+              `colossusDeath_${c.type}`,
+              deathParams.duration,
+              now * 0.001,
+            );
             combatFeedback.triggerScreenShake(1.2);
           }
           break;
@@ -1179,7 +1358,7 @@ function animate(now) {
 
     const colossusEvents = updateColossi(colossi, player.state.position, dt);
     for (const event of colossusEvents) {
-      if (event.type === 'shakeOff' && isPlayerClimbing(climbing)) {
+      if (event.type === "shakeOff" && isPlayerClimbing(climbing)) {
         const shakeResult = handleShakeOff(combat, stamina, dt, inputState.action);
         combat = shakeResult.combatState;
         stamina = shakeResult.staminaState;
@@ -1211,14 +1390,28 @@ function animate(now) {
     }
 
     for (const c of colossi) {
-      const animateFn = c.type === 'sentinel' ? sentinelAnimate : c.type === 'wraith' ? wraithAnimate : titanAnimate;
+      const animateFn =
+        c.type === "sentinel"
+          ? sentinelAnimate
+          : c.type === "wraith"
+            ? wraithAnimate
+            : titanAnimate;
       animateFn(c.mesh, now * 0.001);
     }
 
     if (!isTransitioning(arenaTransition) && arenaTransition.state !== TRANSITION_STATES.IN_ARENA) {
-      const entryArena = shouldTriggerArenaEntry(player.state.position, arenaConfigs, progression.defeated);
+      const entryArena = shouldTriggerArenaEntry(
+        player.state.position,
+        arenaConfigs,
+        progression.defeated,
+      );
       if (entryArena) {
-        arenaTransition = startTransitionToArena(arenaTransition, entryArena, arenaConfigs, progression.defeated);
+        arenaTransition = startTransitionToArena(
+          arenaTransition,
+          entryArena,
+          arenaConfigs,
+          progression.defeated,
+        );
         hasTeleported = false;
       }
     }
@@ -1229,17 +1422,31 @@ function animate(now) {
       hasTeleported = true;
       if (arenaTransition.returningToHub) {
         const spawn = getHubSpawnPoint();
-        player.state = { ...player.state, position: spawn, velocity: { x: 0, y: 0, z: 0 }, isGrounded: true, isFalling: false, isJumping: false };
+        player.state = {
+          ...player.state,
+          position: spawn,
+          velocity: { x: 0, y: 0, z: 0 },
+          isGrounded: true,
+          isFalling: false,
+          isJumping: false,
+        };
       } else {
-        const config = arenaConfigs.find(c => c.type === arenaTransition.currentArena);
+        const config = arenaConfigs.find((c) => c.type === arenaTransition.currentArena);
         const spawn = getArenaSpawnPoint(config.center);
-        player.state = { ...player.state, position: spawn, velocity: { x: 0, y: 0, z: 0 }, isGrounded: true, isFalling: false, isJumping: false };
+        player.state = {
+          ...player.state,
+          position: spawn,
+          velocity: { x: 0, y: 0, z: 0 },
+          isGrounded: true,
+          isFalling: false,
+          isJumping: false,
+        };
       }
       orbit.snapToTarget(player.state.position);
     }
 
     if (arenaTransition.state === TRANSITION_STATES.IN_ARENA) {
-      const activeColossus = colossi.find(c => c.type === arenaTransition.currentArena);
+      const activeColossus = colossi.find((c) => c.type === arenaTransition.currentArena);
       if (activeColossus && activeColossus.aiState.isDead) {
         arenaTransition = startTransitionToHub(arenaTransition);
         hasTeleported = false;
@@ -1248,12 +1455,15 @@ function animate(now) {
 
     const colossusDist = getNearestLivingColossusDist(player.state.position);
     if (colossusDist < 50) {
-      music.setState('combat');
+      music.setState("combat");
     } else {
-      music.setState('exploration');
+      music.setState("exploration");
     }
 
-    const ppConfig = ui.getPostProcessConfig(colossusDist < 50 ? 'combat' : 'exploration', colossusDist);
+    const ppConfig = ui.getPostProcessConfig(
+      colossusDist < 50 ? "combat" : "exploration",
+      colossusDist,
+    );
     postProcess = updatePostProcessState(postProcess, ppConfig, dt);
     if (shouldEnableBloom(postProcess)) {
       if (!bloomPipeline) {
@@ -1267,9 +1477,9 @@ function animate(now) {
 
     const baseFogDensity = 0.02;
     const fogDensity = baseFogDensity + postProcess.vignetteAmount * 0.02;
-    const warmR = grading.type === 'warm' ? 0.06 + grading.warmTint * 0.04 : 0.04;
-    const warmG = grading.type === 'warm' ? 0.05 + grading.warmTint * 0.02 : 0.04;
-    const warmB = grading.type === 'desaturated' ? 0.1 + grading.desaturationFactor * 0.03 : 0.07;
+    const warmR = grading.type === "warm" ? 0.06 + grading.warmTint * 0.04 : 0.04;
+    const warmG = grading.type === "warm" ? 0.05 + grading.warmTint * 0.02 : 0.04;
+    const warmB = grading.type === "desaturated" ? 0.1 + grading.desaturationFactor * 0.03 : 0.07;
     scene.setFog(new THREE.Color(warmR, warmG, warmB), fogDensity);
 
     for (const vis of windCurrentVisuals) {
@@ -1277,9 +1487,12 @@ function animate(now) {
         vis.tArr[i] = (vis.tArr[i] + dt * 0.05) % 1;
         const segIdx = Math.min(Math.floor(vis.tArr[i] * (vis.pts.length - 1)), vis.pts.length - 2);
         const localT = vis.tArr[i] * (vis.pts.length - 1) - segIdx;
-        vis.posArr[i * 3] = vis.pts[segIdx].x + (vis.pts[segIdx + 1].x - vis.pts[segIdx].x) * localT + vis.spreadX[i];
-        vis.posArr[i * 3 + 1] = vis.pts[segIdx].y + (vis.pts[segIdx + 1].y - vis.pts[segIdx].y) * localT + vis.spreadY[i];
-        vis.posArr[i * 3 + 2] = vis.pts[segIdx].z + (vis.pts[segIdx + 1].z - vis.pts[segIdx].z) * localT + vis.spreadZ[i];
+        vis.posArr[i * 3] =
+          vis.pts[segIdx].x + (vis.pts[segIdx + 1].x - vis.pts[segIdx].x) * localT + vis.spreadX[i];
+        vis.posArr[i * 3 + 1] =
+          vis.pts[segIdx].y + (vis.pts[segIdx + 1].y - vis.pts[segIdx].y) * localT + vis.spreadY[i];
+        vis.posArr[i * 3 + 2] =
+          vis.pts[segIdx].z + (vis.pts[segIdx + 1].z - vis.pts[segIdx].z) * localT + vis.spreadZ[i];
       }
       vis.geom.attributes.position.needsUpdate = true;
     }
@@ -1353,8 +1566,8 @@ function animate(now) {
   }
 
   const currentState = gameState.getState();
-  if (endingState && (currentState === 'victory' || currentState === 'credits')) {
-    const originalPositions = arenaConfigs.map(c => ({ x: c.center.x, y: 0, z: c.center.z }));
+  if (endingState && (currentState === "victory" || currentState === "credits")) {
+    const originalPositions = arenaConfigs.map((c) => ({ x: c.center.x, y: 0, z: c.center.z }));
     const hubPos = { x: hubIsland.center.x, y: 0, z: hubIsland.center.z };
     endingState = updateEndingState(endingState, dt, originalPositions, hubPos);
 
@@ -1374,17 +1587,17 @@ function animate(now) {
       if (mesh) mesh.setPosition(islandPositions[i].x, 0, islandPositions[i].z);
     }
 
-    const creditsEl = document.getElementById('credits-overlay');
+    const creditsEl = document.getElementById("credits-overlay");
     if (creditsEl) {
       if (shouldShowCredits(endingState)) {
-        creditsEl.style.display = 'flex';
+        creditsEl.style.display = "flex";
         creditsEl.style.opacity = getCreditsAlpha(endingState);
       } else {
-        creditsEl.style.display = 'none';
+        creditsEl.style.display = "none";
       }
     }
 
-    if (currentState !== 'playing') {
+    if (currentState !== "playing") {
       const pos = player.state.position;
       playerMesh.setPosition(pos.x, pos.y, pos.z);
       const adjustedTarget = { x: pos.x, y: pos.y + 1, z: pos.z };
@@ -1411,7 +1624,7 @@ function animate(now) {
     const showStamina = isClimbingNow || staminaForUI.percent < 1;
 
     let colossusHealth = null;
-    const nearestColossus = colossi.find(c => {
+    const nearestColossus = colossi.find((c) => {
       const dx = player.state.position.x - c.aiState.position.x;
       const dz = player.state.position.z - c.aiState.position.z;
       return Math.sqrt(dx * dx + dz * dz) < 60 && !c.aiState.isDead;
@@ -1432,7 +1645,7 @@ function animate(now) {
       controlHints: controlHintsVisible ? CONTROL_HINTS_LIST : [],
     };
     hud.draw(hudState);
-  } else if (gameState.getState() === 'paused') {
+  } else if (gameState.getState() === "paused") {
     hud.draw({ stamina: 1, hints: [] });
   } else {
     const showSkip = endingState && shouldShowSkipHint(endingState);
@@ -1441,17 +1654,20 @@ function animate(now) {
 
   sky.update(now * 0.001);
 
-  const transitionOverlay = document.getElementById('transition-overlay');
+  const transitionOverlay = document.getElementById("transition-overlay");
   if (transitionOverlay) {
     const fadeProgress = getTransitionProgress(arenaTransition);
     transitionOverlay.style.opacity = fadeProgress;
   }
 
-  const arenaNameEl = document.getElementById('arena-name');
+  const arenaNameEl = document.getElementById("arena-name");
   if (arenaNameEl) {
-    if (arenaTransition.state === TRANSITION_STATES.TELEPORTING && !arenaTransition.returningToHub) {
-      const names = { sentinel: 'Stone Sentinel', titan: 'Tide Titan', wraith: 'Wind Wraith' };
-      arenaNameEl.textContent = names[arenaTransition.currentArena] || '';
+    if (
+      arenaTransition.state === TRANSITION_STATES.TELEPORTING &&
+      !arenaTransition.returningToHub
+    ) {
+      const names = { sentinel: "Stone Sentinel", titan: "Tide Titan", wraith: "Wind Wraith" };
+      arenaNameEl.textContent = names[arenaTransition.currentArena] || "";
       arenaNameEl.style.opacity = 1;
     } else if (arenaTransition.state === TRANSITION_STATES.FADING_IN) {
       arenaNameEl.style.opacity = Math.max(0, 1 - getTransitionProgress(arenaTransition) * 2);
@@ -1468,7 +1684,7 @@ function animate(now) {
 }
 
 function sentinelAnimate(mesh, time) {
-  const torso = mesh.meshByPart.get('torso');
+  const torso = mesh.meshByPart.get("torso");
   if (torso) {
     const pulse = 1 + Math.sin(time * 1.5) * 0.015;
     torso.scale.set(pulse, pulse, pulse);
@@ -1476,14 +1692,14 @@ function sentinelAnimate(mesh, time) {
 }
 
 function wraithAnimate(mesh, time) {
-  const wings = [mesh.meshByPart.get('wing_left'), mesh.meshByPart.get('wing_right')];
+  const wings = [mesh.meshByPart.get("wing_left"), mesh.meshByPart.get("wing_right")];
   for (const wing of wings) {
     if (wing) wing.rotation.z = Math.sin(time * 2) * 0.3;
   }
 }
 
 function titanAnimate(mesh, time) {
-  const legs = ['front_left_upper', 'front_right_upper', 'back_left_upper', 'back_right_upper'];
+  const legs = ["front_left_upper", "front_right_upper", "back_left_upper", "back_right_upper"];
   for (let i = 0; i < legs.length; i++) {
     const leg = mesh.meshByPart.get(legs[i]);
     if (leg) leg.rotation.x = Math.sin(time * 0.5 + i * 1.5) * 0.05;

@@ -18,7 +18,12 @@ export function orbitCameraPosition(yaw, pitch, distance, target) {
   };
 }
 
-export function computeCollisionDistance(desiredDistance, hitDistance, offset = 0.2, minDistance = 0) {
+export function computeCollisionDistance(
+  desiredDistance,
+  hitDistance,
+  offset = 0.2,
+  minDistance = 0,
+) {
   if (hitDistance == null || hitDistance >= desiredDistance) {
     return desiredDistance;
   }
@@ -30,7 +35,13 @@ export function getContextDistance(context, distanceMap, defaultDistance = 0) {
   return defaultDistance;
 }
 
-export function resolveCameraDistance(currentDistance, targetDistance, lerpFactor, minDistance, maxDistance) {
+export function resolveCameraDistance(
+  currentDistance,
+  targetDistance,
+  lerpFactor,
+  minDistance,
+  maxDistance,
+) {
   const next = currentDistance + (targetDistance - currentDistance) * lerpFactor;
   return Math.max(minDistance, Math.min(maxDistance, next));
 }
@@ -59,7 +70,10 @@ export class OrbitCamera {
   constructor(options = {}) {
     const cfg = { ...OrbitCamera.DEFAULTS, ...options };
     if (options.contextDistances) {
-      cfg.contextDistances = { ...OrbitCamera.DEFAULTS.contextDistances, ...options.contextDistances };
+      cfg.contextDistances = {
+        ...OrbitCamera.DEFAULTS.contextDistances,
+        ...options.contextDistances,
+      };
     }
     this.distance = cfg.distance;
     this.minDistance = cfg.minDistance;
@@ -78,27 +92,18 @@ export class OrbitCamera {
     this._position = { x: 0, y: 0, z: 0 };
     this.currentTarget = { x: 0, y: 0, z: 0 };
     this.targetDistance = cfg.distance;
-    this.context = 'exploration';
+    this.context = "exploration";
   }
 
   setContext(newContext) {
     this.context = newContext;
-    this.targetDistance = getContextDistance(
-      newContext,
-      this.contextDistances,
-      this.distance
-    );
+    this.targetDistance = getContextDistance(newContext, this.contextDistances, this.distance);
     return this.targetDistance;
   }
 
   snapToTarget(position) {
     this.currentTarget = { x: position.x, y: position.y, z: position.z };
-    this._position = orbitCameraPosition(
-      this.yaw,
-      this.pitch,
-      this.distance,
-      this.currentTarget
-    );
+    this._position = orbitCameraPosition(this.yaw, this.pitch, this.distance, this.currentTarget);
   }
 
   update(dt, inputLook, targetPosition, options) {
@@ -120,12 +125,17 @@ export class OrbitCamera {
         this.targetDistance,
         distFactor,
         this.minDistance,
-        this.maxDistance
+        this.maxDistance,
       );
     }
 
     if (options?.raycastFn) {
-      const desiredPos = orbitCameraPosition(this.yaw, this.pitch, effectiveDistance, this.currentTarget);
+      const desiredPos = orbitCameraPosition(
+        this.yaw,
+        this.pitch,
+        effectiveDistance,
+        this.currentTarget,
+      );
       const dir = {
         x: desiredPos.x - this.currentTarget.x,
         y: desiredPos.y - this.currentTarget.y,
@@ -136,18 +146,13 @@ export class OrbitCamera {
         effectiveDistance,
         hit?.distance ?? null,
         this.collisionOffset,
-        this.minDistance
+        this.minDistance,
       );
     }
 
     this.distance = effectiveDistance;
 
-    this._position = orbitCameraPosition(
-      this.yaw,
-      this.pitch,
-      this.distance,
-      this.currentTarget
-    );
+    this._position = orbitCameraPosition(this.yaw, this.pitch, this.distance, this.currentTarget);
 
     return {
       position: { x: this._position.x, y: this._position.y, z: this._position.z },

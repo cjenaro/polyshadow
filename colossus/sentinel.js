@@ -1,6 +1,6 @@
-import { vec3Add, vec3Scale } from '../utils/math.js';
-import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from './base.js';
-import { generateNormalMapData } from '../utils/normal-map.js';
+import { vec3Add, vec3Scale } from "../utils/math.js";
+import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from "./base.js";
+import { generateNormalMapData } from "../utils/normal-map.js";
 
 export const STONE_SENTINEL_SCALE = 20;
 
@@ -27,95 +27,162 @@ export function createSentinelDefinition() {
 
   const parts = [
     {
-      id: 'torso', name: 'Torso', type: 'core',
+      id: "torso",
+      name: "Torso",
+      type: "core",
       position: { x: 0, y: torsoY, z: 0 },
       dimensions: { width: torsoW, height: torsoH, depth: torsoD },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: null, isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
+      parent: null,
+      isClimbable: true,
+      isWeakPoint: false,
+      isRestSpot: true,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'hips', name: 'Hips', type: 'core',
+      id: "hips",
+      name: "Hips",
+      type: "core",
       position: { x: 0, y: torsoY - torsoH * 0.3, z: -torsoD * 0.1 },
       dimensions: { width: torsoW * 0.8, height: torsoH * 0.4, depth: torsoD * 0.7 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'torso', isClimbable: true, isWeakPoint: false, isRestSpot: true, healthMultiplier: 1.0,
+      parent: "torso",
+      isClimbable: true,
+      isWeakPoint: false,
+      isRestSpot: true,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'head', name: 'Head', type: 'head',
+      id: "head",
+      name: "Head",
+      type: "head",
       position: { x: 0, y: headY, z: torsoD * 0.25 },
       dimensions: { width: headSize, height: headSize, depth: headSize * 1.2 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'torso', isClimbable: false, isWeakPoint: true, healthMultiplier: 3.0,
+      parent: "torso",
+      isClimbable: false,
+      isWeakPoint: true,
+      healthMultiplier: 3.0,
     },
     {
-      id: 'back_rune_left', name: 'Back Rune Left', type: 'core',
+      id: "back_rune_left",
+      name: "Back Rune Left",
+      type: "core",
       position: { x: -torsoW * 0.2, y: torsoY + torsoH * 0.15, z: -torsoD / 2 },
       dimensions: { width: torsoW * 0.2, height: torsoH * 0.15, depth: 0.1 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'torso', isClimbable: false, isWeakPoint: true, healthMultiplier: 2.0,
+      parent: "torso",
+      isClimbable: false,
+      isWeakPoint: true,
+      healthMultiplier: 2.0,
     },
     {
-      id: 'back_rune_right', name: 'Back Rune Right', type: 'core',
+      id: "back_rune_right",
+      name: "Back Rune Right",
+      type: "core",
       position: { x: torsoW * 0.2, y: torsoY + torsoH * 0.15, z: -torsoD / 2 },
       dimensions: { width: torsoW * 0.2, height: torsoH * 0.15, depth: 0.1 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'torso', isClimbable: false, isWeakPoint: true, healthMultiplier: 2.0,
+      parent: "torso",
+      isClimbable: false,
+      isWeakPoint: true,
+      healthMultiplier: 2.0,
     },
     {
-      id: 'front_left_upper', name: 'Front Left Upper Leg', type: 'limb_upper',
+      id: "front_left_upper",
+      name: "Front Left Upper Leg",
+      type: "limb_upper",
       position: { x: -legSpreadX, y: legUpperY, z: frontZ },
       dimensions: { width: legW, height: upperLegH, depth: legW },
       rotation: { x: 0, y: 0, z: 0.15 },
-      parent: 'torso', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "torso",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'front_left_lower', name: 'Front Left Lower Leg', type: 'limb_lower',
+      id: "front_left_lower",
+      name: "Front Left Lower Leg",
+      type: "limb_lower",
       position: { x: -legSpreadX, y: legLowerY, z: frontZ },
       dimensions: { width: legW * 0.9, height: lowerLegH, depth: legW * 0.9 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'front_left_upper', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "front_left_upper",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'front_right_upper', name: 'Front Right Upper Leg', type: 'limb_upper',
+      id: "front_right_upper",
+      name: "Front Right Upper Leg",
+      type: "limb_upper",
       position: { x: legSpreadX, y: legUpperY, z: frontZ },
       dimensions: { width: legW, height: upperLegH, depth: legW },
       rotation: { x: 0, y: 0, z: -0.15 },
-      parent: 'torso', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "torso",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'front_right_lower', name: 'Front Right Lower Leg', type: 'limb_lower',
+      id: "front_right_lower",
+      name: "Front Right Lower Leg",
+      type: "limb_lower",
       position: { x: legSpreadX, y: legLowerY, z: frontZ },
       dimensions: { width: legW * 0.9, height: lowerLegH, depth: legW * 0.9 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'front_right_upper', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "front_right_upper",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'back_left_upper', name: 'Back Left Upper Leg', type: 'limb_upper',
+      id: "back_left_upper",
+      name: "Back Left Upper Leg",
+      type: "limb_upper",
       position: { x: -legSpreadX, y: legUpperY, z: backZ },
       dimensions: { width: legW, height: upperLegH, depth: legW },
       rotation: { x: 0, y: 0, z: 0.15 },
-      parent: 'torso', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "torso",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'back_left_lower', name: 'Back Left Lower Leg', type: 'limb_lower',
+      id: "back_left_lower",
+      name: "Back Left Lower Leg",
+      type: "limb_lower",
       position: { x: -legSpreadX, y: legLowerY, z: backZ },
       dimensions: { width: legW * 0.9, height: lowerLegH, depth: legW * 0.9 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'back_left_upper', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "back_left_upper",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'back_right_upper', name: 'Back Right Upper Leg', type: 'limb_upper',
+      id: "back_right_upper",
+      name: "Back Right Upper Leg",
+      type: "limb_upper",
       position: { x: legSpreadX, y: legUpperY, z: backZ },
       dimensions: { width: legW, height: upperLegH, depth: legW },
       rotation: { x: 0, y: 0, z: -0.15 },
-      parent: 'torso', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "torso",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
     {
-      id: 'back_right_lower', name: 'Back Right Lower Leg', type: 'limb_lower',
+      id: "back_right_lower",
+      name: "Back Right Lower Leg",
+      type: "limb_lower",
       position: { x: legSpreadX, y: legLowerY, z: backZ },
       dimensions: { width: legW * 0.9, height: lowerLegH, depth: legW * 0.9 },
       rotation: { x: 0, y: 0, z: 0 },
-      parent: 'back_right_upper', isClimbable: true, isWeakPoint: false, healthMultiplier: 1.0,
+      parent: "back_right_upper",
+      isClimbable: true,
+      isWeakPoint: false,
+      healthMultiplier: 1.0,
     },
   ];
 
@@ -269,10 +336,10 @@ export function buildCombatWeakPoints(definition, colossusPosition, colossusRota
 }
 
 function getGeometryType(partId) {
-  if (partId.includes('_upper') || partId.includes('_lower')) {
-    return 'cylinder';
+  if (partId.includes("_upper") || partId.includes("_lower")) {
+    return "cylinder";
   }
-  return 'box';
+  return "box";
 }
 
 let _colossusNormalMap = null;
@@ -280,12 +347,12 @@ let _colossusNormalMap = null;
 function getColossusNormalMap() {
   if (_colossusNormalMap) return _colossusNormalMap;
   const T = getTHREE();
-  if (!T || typeof document === 'undefined') return null;
+  if (!T || typeof document === "undefined") return null;
   const { data, width, height } = generateNormalMapData(256, 256, 0.12, 77, 2.5);
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   const imageData = ctx.createImageData(width, height);
   imageData.data.set(data);
   ctx.putImageData(imageData, 0, 0);
@@ -327,7 +394,7 @@ export function createSentinelMesh(definition) {
     const geoType = getGeometryType(id);
     let geometry;
 
-    if (geoType === 'cylinder') {
+    if (geoType === "cylinder") {
       geometry = new T.CylinderGeometry(dim.width / 2, dim.width / 2, dim.height, 8);
     } else {
       geometry = new T.BoxGeometry(dim.width, dim.height, dim.depth);
@@ -355,7 +422,7 @@ export function createSentinelMesh(definition) {
 
 export function animateSentinel(mesh, time) {
   const { meshByPart } = mesh;
-  const torso = meshByPart.get('torso');
+  const torso = meshByPart.get("torso");
   if (!torso) return;
 
   const pulse = 1 + Math.sin(time * 1.5) * 0.015;

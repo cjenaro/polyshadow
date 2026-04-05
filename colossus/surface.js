@@ -21,9 +21,7 @@ export function getPatchCoverageStats(patches, definition) {
     if (count > maxPatches) maxPatches = count;
   }
 
-  const climbablePartIds = definition.parts
-    .filter(p => p.isClimbable)
-    .map(p => p.id);
+  const climbablePartIds = definition.parts.filter((p) => p.isClimbable).map((p) => p.id);
 
   const climbablePartsMissingPatches = [];
   for (const id of climbablePartIds) {
@@ -44,7 +42,7 @@ export function getPatchCoverageStats(patches, definition) {
 
 export function validateSurfacePatches(patches, definition) {
   const stats = getPatchCoverageStats(patches, definition);
-  const patchPartIds = patches.map(p => p.bodyPartId);
+  const patchPartIds = patches.map((p) => p.bodyPartId);
 
   return {
     valid: stats.climbablePartsMissingPatches.length === 0,

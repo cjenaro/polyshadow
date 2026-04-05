@@ -1,4 +1,4 @@
-import { distance3D, lerp } from '../utils/math.js';
+import { distance3D, lerp } from "../utils/math.js";
 
 const JUMP_CLIMB_COOLDOWN = 0.3;
 const BEHIND_PENALTY = 3;
@@ -9,7 +9,12 @@ export function isGrabPressed(input) {
   return !!input.action;
 }
 
-export function findNearestClimbableSurface(playerPos, surfaces, maxGrabDistance, { facingDir, skipSurface } = {}) {
+export function findNearestClimbableSurface(
+  playerPos,
+  surfaces,
+  maxGrabDistance,
+  { facingDir, skipSurface } = {},
+) {
   let nearest = null;
   let nearestDist = maxGrabDistance;
 
@@ -17,8 +22,12 @@ export function findNearestClimbableSurface(playerPos, surfaces, maxGrabDistance
     if (!surface.climbable) continue;
     if (surface === skipSurface) continue;
     const d = distance3D(
-      playerPos.x, playerPos.y, playerPos.z,
-      surface.position.x, surface.position.y, surface.position.z
+      playerPos.x,
+      playerPos.y,
+      playerPos.z,
+      surface.position.x,
+      surface.position.y,
+      surface.position.z,
     );
 
     let effectiveDist = d;
@@ -45,7 +54,9 @@ export function tryGrab(state, input, surfaces, maxGrabDistance, physicsCtx, { f
   if (!isGrabPressed(input)) return state;
   if (state.isClimbing) return state;
 
-  const surface = findNearestClimbableSurface(state.position, surfaces, maxGrabDistance, { facingDir });
+  const surface = findNearestClimbableSurface(state.position, surfaces, maxGrabDistance, {
+    facingDir,
+  });
   if (!surface) return state;
 
   const newState = {
@@ -89,7 +100,9 @@ export function applyClimbingMovement(state, input, dt, constants, physicsCtx) {
   let tangentX, tangentY, tangentZ;
 
   if (Math.abs(n.y) < 0.999) {
-    const upX = 0, upY = 1, upZ = 0;
+    const upX = 0,
+      upY = 1,
+      upZ = 0;
     tangentX = upY * n.z - upZ * n.y;
     tangentY = upZ * n.x - upX * n.z;
     tangentZ = upX * n.y - upY * n.x;
@@ -138,7 +151,14 @@ export function applyClimbingMovement(state, input, dt, constants, physicsCtx) {
   };
 }
 
-export function tryJumpClimb(state, input, surfaces, maxJumpDistance, physicsCtx, { now = 0, stamina = 100, facingDir } = {}) {
+export function tryJumpClimb(
+  state,
+  input,
+  surfaces,
+  maxJumpDistance,
+  physicsCtx,
+  { now = 0, stamina = 100, facingDir } = {},
+) {
   if (!state.isClimbing) return state;
   if (!input.jump) return state;
   if (now - state.lastJumpClimbTime < JUMP_CLIMB_COOLDOWN) return state;
@@ -183,8 +203,12 @@ export function updateClimbNormal(state, surfaces, { smoothFactor = 0.2 } = {}) 
   for (const surface of surfaces) {
     if (!surface.climbable) continue;
     const d = distance3D(
-      state.position.x, state.position.y, state.position.z,
-      surface.position.x, surface.position.y, surface.position.z
+      state.position.x,
+      state.position.y,
+      state.position.z,
+      surface.position.x,
+      surface.position.y,
+      surface.position.z,
     );
     if (d < nearestDist) {
       nearestDist = d;

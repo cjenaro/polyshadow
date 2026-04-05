@@ -6,9 +6,9 @@ export const DODGE_CONSTANTS = {
 };
 
 export const DODGE_STATES = {
-  IDLE: 'idle',
-  DODGING: 'dodging',
-  COOLDOWN: 'cooldown',
+  IDLE: "idle",
+  DODGING: "dodging",
+  COOLDOWN: "cooldown",
 };
 
 export function createDodgeState(overrides = {}) {
@@ -54,9 +54,8 @@ export function updateDodge(dodgeState, dt) {
   const nextTimer = dodgeState.timer - dt;
 
   if (nextTimer <= 0) {
-    const nextState = dodgeState.state === DODGE_STATES.DODGING
-      ? DODGE_STATES.COOLDOWN
-      : DODGE_STATES.IDLE;
+    const nextState =
+      dodgeState.state === DODGE_STATES.DODGING ? DODGE_STATES.COOLDOWN : DODGE_STATES.IDLE;
     return {
       ...dodgeState,
       state: nextState,
@@ -107,9 +106,11 @@ export function getDodgeStaminaCost(currDodgeState, prevDodgeState) {
 }
 
 export function canDodge(dodgeState, staminaState) {
-  return dodgeState.state === DODGE_STATES.IDLE &&
+  return (
+    dodgeState.state === DODGE_STATES.IDLE &&
     !staminaState.isDepleted &&
-    staminaState.current >= DODGE_CONSTANTS.STAMINA_COST;
+    staminaState.current >= DODGE_CONSTANTS.STAMINA_COST
+  );
 }
 
 export function isDodging(dodgeState) {

@@ -11,10 +11,12 @@ export const PARTICLE_COUNT_DESKTOP = 200;
 export const PARTICLE_COUNT_MOBILE = 80;
 
 export function isMobileDevice() {
-  if (typeof window === 'undefined') return false;
-  if (typeof navigator === 'undefined') return false;
-  return /Android|iPhone|iPad|iPod|webOS|BlackBerry|Opera Mini|IEMobile/i.test(navigator.userAgent)
-    || window.innerWidth <= 768;
+  if (typeof window === "undefined") return false;
+  if (typeof navigator === "undefined") return false;
+  return (
+    /Android|iPhone|iPad|iPod|webOS|BlackBerry|Opera Mini|IEMobile/i.test(navigator.userAgent) ||
+    window.innerWidth <= 768
+  );
 }
 
 export function selectLODLevel(distance, thresholds = LOD_THRESHOLDS) {

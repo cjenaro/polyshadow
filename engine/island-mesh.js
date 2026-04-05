@@ -2,9 +2,15 @@ export function buildIslandVertexColors(heightData, resolution, maxHeight) {
   const vertCount = (resolution + 1) * (resolution + 1);
   const colors = new Float32Array(vertCount * 3);
 
-  const dirtR = 0.36, dirtG = 0.25, dirtB = 0.13;
-  const grassR = 0.22, grassG = 0.55, grassB = 0.15;
-  const stoneR = 0.55, stoneG = 0.52, stoneB = 0.48;
+  const dirtR = 0.36,
+    dirtG = 0.25,
+    dirtB = 0.13;
+  const grassR = 0.22,
+    grassG = 0.55,
+    grassB = 0.15;
+  const stoneR = 0.55,
+    stoneG = 0.52,
+    stoneB = 0.48;
 
   const grassThreshold = maxHeight * 0.15;
   const stoneThreshold = maxHeight * 0.7;

@@ -1,17 +1,23 @@
 const MOVE_KEYS = new Set([
-  'KeyW', 'KeyA', 'KeyS', 'KeyD',
-  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
+  "KeyW",
+  "KeyA",
+  "KeyS",
+  "KeyD",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
 ]);
 
 const MOVE_MAP = {
-  KeyW:    { x:  0, y:  1 },
-  KeyS:    { x:  0, y: -1 },
-  KeyA:    { x: -1, y:  0 },
-  KeyD:    { x:  1, y:  0 },
-  ArrowUp:    { x:  0, y:  1 },
-  ArrowDown:  { x:  0, y: -1 },
-  ArrowLeft:  { x: -1, y:  0 },
-  ArrowRight: { x:  1, y:  0 },
+  KeyW: { x: 0, y: 1 },
+  KeyS: { x: 0, y: -1 },
+  KeyA: { x: -1, y: 0 },
+  KeyD: { x: 1, y: 0 },
+  ArrowUp: { x: 0, y: 1 },
+  ArrowDown: { x: 0, y: -1 },
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
 };
 
 function createEmptyState() {
@@ -40,11 +46,11 @@ function mapKeysToInput(pressedKeys, mouseDelta = { x: 0, y: 0 }, pressedMouseBu
       my += dir.y;
     }
 
-    if (code === 'Space') state.jump = true;
-    if (code === 'ShiftLeft' || code === 'ShiftRight') state.sprint = true;
-    if (code === 'KeyE') state.action = true;
-    if (code === 'KeyC') state.dodge = true;
-    if (code === 'Escape') state.start = true;
+    if (code === "Space") state.jump = true;
+    if (code === "ShiftLeft" || code === "ShiftRight") state.sprint = true;
+    if (code === "KeyE") state.action = true;
+    if (code === "KeyC") state.dodge = true;
+    if (code === "Escape") state.start = true;
   }
 
   const len = Math.sqrt(mx * mx + my * my);
@@ -95,7 +101,7 @@ class InputManager {
     this._onMouseDown = (e) => {
       if (document.pointerLockElement !== this.canvas) return;
       if (!this.pressedMouseButtons.has(e.button)) {
-        this.justPressed.add('Mouse' + e.button);
+        this.justPressed.add("Mouse" + e.button);
       }
       this.pressedMouseButtons.add(e.button);
     };
@@ -103,14 +109,14 @@ class InputManager {
     this._onMouseUp = (e) => {
       if (document.pointerLockElement !== this.canvas) return;
       this.pressedMouseButtons.delete(e.button);
-      this.justPressed.delete('Mouse' + e.button);
+      this.justPressed.delete("Mouse" + e.button);
     };
 
-    document.addEventListener('keydown', this._onKeyDown);
-    document.addEventListener('keyup', this._onKeyUp);
-    document.addEventListener('mousemove', this._onMouseMove);
-    document.addEventListener('mousedown', this._onMouseDown);
-    document.addEventListener('mouseup', this._onMouseUp);
+    document.addEventListener("keydown", this._onKeyDown);
+    document.addEventListener("keyup", this._onKeyUp);
+    document.addEventListener("mousemove", this._onMouseMove);
+    document.addEventListener("mousedown", this._onMouseDown);
+    document.addEventListener("mouseup", this._onMouseUp);
   }
 
   update() {
@@ -126,11 +132,11 @@ class InputManager {
 
   isPressed(action) {
     const KEY_MAP = {
-      jump: 'Space',
-      sprint: 'ShiftLeft',
-      action: 'KeyE',
-      attack: 'Mouse0',
-      start: 'Escape',
+      jump: "Space",
+      sprint: "ShiftLeft",
+      action: "KeyE",
+      attack: "Mouse0",
+      start: "Escape",
     };
     return this.prevPressed.has(KEY_MAP[action]);
   }
@@ -144,11 +150,11 @@ class InputManager {
   }
 
   destroy() {
-    document.removeEventListener('keydown', this._onKeyDown);
-    document.removeEventListener('keyup', this._onKeyUp);
-    document.removeEventListener('mousemove', this._onMouseMove);
-    document.removeEventListener('mousedown', this._onMouseDown);
-    document.removeEventListener('mouseup', this._onMouseUp);
+    document.removeEventListener("keydown", this._onKeyDown);
+    document.removeEventListener("keyup", this._onKeyUp);
+    document.removeEventListener("mousemove", this._onMouseMove);
+    document.removeEventListener("mousedown", this._onMouseDown);
+    document.removeEventListener("mouseup", this._onMouseUp);
   }
 }
 
@@ -165,7 +171,7 @@ const DEFAULT_GAMEPAD_MAP = {
 };
 
 function classifyTouchZone(touchX, screenWidth) {
-  return touchX < screenWidth * 0.4 ? 'left' : 'right';
+  return touchX < screenWidth * 0.4 ? "left" : "right";
 }
 
 function calculateJoystickVector(touchX, touchY, startX, startY, maxRadius, deadZone) {
@@ -204,7 +210,15 @@ function mapGamepadButtons(buttons, buttonMap) {
   return result;
 }
 
-function mapGamepadToInput(leftStickX, leftStickY, rightStickX, rightStickY, buttons, buttonMap, lookSensitivity = DEFAULT_LOOK_SENSITIVITY) {
+function mapGamepadToInput(
+  leftStickX,
+  leftStickY,
+  rightStickX,
+  rightStickY,
+  buttons,
+  buttonMap,
+  lookSensitivity = DEFAULT_LOOK_SENSITIVITY,
+) {
   const state = createEmptyState();
 
   const move = normalizeStick(leftStickX, leftStickY, GAMEPAD_DEAD_ZONE);
@@ -246,9 +260,9 @@ class TouchInputManager {
     this.lookDelta = { x: 0, y: 0 };
     this.lookActive = false;
     this.actionButtons = options.actionButtons || [
-      { id: 'jump', x: 0, y: 0, radius: 30 },
-      { id: 'grab', x: 0, y: 0, radius: 30 },
-      { id: 'attack', x: 0, y: 0, radius: 30 },
+      { id: "jump", x: 0, y: 0, radius: 30 },
+      { id: "grab", x: 0, y: 0, radius: 30 },
+      { id: "attack", x: 0, y: 0, radius: 30 },
     ];
     this.touchActions = { jump: false, grab: false, attack: false };
     this.activeTouches = new Map();
@@ -257,11 +271,11 @@ class TouchInputManager {
       e.preventDefault();
       for (const touch of e.changedTouches) {
         const zone = classifyTouchZone(touch.clientX, this.screenWidth);
-        if (zone === 'left' && !this.joystickTouch) {
+        if (zone === "left" && !this.joystickTouch) {
           this.joystickTouch = touch.identifier;
           this.joystickStart = { x: touch.clientX, y: touch.clientY };
           this.joystickState.active = true;
-        } else if (zone === 'right') {
+        } else if (zone === "right") {
           let matchedButton = false;
           for (const btn of this.actionButtons) {
             if (isTouchInButtonRegion(touch.clientX, touch.clientY, btn.x, btn.y, btn.radius)) {
@@ -285,9 +299,12 @@ class TouchInputManager {
       for (const touch of e.changedTouches) {
         if (touch.identifier === this.joystickTouch) {
           const v = calculateJoystickVector(
-            touch.clientX, touch.clientY,
-            this.joystickStart.x, this.joystickStart.y,
-            this.maxJoystickRadius, this.deadZone,
+            touch.clientX,
+            touch.clientY,
+            this.joystickStart.x,
+            this.joystickStart.y,
+            this.maxJoystickRadius,
+            this.deadZone,
           );
           this.joystickState = v;
         }
@@ -323,11 +340,11 @@ class TouchInputManager {
       this.screenHeight = canvas.clientHeight || window.innerHeight;
     };
 
-    canvas.addEventListener('touchstart', this._onTouchStart, { passive: false });
-    canvas.addEventListener('touchmove', this._onTouchMove, { passive: false });
-    canvas.addEventListener('touchend', this._onTouchEnd);
-    canvas.addEventListener('touchcancel', this._onTouchEnd);
-    window.addEventListener('resize', this._onResize);
+    canvas.addEventListener("touchstart", this._onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", this._onTouchMove, { passive: false });
+    canvas.addEventListener("touchend", this._onTouchEnd);
+    canvas.addEventListener("touchcancel", this._onTouchEnd);
+    window.addEventListener("resize", this._onResize);
   }
 
   getTouchJoystick() {
@@ -347,15 +364,15 @@ class TouchInputManager {
   }
 
   static supportsTouch() {
-    return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    return "ontouchstart" in window || navigator.maxTouchPoints > 0;
   }
 
   destroy() {
-    this.canvas.removeEventListener('touchstart', this._onTouchStart);
-    this.canvas.removeEventListener('touchmove', this._onTouchMove);
-    this.canvas.removeEventListener('touchend', this._onTouchEnd);
-    this.canvas.removeEventListener('touchcancel', this._onTouchEnd);
-    window.removeEventListener('resize', this._onResize);
+    this.canvas.removeEventListener("touchstart", this._onTouchStart);
+    this.canvas.removeEventListener("touchmove", this._onTouchMove);
+    this.canvas.removeEventListener("touchend", this._onTouchEnd);
+    this.canvas.removeEventListener("touchcancel", this._onTouchEnd);
+    window.removeEventListener("resize", this._onResize);
   }
 }
 
@@ -378,9 +395,13 @@ class GamepadInputManager {
     }
     this.connected = true;
     this.state = mapGamepadToInput(
-      gp.axes[0] || 0, gp.axes[1] || 0,
-      gp.axes[2] || 0, gp.axes[3] || 0,
-      gp.buttons, this.buttonMap, this.lookSensitivity,
+      gp.axes[0] || 0,
+      gp.axes[1] || 0,
+      gp.axes[2] || 0,
+      gp.axes[3] || 0,
+      gp.buttons,
+      this.buttonMap,
+      this.lookSensitivity,
     );
   }
 
@@ -393,7 +414,7 @@ class GamepadInputManager {
   }
 
   static isAvailable() {
-    return 'getGamepads' in navigator;
+    return "getGamepads" in navigator;
   }
 }
 

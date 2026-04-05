@@ -1,6 +1,6 @@
-import { CHUNK_SIZE, isChunkEmpty, getChunkWorldPosition, forEachBlock } from './voxel-chunk.js';
-import { buildChunkMeshData } from './voxel-mesher.js';
-import { BlockType, getBlockColor, isBlockSolid } from './block-types.js';
+import { CHUNK_SIZE, isChunkEmpty, getChunkWorldPosition, forEachBlock } from "./voxel-chunk.js";
+import { buildChunkMeshData } from "./voxel-mesher.js";
+import { BlockType, getBlockColor, isBlockSolid } from "./block-types.js";
 
 const LOD_THRESHOLDS = [50, 100];
 const VIEW_DISTANCE = 128;
@@ -33,8 +33,12 @@ export function shouldRenderChunk(cx, cy, cz, playerPos, lodLevel) {
 }
 
 function computeBounds(chunk) {
-  let minX = CHUNK_SIZE, minY = CHUNK_SIZE, minZ = CHUNK_SIZE;
-  let maxX = -1, maxY = -1, maxZ = -1;
+  let minX = CHUNK_SIZE,
+    minY = CHUNK_SIZE,
+    minZ = CHUNK_SIZE;
+  let maxX = -1,
+    maxY = -1,
+    maxZ = -1;
 
   forEachBlock(chunk, (x, y, z) => {
     if (x < minX) minX = x;
@@ -70,7 +74,8 @@ function isSuperBlockSolid(chunk, x, y, z, size) {
     for (let dz = 0; dz < size; dz++) {
       for (let dx = 0; dx < size; dx++) {
         if (x + dx < CHUNK_SIZE && y + dy < CHUNK_SIZE && z + dz < CHUNK_SIZE) {
-          const bt = chunk.blocks[(y + dy) * CHUNK_SIZE * CHUNK_SIZE + (z + dz) * CHUNK_SIZE + (x + dx)];
+          const bt =
+            chunk.blocks[(y + dy) * CHUNK_SIZE * CHUNK_SIZE + (z + dz) * CHUNK_SIZE + (x + dx)];
           if (isBlockSolid(bt)) return true;
         }
       }
@@ -100,23 +105,53 @@ function buildMergedMesh(chunk, mergeSize) {
   ];
 
   const FACE_VERTICES = {
-    px: [[1,0,0],[1,1,0],[1,1,1],[1,0,1]],
-    nx: [[0,0,1],[0,1,1],[0,1,0],[0,0,0]],
-    py: [[0,1,0],[0,1,1],[1,1,1],[1,1,0]],
-    ny: [[0,0,1],[0,0,0],[1,0,0],[1,0,1]],
-    pz: [[1,0,1],[1,1,1],[0,1,1],[0,0,1]],
-    nz: [[0,0,0],[0,1,0],[1,1,0],[1,0,0]],
+    px: [
+      [1, 0, 0],
+      [1, 1, 0],
+      [1, 1, 1],
+      [1, 0, 1],
+    ],
+    nx: [
+      [0, 0, 1],
+      [0, 1, 1],
+      [0, 1, 0],
+      [0, 0, 0],
+    ],
+    py: [
+      [0, 1, 0],
+      [0, 1, 1],
+      [1, 1, 1],
+      [1, 1, 0],
+    ],
+    ny: [
+      [0, 0, 1],
+      [0, 0, 0],
+      [1, 0, 0],
+      [1, 0, 1],
+    ],
+    pz: [
+      [1, 0, 1],
+      [1, 1, 1],
+      [0, 1, 1],
+      [0, 0, 1],
+    ],
+    nz: [
+      [0, 0, 0],
+      [0, 1, 0],
+      [1, 1, 0],
+      [1, 0, 0],
+    ],
   };
 
   const FACE_INDICES = [0, 1, 2, 0, 2, 3];
 
   function faceKey(nx, ny, nz) {
-    if (nx === 1) return 'px';
-    if (nx === -1) return 'nx';
-    if (ny === 1) return 'py';
-    if (ny === -1) return 'ny';
-    if (nz === 1) return 'pz';
-    return 'nz';
+    if (nx === 1) return "px";
+    if (nx === -1) return "nx";
+    if (ny === 1) return "py";
+    if (ny === -1) return "ny";
+    if (nz === 1) return "pz";
+    return "nz";
   }
 
   for (let y = 0; y < CHUNK_SIZE; y += step) {
@@ -128,7 +163,8 @@ function buildMergedMesh(chunk, mergeSize) {
         for (let dy = 0; dy < step && y + dy < CHUNK_SIZE; dy++) {
           for (let dz = 0; dz < step && z + dz < CHUNK_SIZE; dz++) {
             for (let dx = 0; dx < step && x + dx < CHUNK_SIZE; dx++) {
-              const bt = chunk.blocks[(y+dy)*CHUNK_SIZE*CHUNK_SIZE + (z+dz)*CHUNK_SIZE + (x+dx)];
+              const bt =
+                chunk.blocks[(y + dy) * CHUNK_SIZE * CHUNK_SIZE + (z + dz) * CHUNK_SIZE + (x + dx)];
               if (bt !== BlockType.AIR) {
                 blockCounts.set(bt, (blockCounts.get(bt) || 0) + 1);
               }
@@ -139,7 +175,10 @@ function buildMergedMesh(chunk, mergeSize) {
         let repType = BlockType.STONE;
         let bestCount = 0;
         for (const [bt, count] of blockCounts) {
-          if (count > bestCount) { bestCount = count; repType = bt; }
+          if (count > bestCount) {
+            bestCount = count;
+            repType = bt;
+          }
         }
 
         const baseColor = getBlockColor(repType) || [0.5, 0.5, 0.5];
@@ -150,7 +189,14 @@ function buildMergedMesh(chunk, mergeSize) {
           const adjZ = z + face.dz * step;
           let neighborSolid = false;
 
-          if (adjX >= 0 && adjX < CHUNK_SIZE && adjY >= 0 && adjY < CHUNK_SIZE && adjZ >= 0 && adjZ < CHUNK_SIZE) {
+          if (
+            adjX >= 0 &&
+            adjX < CHUNK_SIZE &&
+            adjY >= 0 &&
+            adjY < CHUNK_SIZE &&
+            adjZ >= 0 &&
+            adjZ < CHUNK_SIZE
+          ) {
             neighborSolid = isSuperBlockSolid(chunk, adjX, adjY, adjZ, step);
           }
 
@@ -164,7 +210,7 @@ function buildMergedMesh(chunk, mergeSize) {
             positions.push(
               origin.x + x + verts[i][0] * s,
               origin.y + y + verts[i][1] * s,
-              origin.z + z + verts[i][2] * s
+              origin.z + z + verts[i][2] * s,
             );
             normals.push(face.nx, face.ny, face.nz);
             colors.push(baseColor[0], baseColor[1], baseColor[2]);
@@ -219,12 +265,66 @@ export function createLODChunkMeshData(chunk, lodLevel, getNeighborBlock) {
   const z1 = origin.z + bounds.maxZ + 1;
 
   const sides = [
-    { verts: [[0,0,0],[1,0,0],[1,0,1],[0,0,1]], norm: [0,0,-1], quad: [0,0,1,0,1,0,1,1,0,0,1,1] },
-    { verts: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]], norm: [0,0,1], quad: [0,0,1,1,0,1,1,1,1,0,1,1] },
-    { verts: [[0,0,0],[0,0,1],[0,1,1],[0,1,0]], norm: [-1,0,0], quad: [0,0,0,0,0,1,0,1,1,0,1,0] },
-    { verts: [[1,0,0],[1,1,0],[1,1,1],[1,0,1]], norm: [1,0,0], quad: [1,0,0,1,1,0,1,1,1,1,0,1] },
-    { verts: [[0,0,0],[0,1,0],[1,1,0],[1,0,0]], norm: [0,-1,0], quad: [0,0,0,0,1,0,1,1,0,1,0,0] },
-    { verts: [[0,1,0],[0,1,1],[1,1,1],[1,1,0]], norm: [0,1,0], quad: [0,1,0,0,1,1,1,1,1,1,1,0] },
+    {
+      verts: [
+        [0, 0, 0],
+        [1, 0, 0],
+        [1, 0, 1],
+        [0, 0, 1],
+      ],
+      norm: [0, 0, -1],
+      quad: [0, 0, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1],
+    },
+    {
+      verts: [
+        [0, 0, 1],
+        [1, 0, 1],
+        [1, 1, 1],
+        [0, 1, 1],
+      ],
+      norm: [0, 0, 1],
+      quad: [0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1],
+    },
+    {
+      verts: [
+        [0, 0, 0],
+        [0, 0, 1],
+        [0, 1, 1],
+        [0, 1, 0],
+      ],
+      norm: [-1, 0, 0],
+      quad: [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0],
+    },
+    {
+      verts: [
+        [1, 0, 0],
+        [1, 1, 0],
+        [1, 1, 1],
+        [1, 0, 1],
+      ],
+      norm: [1, 0, 0],
+      quad: [1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+    },
+    {
+      verts: [
+        [0, 0, 0],
+        [0, 1, 0],
+        [1, 1, 0],
+        [1, 0, 0],
+      ],
+      norm: [0, -1, 0],
+      quad: [0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0],
+    },
+    {
+      verts: [
+        [0, 1, 0],
+        [0, 1, 1],
+        [1, 1, 1],
+        [1, 1, 0],
+      ],
+      norm: [0, 1, 0],
+      quad: [0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0],
+    },
   ];
 
   const FACE_IDX = [0, 1, 2, 0, 2, 3];
@@ -239,7 +339,7 @@ export function createLODChunkMeshData(chunk, lodLevel, getNeighborBlock) {
       pos.push(
         x0 + side.quad[i * 3] * (x1 - x0),
         y0 + side.quad[i * 3 + 1] * (y1 - y0),
-        z0 + side.quad[i * 3 + 2] * (z1 - z0)
+        z0 + side.quad[i * 3 + 2] * (z1 - z0),
       );
       norm.push(side.norm[0], side.norm[1], side.norm[2]);
       col.push(baseColor[0], baseColor[1], baseColor[2]);
@@ -248,11 +348,13 @@ export function createLODChunkMeshData(chunk, lodLevel, getNeighborBlock) {
     vertexCount += 4;
   }
 
-  const indices = new Uint32Array(Array.from({ length: 6 * sides.length }, (_, i) => {
-    const faceIdx = Math.floor(i / 6);
-    const localIdx = i % 6;
-    return faceIdx * 4 + FACE_IDX[localIdx];
-  }));
+  const indices = new Uint32Array(
+    Array.from({ length: 6 * sides.length }, (_, i) => {
+      const faceIdx = Math.floor(i / 6);
+      const localIdx = i % 6;
+      return faceIdx * 4 + FACE_IDX[localIdx];
+    }),
+  );
 
   return {
     positions: new Float32Array(pos),
@@ -273,7 +375,7 @@ export function createVoxelImpostor(chunk) {
   const color = getBlockColor(repType) || [0.5, 0.5, 0.5];
 
   return {
-    type: 'box',
+    type: "box",
     width: bounds.maxX - bounds.minX + 1,
     height: bounds.maxY - bounds.minY + 1,
     depth: bounds.maxZ - bounds.minZ + 1,
@@ -291,7 +393,8 @@ export function getMeshBudgetInfo(chunkCount, lodLevel) {
   const bytesPerVertex = 3 * 4 + 3 * 4 + 3 * 4 + 3 * 4;
   const verticesPerFace = 4;
   const indexBytesPerFace = 6 * 4;
-  const memoryEstimate = chunkCount * avgFacesPerChunk * (bytesPerVertex * verticesPerFace + indexBytesPerFace);
+  const memoryEstimate =
+    chunkCount * avgFacesPerChunk * (bytesPerVertex * verticesPerFace + indexBytesPerFace);
 
   return {
     estimatedTriangles,

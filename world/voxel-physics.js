@@ -1,5 +1,5 @@
-import { isBlockSolid } from './block-types.js';
-import { CHUNK_SIZE } from './voxel-chunk.js';
+import { isBlockSolid } from "./block-types.js";
+import { CHUNK_SIZE } from "./voxel-chunk.js";
 
 export function voxelGroundHeight(voxelStorage, worldX, worldZ) {
   const bx = Math.floor(worldX);
@@ -7,7 +7,7 @@ export function voxelGroundHeight(voxelStorage, worldX, worldZ) {
 
   let maxCY = -1;
   for (const key of voxelStorage.chunks.keys()) {
-    const cy = +key.split(',')[1];
+    const cy = +key.split(",")[1];
     if (cy > maxCY) maxCY = cy;
   }
 

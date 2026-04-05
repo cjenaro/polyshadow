@@ -1,4 +1,10 @@
-import { BlockType, isBlockSolid, isBlockTransparent, getBlockColor, getBlockEmissive } from './block-types.js';
+import {
+  BlockType,
+  isBlockSolid,
+  isBlockTransparent,
+  getBlockColor,
+  getBlockEmissive,
+} from "./block-types.js";
 
 export const CHUNK_SIZE = 16;
 
@@ -15,7 +21,7 @@ export function createChunk(chunkX, chunkY, chunkZ) {
 }
 
 function index(x, y, z) {
-  return (y * CHUNK_SIZE * CHUNK_SIZE) + (z * CHUNK_SIZE) + x;
+  return y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x;
 }
 
 export function getBlock(chunk, lx, ly, lz) {
@@ -26,7 +32,8 @@ export function getBlock(chunk, lx, ly, lz) {
 }
 
 export function setBlock(chunk, lx, ly, lz, blockType) {
-  if (lx < 0 || lx >= CHUNK_SIZE || ly < 0 || ly >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE) return;
+  if (lx < 0 || lx >= CHUNK_SIZE || ly < 0 || ly >= CHUNK_SIZE || lz < 0 || lz >= CHUNK_SIZE)
+    return;
   chunk.blocks[index(lx, ly, lz)] = blockType;
   chunk.dirty = true;
 }
@@ -61,9 +68,12 @@ export function isBlockExposed(chunk, lx, ly, lz, getNeighborBlock) {
   if (type === BlockType.AIR) return false;
 
   const dirs = [
-    [1, 0, 0], [-1, 0, 0],
-    [0, 1, 0], [0, -1, 0],
-    [0, 0, 1], [0, 0, -1],
+    [1, 0, 0],
+    [-1, 0, 0],
+    [0, 1, 0],
+    [0, -1, 0],
+    [0, 0, 1],
+    [0, 0, -1],
   ];
 
   for (const [dx, dy, dz] of dirs) {
@@ -125,7 +135,14 @@ export function getExposedFaces(chunk, getNeighborBlock) {
           if (getNeighborBlock) {
             neighbor = getNeighborBlock(nx, ny, nz);
           } else {
-            if (nx < 0 || nx >= CHUNK_SIZE || ny < 0 || ny >= CHUNK_SIZE || nz < 0 || nz >= CHUNK_SIZE) {
+            if (
+              nx < 0 ||
+              nx >= CHUNK_SIZE ||
+              ny < 0 ||
+              ny >= CHUNK_SIZE ||
+              nz < 0 ||
+              nz >= CHUNK_SIZE
+            ) {
               neighbor = BlockType.AIR;
             } else {
               neighbor = chunk.blocks[index(nx, ny, nz)];
@@ -134,7 +151,9 @@ export function getExposedFaces(chunk, getNeighborBlock) {
 
           if (!isBlockSolid(neighbor) || isBlockTransparent(neighbor)) {
             faces.push({
-              x, y, z,
+              x,
+              y,
+              z,
               blockType,
               normal: { x: face.nx, y: face.ny, z: face.nz },
             });

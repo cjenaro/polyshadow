@@ -1,21 +1,35 @@
 import {
-  createMesh, createColor, lerpColors,
-  createDirectionalLight, createAmbientLight, createHemisphereLight,
-} from '../engine/renderer.js';
+  createMesh,
+  createColor,
+  lerpColors,
+  createDirectionalLight,
+  createAmbientLight,
+  createHemisphereLight,
+} from "../engine/renderer.js";
 
-const GOLD_BOTTOM = createColor(0.831, 0.627, 0.090);
+const GOLD_BOTTOM = createColor(0.831, 0.627, 0.09);
 const PEACH_MID = createColor(0.961, 0.796, 0.655);
 const BLUE_TOP = createColor(0.529, 0.808, 0.922);
 
 export function createSky(scene) {
-  const skyDome = createMesh({ radius: 400, widthSegments: 32, heightSegments: 32, vertexColors: true, side: 1, fog: false });
+  const skyDome = createMesh({
+    radius: 400,
+    widthSegments: 32,
+    heightSegments: 32,
+    vertexColors: true,
+    side: 1,
+    fog: false,
+  });
   const posAttr = skyDome.getPositionAttribute();
   const colors = [];
 
   for (let i = 0; i < posAttr.count; i++) {
     const y = posAttr.getY(i);
     const t = (y + 400) / 800;
-    const c = t < 0.4 ? lerpColors(GOLD_BOTTOM, PEACH_MID, t / 0.4) : lerpColors(PEACH_MID, BLUE_TOP, (t - 0.4) / 0.6);
+    const c =
+      t < 0.4
+        ? lerpColors(GOLD_BOTTOM, PEACH_MID, t / 0.4)
+        : lerpColors(PEACH_MID, BLUE_TOP, (t - 0.4) / 0.6);
     colors.push(c.r, c.g, c.b);
   }
   skyDome.setVertexColors(colors);

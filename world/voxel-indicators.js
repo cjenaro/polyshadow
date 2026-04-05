@@ -1,4 +1,4 @@
-import { normalize2D } from '../utils/math.js';
+import { normalize2D } from "../utils/math.js";
 
 const DEFAULT_DISTANCE = 20;
 const HEIGHT_OFFSET = 3;
@@ -9,17 +9,17 @@ export function createVoxelArrowMesh() {
   const voxels = [];
   const STEM_LENGTH = 3;
   for (let z = 0; z < STEM_LENGTH; z++) {
-    voxels.push({ x: 0, y: 0, z: -(z + 1), blockType: 'indicator_stem' });
+    voxels.push({ x: 0, y: 0, z: -(z + 1), blockType: "indicator_stem" });
   }
   const HEAD_WIDTH = 3;
   for (let x = -1; x <= 1; x++) {
-    voxels.push({ x, y: 0, z: 0, blockType: 'indicator_head' });
+    voxels.push({ x, y: 0, z: 0, blockType: "indicator_head" });
   }
 
   return {
     voxels,
     color: [1.0, 0.84, 0.0],
-    glow: true
+    glow: true,
   };
 }
 
@@ -30,13 +30,13 @@ export function getIndicatorPosition(playerPos, colossusPos, distance = DEFAULT_
   return {
     x: playerPos.x + norm.x * distance,
     y: playerPos.y + HEIGHT_OFFSET,
-    z: playerPos.z + norm.y * distance
+    z: playerPos.z + norm.y * distance,
   };
 }
 
 export function updateIndicatorOpacity(indicators, colossi, playerPos) {
   return indicators.map((indicator, index) => {
-    const colossus = colossi.find(c => c.id === indicator.colossusId);
+    const colossus = colossi.find((c) => c.id === indicator.colossusId);
     if (!colossus || colossus.defeated) {
       return { indicatorIndex: index, opacity: 0 };
     }

@@ -1,7 +1,7 @@
-import * as behavior from './behavior.js';
-import * as sentinel from './sentinel.js';
-import * as wraith from './wraith.js';
-import * as titan from './titan.js';
+import * as behavior from "./behavior.js";
+import * as sentinel from "./sentinel.js";
+import * as wraith from "./wraith.js";
+import * as titan from "./titan.js";
 
 const isStunned = (aiState) => aiState.state === behavior.ColossusState.STUNNED;
 
@@ -14,7 +14,8 @@ const COLossus_TYPES = {
     generateSurfacePatches: sentinel.generateSentinelSurfacePatches,
     buildWeakPoints: sentinel.buildCombatWeakPoints,
     createMesh: sentinel.createSentinelMesh,
-    isClimbable: (aiState) => aiState.state === 'patrol' || aiState.state === 'aggro' || aiState.state === 'stunned',
+    isClimbable: (aiState) =>
+      aiState.state === "patrol" || aiState.state === "aggro" || aiState.state === "stunned",
     applyDamage: behavior.applySentinelDamage,
     isStunned: (aiState) => aiState.state === behavior.ColossusState.STUNNED,
   },
@@ -26,7 +27,11 @@ const COLossus_TYPES = {
     generateSurfacePatches: wraith.generateWraithSurfacePatches,
     buildWeakPoints: wraith.buildWraithCombatWeakPoints,
     createMesh: wraith.createWraithMesh,
-    isClimbable: (aiState) => aiState.state === 'circling' || aiState.state === 'swooping' || aiState.state === 'climbing_back' || aiState.state === 'stunned',
+    isClimbable: (aiState) =>
+      aiState.state === "circling" ||
+      aiState.state === "swooping" ||
+      aiState.state === "climbing_back" ||
+      aiState.state === "stunned",
     applyDamage: wraith.applyWraithDamage,
     isStunned: (aiState) => aiState.state === wraith.WraithState.STUNNED,
   },
@@ -38,7 +43,8 @@ const COLossus_TYPES = {
     generateSurfacePatches: titan.generateTitanSurfacePatches,
     buildWeakPoints: titan.buildCombatWeakPoints,
     createMesh: titan.createTitanMesh,
-    isClimbable: (aiState) => aiState.state === 'patrol' || aiState.state === 'aggro' || aiState.state === 'stunned',
+    isClimbable: (aiState) =>
+      aiState.state === "patrol" || aiState.state === "aggro" || aiState.state === "stunned",
     applyDamage: titan.applyTitanDamage,
     isStunned: (aiState) => aiState.state === behavior.ColossusState.STUNNED,
   },
@@ -84,12 +90,14 @@ export function updateColossi(colossi, playerPosition, dt) {
 
     if (newState.shouldAttack) {
       const direction = behavior.getFacingDirection(newState.rotation);
-      events.push({ type: 'attack', colossusType: c.type, direction });
+      events.push({ type: "attack", colossusType: c.type, direction });
     }
 
     const newPos = newState.position || currentPos;
     const nowStunned = isStunned(newState);
-    const posChanged = newPos !== currentPos && (newPos.x !== c.position.x || newPos.y !== c.position.y || newPos.z !== c.position.z);
+    const posChanged =
+      newPos !== currentPos &&
+      (newPos.x !== c.position.x || newPos.y !== c.position.y || newPos.z !== c.position.z);
     if (posChanged) {
       c.position = { x: newPos.x, y: newPos.y, z: newPos.z };
       c.mesh.impl.position.x = newPos.x;
@@ -115,7 +123,7 @@ export function getColossusSurfaces(colossi) {
     const sinR = Math.sin(rot);
 
     for (const patch of c.surfacePatches) {
-      const partDef = c.definition.parts.find(p => p.id === patch.bodyPartId);
+      const partDef = c.definition.parts.find((p) => p.id === patch.bodyPartId);
       const isRestSpot = partDef?.isRestSpot || false;
 
       const lx = patch.position.x;
@@ -165,12 +173,13 @@ export function getColossusWeakPoints(colossi) {
 }
 
 export function damageColossus(colossi, colossusType, weakPointId, damage) {
-  const c = colossi.find(col => col.type === colossusType);
+  const c = colossi.find((col) => col.type === colossusType);
   if (!c) return { damaged: false, isDestroyed: false, allDestroyed: false, stunned: false };
 
   const factory = COLossus_TYPES[colossusType];
-  const wp = c.weakPoints.find(w => w.id === weakPointId);
-  if (!wp || wp.isDestroyed) return { damaged: false, isDestroyed: false, allDestroyed: false, stunned: false };
+  const wp = c.weakPoints.find((w) => w.id === weakPointId);
+  if (!wp || wp.isDestroyed)
+    return { damaged: false, isDestroyed: false, allDestroyed: false, stunned: false };
 
   wp.health -= damage;
   let isDestroyed = false;
@@ -198,7 +207,7 @@ export function damageColossus(colossi, colossusType, weakPointId, damage) {
     }
   }
 
-  const allDestroyed = c.weakPoints.every(w => w.isDestroyed);
+  const allDestroyed = c.weakPoints.every((w) => w.isDestroyed);
 
   if (allDestroyed) {
     c.aiState = behavior.triggerDeath(c.aiState);
@@ -208,5 +217,5 @@ export function damageColossus(colossi, colossusType, weakPointId, damage) {
 }
 
 export function getColossusByType(colossi, type) {
-  return colossi.find(c => c.type === type) || null;
+  return colossi.find((c) => c.type === type) || null;
 }

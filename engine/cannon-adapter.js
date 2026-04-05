@@ -1,4 +1,4 @@
-import * as CANNON from 'cannon-es';
+import * as CANNON from "cannon-es";
 
 export function createCannonAdapter() {
   const worlds = new Map();
@@ -22,31 +22,41 @@ export function createCannonAdapter() {
 
     createBody(world, opts) {
       const pos = opts.position || { x: 0, y: 0, z: 0 };
-      const mass = opts.type === 'static' ? 0 : (opts.mass || 1);
+      const mass = opts.type === "static" ? 0 : opts.mass || 1;
       const shapeOpts = opts.shape;
 
       let shape;
       if (shapeOpts) {
         switch (shapeOpts.type) {
-          case 'box':
-            shape = new CANNON.Box(new CANNON.Vec3(
-              shapeOpts.halfExtents.x,
-              shapeOpts.halfExtents.y,
-              shapeOpts.halfExtents.z,
-            ));
+          case "box":
+            shape = new CANNON.Box(
+              new CANNON.Vec3(
+                shapeOpts.halfExtents.x,
+                shapeOpts.halfExtents.y,
+                shapeOpts.halfExtents.z,
+              ),
+            );
             break;
-          case 'sphere':
+          case "sphere":
             shape = new CANNON.Sphere(shapeOpts.radius || 0.5);
             break;
-          case 'capsule':
-            shape = new CANNON.Cylinder(shapeOpts.radius || 0.3, shapeOpts.radius || 0.3, shapeOpts.height || 1.0, 8);
+          case "capsule":
+            shape = new CANNON.Cylinder(
+              shapeOpts.radius || 0.3,
+              shapeOpts.radius || 0.3,
+              shapeOpts.height || 1.0,
+              8,
+            );
             break;
         }
       }
 
-      const bodyType = opts.type === 'static' ? CANNON.Body.STATIC
-        : opts.type === 'kinematic' ? CANNON.Body.KINEMATIC
-        : CANNON.Body.DYNAMIC;
+      const bodyType =
+        opts.type === "static"
+          ? CANNON.Body.STATIC
+          : opts.type === "kinematic"
+            ? CANNON.Body.KINEMATIC
+            : CANNON.Body.DYNAMIC;
 
       const cannonBody = new CANNON.Body({
         mass,
@@ -62,7 +72,7 @@ export function createCannonAdapter() {
 
       return {
         impl: cannonBody,
-        type: opts.type || 'dynamic',
+        type: opts.type || "dynamic",
         mass,
         shape: opts.shape,
         userData: cannonBody.userData,
@@ -178,12 +188,10 @@ export function createCannonAdapter() {
       const internal = getInternal(world);
       if (!internal) return;
 
-      bodyA.impl.addEventListener('collide', (event) => {
+      bodyA.impl.addEventListener("collide", (event) => {
         if (event.body === bodyB.impl) {
           const ni = event.contact?.ni;
-          const normal = ni
-            ? { x: ni.x, y: ni.y, z: ni.z }
-            : { x: 0, y: 1, z: 0 };
+          const normal = ni ? { x: ni.x, y: ni.y, z: ni.z } : { x: 0, y: 1, z: 0 };
           callback({ bodyA, bodyB, normal });
         }
       });
@@ -194,10 +202,7 @@ export function createCannonAdapter() {
       const vertices = opts.vertices;
       const indices = opts.indices;
 
-      const trimesh = new CANNON.Trimesh(
-        Array.from(vertices),
-        Array.from(indices),
-      );
+      const trimesh = new CANNON.Trimesh(Array.from(vertices), Array.from(indices));
 
       const cannonBody = new CANNON.Body({
         mass: 0,
@@ -209,9 +214,9 @@ export function createCannonAdapter() {
 
       const wrapper = {
         impl: cannonBody,
-        type: 'static',
+        type: "static",
         mass: 0,
-        shape: { type: 'trimesh', vertices, indices },
+        shape: { type: "trimesh", vertices, indices },
         userData: cannonBody.userData,
       };
 

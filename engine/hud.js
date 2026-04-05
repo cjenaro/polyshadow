@@ -1,14 +1,14 @@
 const TAU = Math.PI * 2;
-const STAMINA_COLOR = '#d4a843';
-const STAMINA_BG = '#333333';
-const HINT_COLOR = 'rgba(255, 255, 255, 0.5)';
-const CONTROL_HINT_COLOR = 'rgba(255, 255, 255, 0.75)';
+const STAMINA_COLOR = "#d4a843";
+const STAMINA_BG = "#333333";
+const HINT_COLOR = "rgba(255, 255, 255, 0.5)";
+const CONTROL_HINT_COLOR = "rgba(255, 255, 255, 0.75)";
 const CONTROL_HINT_FADE_TIME = 1.5;
-const COLOSSUS_HEALTH_COLOR = '#c44040';
-const COLOSSUS_HEALTH_BG = '#222222';
+const COLOSSUS_HEALTH_COLOR = "#c44040";
+const COLOSSUS_HEALTH_BG = "#222222";
 
 export function createHUD(canvas) {
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   let time = 0;
   let controlHintOpacity = 1;
   let controlHintTarget = 1;
@@ -66,7 +66,7 @@ export function createHUD(canvas) {
     const endAngle = startAngle + ratio * TAU;
 
     ctx.lineWidth = lineW;
-    ctx.lineCap = 'round';
+    ctx.lineCap = "round";
 
     ctx.beginPath();
     ctx.arc(cx, cy, radius, startAngle, startAngle + TAU);
@@ -121,10 +121,10 @@ export function createHUD(canvas) {
 
     ctx.save();
     ctx.globalAlpha = 0.4;
-    ctx.font = '10px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText('COLOSSUS', w / 2, barY + barH + 14);
+    ctx.font = "10px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText("COLOSSUS", w / 2, barY + barH + 14);
     ctx.restore();
   }
 
@@ -146,10 +146,10 @@ export function createHUD(canvas) {
 
       ctx.save();
       ctx.globalAlpha = 0.5;
-      ctx.strokeStyle = '#ffffff';
-      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = "#ffffff";
+      ctx.fillStyle = "#ffffff";
       ctx.lineWidth = 2;
-      ctx.lineCap = 'round';
+      ctx.lineCap = "round";
 
       ctx.beginPath();
       ctx.moveTo(tipX - dx, tipY - dy);
@@ -169,9 +169,9 @@ export function createHUD(canvas) {
       ctx.fill();
 
       if (hint.label) {
-        ctx.font = '11px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
+        ctx.font = "11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
         ctx.fillText(hint.label, tipX, tipY - 8);
       }
 
@@ -190,7 +190,7 @@ export function createHUD(canvas) {
 
     ctx.save();
     ctx.globalAlpha = controlHintOpacity * 0.85;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
     ctx.beginPath();
     const r = 8;
     ctx.moveTo(boxX + r, boxY);
@@ -207,8 +207,8 @@ export function createHUD(canvas) {
 
     ctx.globalAlpha = controlHintOpacity;
     ctx.font = `${fontSize}px sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
 
     for (let i = 0; i < hints.length; i++) {
       const hint = hints[i];
@@ -240,19 +240,19 @@ export function createHUD(canvas) {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.font = `${fontSize}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText('Press any key to skip', w / 2, h - 40);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText("Press any key to skip", w / 2, h - 40);
     ctx.restore();
   }
 
   function show() {
-    canvas.style.display = '';
+    canvas.style.display = "";
   }
 
   function hide() {
-    canvas.style.display = 'none';
+    canvas.style.display = "none";
   }
 
   function resize(newW, newH) {

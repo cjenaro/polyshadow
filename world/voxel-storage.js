@@ -1,5 +1,5 @@
-import { createChunk, CHUNK_SIZE, getBlock, setBlock } from './voxel-chunk.js';
-import { BlockType } from './block-types.js';
+import { createChunk, CHUNK_SIZE, getBlock, setBlock } from "./voxel-chunk.js";
+import { BlockType } from "./block-types.js";
 
 export function createVoxelStorage() {
   const chunks = new Map();

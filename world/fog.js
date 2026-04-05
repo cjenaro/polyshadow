@@ -1,15 +1,39 @@
-import { clamp, smoothstep } from '../utils/math.js';
-import { noise2D, noise3D } from '../utils/noise.js';
+import { clamp, smoothstep } from "../utils/math.js";
+import { noise2D, noise3D } from "../utils/noise.js";
 
 export const DEFAULT_LAYERS = [
-  { height: 15, thickness: 4, density: 0.6, color: { r: 0.79, g: 0.66, b: 0.30 }, driftSpeed: 0.3, driftOffset: 0, currentDensity: 0.6 },
-  { height: 30, thickness: 6, density: 0.4, color: { r: 0.60, g: 0.55, b: 0.35 }, driftSpeed: 0.15, driftOffset: 0, currentDensity: 0.4 },
-  { height: 50, thickness: 8, density: 0.3, color: { r: 0.50, g: 0.50, b: 0.40 }, driftSpeed: 0.08, driftOffset: 0, currentDensity: 0.3 },
+  {
+    height: 15,
+    thickness: 4,
+    density: 0.6,
+    color: { r: 0.79, g: 0.66, b: 0.3 },
+    driftSpeed: 0.3,
+    driftOffset: 0,
+    currentDensity: 0.6,
+  },
+  {
+    height: 30,
+    thickness: 6,
+    density: 0.4,
+    color: { r: 0.6, g: 0.55, b: 0.35 },
+    driftSpeed: 0.15,
+    driftOffset: 0,
+    currentDensity: 0.4,
+  },
+  {
+    height: 50,
+    thickness: 8,
+    density: 0.3,
+    color: { r: 0.5, g: 0.5, b: 0.4 },
+    driftSpeed: 0.08,
+    driftOffset: 0,
+    currentDensity: 0.3,
+  },
 ];
 
 export function createFogSystem(layers = DEFAULT_LAYERS) {
   return {
-    layers: layers.map(l => ({
+    layers: layers.map((l) => ({
       ...l,
       currentDensity: l.currentDensity != null ? l.currentDensity : l.density,
     })),
@@ -20,7 +44,7 @@ export function createFogSystem(layers = DEFAULT_LAYERS) {
 export function updateFogSystem(system, dt) {
   return {
     time: system.time + dt,
-    layers: system.layers.map(layer => {
+    layers: system.layers.map((layer) => {
       const pulse = noise2D(system.time * 0.2 + layer.driftOffset, layer.height * 0.1);
       const newDensity = clamp(layer.density * (0.7 + 0.3 * pulse), 0, layer.density);
       return {

@@ -1,14 +1,14 @@
-import * as THREE from 'three';
-import { buildIslandGeometryData } from './island-mesh.js';
-import { generateNormalMapData } from '../utils/normal-map.js';
+import * as THREE from "three";
+import { buildIslandGeometryData } from "./island-mesh.js";
+import { generateNormalMapData } from "../utils/normal-map.js";
 
 export function createNormalMapTexture(opts = {}) {
   const { size = 256, scale = 0.05, seed = 42, strength = 2.0 } = opts;
   const { data, width, height } = generateNormalMapData(size, size, scale, seed, strength);
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   const imageData = ctx.createImageData(width, height);
   imageData.data.set(data);
   ctx.putImageData(imageData, 0, 0);
@@ -29,9 +29,15 @@ export function createRenderer(canvas) {
 
   return {
     impl,
-    render(scene, camera) { impl.render(scene.impl, camera.impl); },
-    setPixelRatio(ratio) { impl.setPixelRatio(ratio); },
-    setSize(w, h) { impl.setSize(w, h); },
+    render(scene, camera) {
+      impl.render(scene.impl, camera.impl);
+    },
+    setPixelRatio(ratio) {
+      impl.setPixelRatio(ratio);
+    },
+    setSize(w, h) {
+      impl.setSize(w, h);
+    },
   };
 }
 
@@ -48,7 +54,7 @@ export function initScene(renderer) {
   const envRT = pmremGenerator.fromScene(envScene);
   impl.environment = envRT.texture;
   pmremGenerator.dispose();
-  envScene.traverse(child => {
+  envScene.traverse((child) => {
     if (child.geometry) child.geometry.dispose();
     if (child.material) child.material.dispose();
   });
@@ -57,7 +63,21 @@ export function initScene(renderer) {
   camera.impl.position.set(0, 5, 10);
   camera.impl.lookAt(0, 0, 0);
 
-  return { scene: { impl, add(obj) { impl.add(obj.impl); }, remove(obj) { impl.remove(obj); }, setFog(color, density) { impl.fog = new THREE.FogExp2(new THREE.Color(color), density); } }, camera };
+  return {
+    scene: {
+      impl,
+      add(obj) {
+        impl.add(obj.impl);
+      },
+      remove(obj) {
+        impl.remove(obj);
+      },
+      setFog(color, density) {
+        impl.fog = new THREE.FogExp2(new THREE.Color(color), density);
+      },
+    },
+    camera,
+  };
 }
 
 export function resize(renderer, camera) {
@@ -67,7 +87,7 @@ export function resize(renderer, camera) {
     renderer.setSize(w, h);
     camera.setAspect(w / h);
   }
-  window.addEventListener('resize', onResize);
+  window.addEventListener("resize", onResize);
   return onResize;
 }
 
@@ -75,11 +95,22 @@ export function createPerspectiveCamera(fov, aspect, near, far) {
   const impl = new THREE.PerspectiveCamera(fov, aspect, near, far);
   return {
     impl,
-    setAspect(a) { impl.aspect = a; impl.updateProjectionMatrix(); },
-    setPosition(x, y, z) { impl.position.set(x, y, z); },
-    lookAt(x, y, z) { impl.lookAt(x, y, z); },
-    getPosition() { return { x: impl.position.x, y: impl.position.y, z: impl.position.z }; },
-    updateProjectionMatrix() { impl.updateProjectionMatrix(); },
+    setAspect(a) {
+      impl.aspect = a;
+      impl.updateProjectionMatrix();
+    },
+    setPosition(x, y, z) {
+      impl.position.set(x, y, z);
+    },
+    lookAt(x, y, z) {
+      impl.lookAt(x, y, z);
+    },
+    getPosition() {
+      return { x: impl.position.x, y: impl.position.y, z: impl.position.z };
+    },
+    updateProjectionMatrix() {
+      impl.updateProjectionMatrix();
+    },
     syncFromOrbit(orbitResult) {
       impl.position.set(orbitResult.position.x, orbitResult.position.y, orbitResult.position.z);
       impl.lookAt(orbitResult.target.x, orbitResult.target.y, orbitResult.target.z);
@@ -91,9 +122,15 @@ export function createDirectionalLight(color, intensity) {
   const impl = new THREE.DirectionalLight(color, intensity);
   const adapter = {
     impl,
-    setPosition(x, y, z) { impl.position.set(x, y, z); },
-    setCastShadow(cast) { impl.castShadow = cast; },
-    setShadowMapSize(w, h) { impl.shadow.mapSize.set(w, h); },
+    setPosition(x, y, z) {
+      impl.position.set(x, y, z);
+    },
+    setCastShadow(cast) {
+      impl.castShadow = cast;
+    },
+    setShadowMapSize(w, h) {
+      impl.shadow.mapSize.set(w, h);
+    },
     configureShadowCamera(opts) {
       Object.assign(impl.shadow.camera, opts);
       if (opts.near != null) impl.shadow.camera.near = opts.near;
@@ -126,9 +163,15 @@ export function createBoxMesh(opts = {}) {
   impl.receiveShadow = opts.receiveShadow !== false;
   return {
     impl,
-    setPosition(x, y, z) { impl.position.set(x, y, z); },
-    setRotationY(rad) { impl.rotation.y = rad; },
-    setScale(x, y, z) { impl.scale.set(x, y, z); },
+    setPosition(x, y, z) {
+      impl.position.set(x, y, z);
+    },
+    setRotationY(rad) {
+      impl.rotation.y = rad;
+    },
+    setScale(x, y, z) {
+      impl.scale.set(x, y, z);
+    },
   };
 }
 
@@ -143,9 +186,11 @@ export function createMesh(opts) {
   return {
     impl,
     setVertexColors(colors) {
-      geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     },
-    getPositionAttribute() { return geo.getAttribute('position'); },
+    getPositionAttribute() {
+      return geo.getAttribute("position");
+    },
   };
 }
 
@@ -176,8 +221,8 @@ export function createIslandMesh(island) {
   }
 
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
 
@@ -197,7 +242,9 @@ export function createIslandMesh(island) {
 
   return {
     impl,
-    setPosition(x, y, z) { impl.position.set(x, y, z); },
+    setPosition(x, y, z) {
+      impl.position.set(x, y, z);
+    },
   };
 }
 

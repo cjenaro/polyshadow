@@ -1,5 +1,5 @@
-import { BlockType, isBlockSolid } from '../world/block-types.js';
-import { buildVoxelGeometryForGroup } from '../world/voxel-mesher.js';
+import { BlockType, isBlockSolid } from "../world/block-types.js";
+import { buildVoxelGeometryForGroup } from "../world/voxel-mesher.js";
 
 const FACE_DIRS = [
   { dx: 1, dy: 0, dz: 0, nx: 1, ny: 0, nz: 0 },

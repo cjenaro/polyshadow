@@ -1,5 +1,5 @@
-import { BlockType, isBlockSolid } from './block-types.js';
-import { CHUNK_SIZE } from './voxel-chunk.js';
+import { BlockType, isBlockSolid } from "./block-types.js";
+import { CHUNK_SIZE } from "./voxel-chunk.js";
 
 function getChunkCoords(worldX, worldY, worldZ) {
   return {
@@ -143,21 +143,21 @@ export function batchModify(voxelStorage, modifications) {
   for (const mod of modifications) {
     const { type, x, y, z } = mod;
 
-    if (type === 'destroy') {
+    if (type === "destroy") {
       const current = voxelStorage.getBlock(x, y, z);
       if (current !== BlockType.AIR) {
         voxelStorage.setBlock(x, y, z, BlockType.AIR);
         totalAffected++;
         addAffectedChunks(affectedChunks, x, y, z);
       }
-    } else if (type === 'place') {
+    } else if (type === "place") {
       const current = voxelStorage.getBlock(x, y, z);
       if (current === BlockType.AIR) {
         voxelStorage.setBlock(x, y, z, mod.blockType);
         totalAffected++;
         addAffectedChunks(affectedChunks, x, y, z);
       }
-    } else if (type === 'replace') {
+    } else if (type === "replace") {
       const current = voxelStorage.getBlock(x, y, z);
       if (current !== BlockType.AIR) {
         voxelStorage.setBlock(x, y, z, mod.blockType);
@@ -187,7 +187,9 @@ export function raycastBlock(voxelStorage, fromX, fromY, fromZ, dirX, dirY, dirZ
   let tMaxY = dirY > 0 ? (y + 1 - fromY) / dirY : dirY < 0 ? (fromY - y) / -dirY : Infinity;
   let tMaxZ = dirZ > 0 ? (z + 1 - fromZ) / dirZ : dirZ < 0 ? (fromZ - z) / -dirZ : Infinity;
 
-  let normalX = 0, normalY = 0, normalZ = 0;
+  let normalX = 0,
+    normalY = 0,
+    normalZ = 0;
   let distance = 0;
 
   for (let i = 0; i < maxDist * 3 + 3; i++) {

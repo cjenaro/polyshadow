@@ -1,4 +1,4 @@
-import { clamp, lerp } from '../utils/math.js';
+import { clamp, lerp } from "../utils/math.js";
 
 export const AUDIO_CONFIG = {
   masterVolume: 0.7,
@@ -68,7 +68,7 @@ export function isSoundPlaying(audioState, soundId, currentTime) {
 
 export function getFootstepParams(isSprinting) {
   return {
-    type: 'noise_burst',
+    type: "noise_burst",
     duration: isSprinting ? 0.08 : 0.12,
     bandpassFreq: isSprinting ? 800 : 400,
     bandpassQ: 1.5,
@@ -79,7 +79,7 @@ export function getFootstepParams(isSprinting) {
 
 export function getClimbingGrabParams() {
   return {
-    type: 'filtered_click',
+    type: "filtered_click",
     duration: 0.06,
     highpassFreq: 2000,
     gain: AUDIO_CONFIG.climbingGrabVolume,
@@ -89,7 +89,7 @@ export function getClimbingGrabParams() {
 
 export function getHeartbeatParams() {
   return {
-    type: 'pulse',
+    type: "pulse",
     duration: 0.15,
     frequency: 40,
     gain: AUDIO_CONFIG.staminaLowVolume,
@@ -102,13 +102,17 @@ export function shouldPlayHeartbeat(audioState, staminaRatio, currentTime, delta
   if (staminaRatio >= AUDIO_CONFIG.lowStaminaThreshold) return false;
   const elapsed = currentTime - audioState.lastHeartbeatTime;
   const ratio = clamp(staminaRatio / AUDIO_CONFIG.lowStaminaThreshold, 0, 1);
-  const interval = lerp(AUDIO_CONFIG.heartbeatIntervalMin, AUDIO_CONFIG.heartbeatIntervalMax, ratio);
+  const interval = lerp(
+    AUDIO_CONFIG.heartbeatIntervalMin,
+    AUDIO_CONFIG.heartbeatIntervalMax,
+    ratio,
+  );
   return elapsed >= interval;
 }
 
 export function getSwordSlashParams(isCharged) {
   return {
-    type: 'metallic_resonance',
+    type: "metallic_resonance",
     duration: isCharged ? 0.4 : 0.2,
     frequency: isCharged ? 800 : 1200,
     gain: AUDIO_CONFIG.swordSlashVolume * (isCharged ? 1.3 : 1.0),
@@ -119,7 +123,7 @@ export function getSwordSlashParams(isCharged) {
 
 export function getColossusImpactParams(distance) {
   return {
-    type: 'low_freq_boom',
+    type: "low_freq_boom",
     duration: 0.8,
     frequency: 30 + distance * 0.5,
     gain: AUDIO_CONFIG.colossusImpactVolume * Math.max(0, 1 - distance / 100),
@@ -130,7 +134,7 @@ export function getColossusImpactParams(distance) {
 
 export function getWeakPointHitParams(isDestroyed) {
   return {
-    type: 'resonant_ding',
+    type: "resonant_ding",
     duration: isDestroyed ? 0.8 : 0.3,
     frequency: isDestroyed ? 600 : 1000,
     gain: AUDIO_CONFIG.weakPointHitVolume * (isDestroyed ? 1.2 : 1.0),
@@ -141,7 +145,7 @@ export function getWeakPointHitParams(isDestroyed) {
 
 export function getColossusDeathParams(phase) {
   return {
-    type: 'evolving_drone',
+    type: "evolving_drone",
     duration: 5,
     baseFrequency: 50 - phase * 20,
     gain: AUDIO_CONFIG.colossusDeathVolume * (1 - phase * 0.5),
@@ -153,7 +157,7 @@ export function getColossusDeathParams(phase) {
 
 export function getAmbientWindParams(windStrength) {
   return {
-    type: 'filtered_noise',
+    type: "filtered_noise",
     duration: Infinity,
     lowpassFreq: 300 + windStrength * 700,
     gain: AUDIO_CONFIG.ambientWindVolume * windStrength,
@@ -165,5 +169,5 @@ export function getAmbientWindParams(windStrength) {
 export function shouldPlayFootstep(audioState, isMoving, isSprinting, currentTime) {
   if (!isMoving) return false;
   const cooldown = isSprinting ? 0.1 : 0.15;
-  return (currentTime - audioState.lastFootstepTime) >= cooldown;
+  return currentTime - audioState.lastFootstepTime >= cooldown;
 }
