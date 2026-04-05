@@ -971,7 +971,7 @@ function animate(now) {
     }
 
     const surfaces = getColossusSurfaces(colossi);
-    const weakPoints = getColossusWeakPoints(colossi);
+    let weakPoints = getColossusWeakPoints(colossi);
     const playerPos = player.state.position;
     const prevClimbingThisFrame = isPlayerClimbing(climbing);
 
