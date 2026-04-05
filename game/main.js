@@ -70,7 +70,7 @@ import {
 
 const canvas = document.getElementById('game-canvas');
 const renderer = createRenderer(canvas);
-const { scene, camera } = initScene();
+const { scene, camera } = initScene(renderer);
 const handleResize = resize(renderer, camera);
 const sky = createSky(scene);
 const godRays = createGodRaySystem({ x: 50, y: 20, z: 30 });

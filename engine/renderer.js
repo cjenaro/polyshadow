@@ -35,18 +35,16 @@ export function createRenderer(canvas) {
   };
 }
 
-export function initScene() {
+export function initScene(renderer) {
   const impl = new THREE.Scene();
   impl.background = new THREE.Color(0x0a0a12);
   impl.fog = new THREE.FogExp2(0x0a0a12, 0.02);
 
-  const pmremGenerator = new THREE.PMREMGenerator(impl);
-  pmremGenerator.compileEquirectangularShader();
+  const pmremGenerator = new THREE.PMREMGenerator(renderer.impl);
 
   const envScene = new THREE.Scene();
   envScene.background = new THREE.Color(0x0a0a12);
   envScene.add(new THREE.HemisphereLight(0x334466, 0x221100, 2));
-  const envCamera = new THREE.PerspectiveCamera();
   const envRT = pmremGenerator.fromScene(envScene);
   impl.environment = envRT.texture;
   pmremGenerator.dispose();
