@@ -1,5 +1,5 @@
 import { clamp, smoothstep } from "../utils/math.js";
-import { noise2D, noise3D } from "../utils/noise.js";
+import { noise2D } from "../utils/noise.js";
 
 export const DEFAULT_LAYERS = [
   {

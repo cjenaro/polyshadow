@@ -1,4 +1,4 @@
-import { BlockType, isBlockSolid } from "./block-types.js";
+import { BlockType } from "./block-types.js";
 import { CHUNK_SIZE } from "./voxel-chunk.js";
 
 function getChunkCoords(worldX, worldY, worldZ) {

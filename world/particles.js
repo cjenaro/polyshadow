@@ -1,5 +1,5 @@
 // Particles are purely cosmetic (visual dust/embers) with no collision — moving them to cannon-es would add overhead for no gameplay benefit.
-import { clamp, lerp, randomRange } from "../utils/math.js";
+import { randomRange } from "../utils/math.js";
 import { noise3D } from "../utils/noise.js";
 
 export const PARTICLE_DEFAULTS = {

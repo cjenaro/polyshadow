@@ -1,4 +1,3 @@
-import { vec3Add, vec3Scale } from "../utils/math.js";
 
 const VALID_TYPES = new Set(["core", "limb_upper", "limb_lower", "head"]);
 

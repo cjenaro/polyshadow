@@ -17,7 +17,7 @@ export function getIndicatorDirection(indicator) {
   return { x: indicator.direction.x, z: indicator.direction.z };
 }
 
-export function isIndicatorVisible(indicator, playerPos) {
+export function isIndicatorVisible(indicator, _playerPos) {
   if (!indicator.visible) return false;
   return indicator.opacity > 0.05;
 }

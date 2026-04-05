@@ -1,8 +1,8 @@
-import { BlockType, getBlockColor, getBlockEmissive } from "./block-types.js";
+import { BlockType, getBlockColor } from "./block-types.js";
 
 const GRASS_SIDE_COLOR = [0.36, 0.25, 0.13];
 
-export function getBlockColorForFace(type, nx, ny, nz) {
+export function getBlockColorForFace(type, nx, ny, _nz) {
   if (type === BlockType.GRASS && ny !== 1) {
     return GRASS_SIDE_COLOR;
   }
@@ -10,7 +10,7 @@ export function getBlockColorForFace(type, nx, ny, nz) {
 }
 
 export function createMaterialConfig(opts) {
-  const { opaque, transparent, emissive } = opts;
+  const { transparent, emissive } = opts;
   const config = {
     vertexColors: true,
     roughness: 0.9,

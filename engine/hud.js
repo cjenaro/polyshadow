@@ -1,7 +1,6 @@
 const TAU = Math.PI * 2;
 const STAMINA_COLOR = "#d4a843";
 const STAMINA_BG = "#333333";
-const HINT_COLOR = "rgba(255, 255, 255, 0.5)";
 const CONTROL_HINT_COLOR = "rgba(255, 255, 255, 0.75)";
 const CONTROL_HINT_FADE_TIME = 1.5;
 const COLOSSUS_HEALTH_COLOR = "#c44040";
@@ -79,7 +78,7 @@ export function createHUD(canvas) {
     ctx.stroke();
   }
 
-  function drawColossusHealthBar(health, w, h) {
+  function drawColossusHealthBar(health, w, _h) {
     const ratio = Math.max(0, Math.min(1, health));
     const barW = 200;
     const barH = 6;

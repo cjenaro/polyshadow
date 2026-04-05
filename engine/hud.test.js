@@ -187,7 +187,7 @@ describe("createHUD", () => {
 
     it("starts visible", () => {
       const canvas = createMockCanvas();
-      const hud = createHUD(canvas);
+      createHUD(canvas);
       assert.equal(canvas.style.display, "");
     });
 

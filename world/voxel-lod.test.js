@@ -8,7 +8,7 @@ import {
   getMeshBudgetInfo,
   createVoxelImpostor,
 } from "../world/voxel-lod.js";
-import { createChunk, setBlock, CHUNK_SIZE, getBlock } from "../world/voxel-chunk.js";
+import { createChunk, setBlock } from "../world/voxel-chunk.js";
 import { BlockType } from "../world/block-types.js";
 
 describe("voxel-lod", () => {
