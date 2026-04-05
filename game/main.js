@@ -1073,14 +1073,14 @@ function animate(now) {
         physicsWorld,
       );
 
-      player.state = {
-        ...player.state,
-        position: collision.position,
-        velocity: collision.velocity,
-      };
-
       const groundY = getGroundHeight(player.state.position.x, player.state.position.z);
       player.GROUND_Y = groundY;
+
+      player.state = {
+        ...player.state,
+        position: { ...collision.position, y: Math.max(collision.position.y, groundY) },
+        velocity: collision.velocity,
+      };
 
       const distToGround = player.state.position.y - groundY;
       if (distToGround >= -0.5 && distToGround < 0.5 && player.state.velocity.y <= 0) {
