@@ -181,7 +181,7 @@ export function createMockAdapter() {
 
       for (const body of internal.bodies) {
         const result = raycastAABB(from, dirX, dirY, dirZ, body);
-        if (result && result.distance < closestDist && result.distance >= 0) {
+        if (result && result.distance < closestDist && result.distance >= 0 && result.distance <= len) {
           closestDist = result.distance;
           closestHit = {
             body,
@@ -321,12 +321,14 @@ function raycastAABB(origin, dirX, dirY, dirZ, body) {
 
   let tmin = -Infinity;
   let tmax = Infinity;
+  let hitNormal = { x: 0, y: 0, z: 0 };
 
   if (Math.abs(dirX) > 1e-8) {
     let t1 = (minX - origin.x) / dirX;
     let t2 = (maxX - origin.x) / dirX;
-    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
-    tmin = Math.max(tmin, t1);
+    let nx1 = -1;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; nx1 = 1; }
+    if (t1 > tmin) { tmin = t1; hitNormal = { x: nx1, y: 0, z: 0 }; }
     tmax = Math.min(tmax, t2);
   } else {
     if (origin.x < minX || origin.x > maxX) return null;
@@ -335,8 +337,9 @@ function raycastAABB(origin, dirX, dirY, dirZ, body) {
   if (Math.abs(dirY) > 1e-8) {
     let t1 = (minY - origin.y) / dirY;
     let t2 = (maxY - origin.y) / dirY;
-    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
-    tmin = Math.max(tmin, t1);
+    let ny1 = -1;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; ny1 = 1; }
+    if (t1 > tmin) { tmin = t1; hitNormal = { x: 0, y: ny1, z: 0 }; }
     tmax = Math.min(tmax, t2);
   } else {
     if (origin.y < minY || origin.y > maxY) return null;
@@ -345,8 +348,9 @@ function raycastAABB(origin, dirX, dirY, dirZ, body) {
   if (Math.abs(dirZ) > 1e-8) {
     let t1 = (minZ - origin.z) / dirZ;
     let t2 = (maxZ - origin.z) / dirZ;
-    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; }
-    tmin = Math.max(tmin, t1);
+    let nz1 = -1;
+    if (t1 > t2) { const tmp = t1; t1 = t2; t2 = tmp; nz1 = 1; }
+    if (t1 > tmin) { tmin = t1; hitNormal = { x: 0, y: 0, z: nz1 }; }
     tmax = Math.min(tmax, t2);
   } else {
     if (origin.z < minZ || origin.z > maxZ) return null;
@@ -364,11 +368,7 @@ function raycastAABB(origin, dirX, dirY, dirZ, body) {
       y: origin.y + dirY * t,
       z: origin.z + dirZ * t,
     },
-    normal: {
-      x: tmin >= 0 ? (tmin === (minX - origin.x) / dirX ? -1 : 1) : 0,
-      y: tmin >= 0 ? (tmin === (minY - origin.y) / dirY ? -1 : 1) : 0,
-      z: tmin >= 0 ? (tmin === (minZ - origin.z) / dirZ ? -1 : 1) : 0,
-    },
+    normal: tmin >= 0 ? hitNormal : { x: 0, y: 0, z: 0 },
   };
 }
 

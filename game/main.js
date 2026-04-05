@@ -4,6 +4,7 @@ import { createSky } from '../world/sky.js';
 import { createIntegratedInput, updateIntegratedInput, getActiveInputType, destroyIntegratedInput } from '../engine/input-integration.js';
 import { OrbitCamera } from '../engine/camera.js';
 import { updatePlayer } from '../player/movement.js';
+import { resolveCollisions } from '../player/collision.js';
 import { PlayerCharacter } from '../player/character.js';
 import { GameState } from './state.js';
 import { ProgressionTracker } from './progression.js';
@@ -883,17 +884,36 @@ function animate(now) {
     player.state.position.y += windForce.y * 0.1 * dt;
     player.state.position.z += windForce.z * 0.1 * dt;
 
-    const groundY = getGroundHeight(player.state.position.x, player.state.position.z);
-    player.GROUND_Y = groundY;
+    if (!isPlayerClimbing(climbing) && !player.state.isFalling) {
+      const collision = resolveCollisions(
+        player.state.position,
+        player.state.velocity,
+        physicsAdapter,
+        physicsWorld,
+      );
 
-    if (player.state.velocity.y <= 0 && player.state.position.y <= groundY + 0.1 && !isPlayerClimbing(climbing)) {
+      if (collision.groundY !== null) {
+        player.GROUND_Y = collision.groundY;
+      }
+
       player.state = {
         ...player.state,
-        position: { ...player.state.position, y: groundY },
-        velocity: { ...player.state.velocity, y: 0 },
-        isGrounded: true,
-        isJumping: false,
+        position: collision.position,
+        velocity: collision.velocity,
       };
+
+      if (collision.isGrounded && player.state.velocity.y <= 0) {
+        player.state = {
+          ...player.state,
+          position: { ...player.state.position, y: collision.groundY },
+          velocity: { ...player.state.velocity, y: 0 },
+          isGrounded: true,
+          isJumping: false,
+        };
+      }
+    } else {
+      const groundY = getGroundHeight(player.state.position.x, player.state.position.z);
+      player.GROUND_Y = groundY;
     }
 
     physicsAdapter.setPosition(physicsWorld, playerPhysicsBody, player.state.position);
@@ -939,6 +959,12 @@ function animate(now) {
           const shakeAmount = hr.isStab ? 0.6 : 0.25;
           combatFeedback.triggerScreenShake(shakeAmount);
           const dmgResult = damageColossus(colossi, c.type, hr.weakPointId, hr.damage);
+          if (dmgResult.isDestroyed) {
+            wpVisuals.destroyWeakPoint(hr.weakPointId);
+            activeWP.delete(hr.weakPointId);
+          } else {
+            wpVisuals.flashWeakPoint(hr.weakPointId);
+          }
           if (dmgResult.allDestroyed) {
             const deathInt = deathIntegrations.get(c.type);
             if (deathInt) triggerDeathSequence(deathInt);
@@ -970,6 +996,10 @@ function animate(now) {
         }
         if (result.isComplete) {
           scene.remove(entity.mesh.impl);
+          for (const wp of entity.weakPoints) {
+            wpVisuals.destroyWeakPoint(wp.id);
+            activeWP.delete(wp.id);
+          }
           onColossusDefeated(type);
           if (shouldTriggerHubReturn(arenaTransition, type, progression.defeated)) {
             arenaTransition = startTransitionToHub(arenaTransition);
