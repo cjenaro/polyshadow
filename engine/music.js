@@ -206,8 +206,19 @@ export class MusicSystem {
     for (const filter of this._allFilters) {
       try { filter.disconnect(); } catch {}
     }
+    for (const layer of Object.values(this.layers)) {
+      if (layer.gainNode) {
+        try { layer.gainNode.disconnect(); } catch {}
+        layer.gainNode = null;
+      }
+      layer.filterNode = null;
+      layer.oscillators = [];
+    }
+    try { this._masterGain.disconnect(); } catch {}
+    this._masterGain = null;
     this._allOscillators = [];
     this._allFilters = [];
+    this._ctx = null;
     this.isInitialized = false;
   }
 }

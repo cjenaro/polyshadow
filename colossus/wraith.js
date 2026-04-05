@@ -1,6 +1,5 @@
-import { vec3Add, vec3Scale } from '../utils/math.js';
+import { vec3Add, vec3Scale, distance3D, lerp } from '../utils/math.js';
 import { createColossusBody, getBodyPartWorldPosition, getWeakPoints } from './base.js';
-import { distance3D } from '../utils/math.js';
 import { moveToward2D, moveToward3D } from './steering.js';
 import { generateNormalMapData } from '../utils/normal-map.js';
 
@@ -351,8 +350,14 @@ export function updateWraithBehavior(aiState, config, deltaTime, playerPosition,
   }
 
   if (state.state === WraithState.SWOOPING) {
-    const target = state.swoopTarget || playerPosition;
-    const swoopTarget = { x: target.x, y: target.y, z: target.z };
+    const base = state.swoopTarget || playerPosition;
+    const trackingFactor = 1 - Math.pow(0.05, deltaTime);
+    state.swoopTarget = {
+      x: lerp(base.x, playerPosition.x, trackingFactor),
+      y: lerp(base.y, playerPosition.y, trackingFactor),
+      z: lerp(base.z, playerPosition.z, trackingFactor),
+    };
+    const swoopTarget = state.swoopTarget;
     state.position = moveToward3D(colossusPosition, swoopTarget, config.swoopSpeed, deltaTime);
     state.altitude = state.position.y;
     state.rotation = faceToward(colossusPosition, swoopTarget);

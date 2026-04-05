@@ -59,7 +59,7 @@ export function initScene() {
   camera.impl.position.set(0, 5, 10);
   camera.impl.lookAt(0, 0, 0);
 
-  return { scene: { impl, add(obj) { impl.add(obj.impl); }, setFog(color, density) { impl.fog = new THREE.FogExp2(new THREE.Color(color), density); } }, camera };
+  return { scene: { impl, add(obj) { impl.add(obj.impl); }, remove(obj) { impl.remove(obj); }, setFog(color, density) { impl.fog = new THREE.FogExp2(new THREE.Color(color), density); } }, camera };
 }
 
 export function resize(renderer, camera) {
@@ -201,4 +201,42 @@ export function createIslandMesh(island) {
     impl,
     setPosition(x, y, z) { impl.position.set(x, y, z); },
   };
+}
+
+export function createSimplifiedBoxMesh(width, height, depth) {
+  const geo = new THREE.BoxGeometry(width, height, depth);
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x444444,
+    flatShading: true,
+    roughness: 0.9,
+    metalness: 0.1,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+export function wrapInLOD(fullMesh, simplifiedMesh, nearThreshold, farThreshold) {
+  const lod = new THREE.LOD();
+  lod.addLevel(fullMesh.impl, nearThreshold);
+  lod.addLevel(simplifiedMesh, farThreshold);
+  return {
+    impl: lod,
+    meshByPart: fullMesh.meshByPart,
+  };
+}
+
+export function createInstancedMesh(geometry, material, positions) {
+  const count = positions.length;
+  const instancedMesh = new THREE.InstancedMesh(geometry, material, count);
+  const matrix = new THREE.Matrix4();
+  for (let i = 0; i < count; i++) {
+    matrix.setPosition(positions[i].x, positions[i].y, positions[i].z);
+    instancedMesh.setMatrixAt(i, matrix);
+  }
+  instancedMesh.castShadow = true;
+  instancedMesh.receiveShadow = true;
+  instancedMesh.instanceMatrix.needsUpdate = true;
+  return { impl: instancedMesh };
 }

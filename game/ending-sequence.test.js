@@ -8,7 +8,11 @@ import {
   getCreditsAlpha,
   shouldShowCredits,
   isEndingComplete,
+  skipEnding,
+  shouldShowSkipHint,
 } from './ending-sequence.js';
+
+const PHASE_CREDITS = 8;
 
 const HUB = { x: 0, y: 0, z: 0 };
 const ISLANDS = [
@@ -197,6 +201,97 @@ describe('shouldShowCredits', () => {
     let state = createEndingState();
     state = updateEndingState(state, 20.0, ISLANDS, HUB);
     assert.strictEqual(shouldShowCredits(state), true);
+  });
+});
+
+describe('skipEnding', () => {
+  it('transitions to credits phase immediately', () => {
+    let state = createEndingState();
+    state = updateEndingState(state, 2.0, ISLANDS, HUB);
+    state = skipEnding(state);
+    assert.strictEqual(state.phase, 'credits');
+  });
+
+  it('jumps elapsed to PHASE_CREDITS for smooth transition', () => {
+    let state = createEndingState();
+    state = updateEndingState(state, 0.5, ISLANDS, HUB);
+    state = skipEnding(state);
+    assert.strictEqual(state.elapsed, PHASE_CREDITS);
+  });
+
+  it('sky config shows full cosmic after skip', () => {
+    let state = createEndingState();
+    state = updateEndingState(state, 3.0, ISLANDS, HUB);
+    state = skipEnding(state);
+    const config = getSkyConfig(state);
+    assert.strictEqual(config.cosmicTint, 1);
+    assert.strictEqual(config.fogDensity, 0);
+  });
+
+  it('islands converge to hub after skip', () => {
+    let state = createEndingState();
+    state = updateEndingState(state, 3.0, ISLANDS, HUB);
+    state = skipEnding(state);
+    const positions = getIslandPositions(state, ISLANDS, HUB);
+    for (let i = 0; i < positions.length; i++) {
+      const dist = Math.sqrt(
+        (positions[i].x - HUB.x) ** 2 + (positions[i].z - HUB.z) ** 2
+      );
+      assert.ok(dist < 2, `island ${i} should be at hub after skip, got ${dist}`);
+    }
+  });
+
+  it('credits start fading in after skip', () => {
+    let state = createEndingState();
+    state = updateEndingState(state, 0.5, ISLANDS, HUB);
+    state = skipEnding(state);
+    assert.strictEqual(getCreditsAlpha(state), 0);
+    assert.strictEqual(shouldShowCredits(state), true);
+  });
+
+  it('is no-op if already in credits or complete phase', () => {
+    let state = createEndingState();
+    state = updateEndingState(state, 10.0, ISLANDS, HUB);
+    const before = { ...state };
+    state = skipEnding(state);
+    assert.deepStrictEqual(state, before);
+
+    state = createEndingState();
+    state = updateEndingState(state, 20.0, ISLANDS, HUB);
+    const before2 = { ...state };
+    state = skipEnding(state);
+    assert.deepStrictEqual(state, before2);
+  });
+});
+
+describe('shouldShowSkipHint', () => {
+  it('returns true during active phase', () => {
+    const state = createEndingState();
+    assert.strictEqual(shouldShowSkipHint(state), true);
+  });
+
+  it('returns true during skyOpening phase', () => {
+    let state = createEndingState();
+    state = updateEndingState(state, 2.0, ISLANDS, HUB);
+    assert.strictEqual(shouldShowSkipHint(state), true);
+  });
+
+  it('returns true during islandsConverging phase', () => {
+    let state = createEndingState();
+    state = updateEndingState(state, 5.0, ISLANDS, HUB);
+    assert.strictEqual(shouldShowSkipHint(state), true);
+  });
+
+  it('returns false during credits phase', () => {
+    let state = createEndingState();
+    state = updateEndingState(state, 9.0, ISLANDS, HUB);
+    assert.strictEqual(shouldShowSkipHint(state), false);
+  });
+
+  it('returns false during complete phase', () => {
+    let state = createEndingState();
+    state = updateEndingState(state, 20.0, ISLANDS, HUB);
+    assert.strictEqual(shouldShowSkipHint(state), false);
   });
 });
 

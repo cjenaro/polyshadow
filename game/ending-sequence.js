@@ -93,6 +93,17 @@ export function isEndingComplete(state) {
   return state.phase === 'complete';
 }
 
+export function skipEnding(state) {
+  if (state.phase === 'credits' || state.phase === 'complete') {
+    return { ...state };
+  }
+  return updateEndingState({ ...state, elapsed: 0 }, PHASE_CREDITS, [], { x: 0, y: 0, z: 0 });
+}
+
+export function shouldShowSkipHint(state) {
+  return state.phase === 'active' || state.phase === 'skyOpening' || state.phase === 'islandsConverging';
+}
+
 function easeInOutCubic(t) {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }

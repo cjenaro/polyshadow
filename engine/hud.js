@@ -43,6 +43,9 @@ export function createHUD(canvas) {
     if (state.controlHints && state.controlHints.length > 0 && controlHintOpacity > 0) {
       drawControlHints(state.controlHints, w, h);
     }
+    if (state.skipHint) {
+      drawSkipHint(w, h);
+    }
   }
 
   function drawStaminaArc(stamina, w, h) {
@@ -172,6 +175,21 @@ export function createHUD(canvas) {
       }
     }
 
+    ctx.restore();
+  }
+
+  function drawSkipHint(w, h) {
+    const fontSize = Math.max(14, Math.min(20, w * 0.016));
+    const pulse = 0.5 + 0.5 * Math.sin(time * 2);
+    const alpha = 0.4 + pulse * 0.3;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = `${fontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('Press any key to skip', w / 2, h - 40);
     ctx.restore();
   }
 

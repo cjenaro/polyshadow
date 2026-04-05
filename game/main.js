@@ -1,4 +1,4 @@
-import { createRenderer, initScene, resize, createIslandMesh } from '../engine/renderer.js';
+import { createRenderer, initScene, resize, createIslandMesh, createSimplifiedBoxMesh, wrapInLOD, createInstancedMesh } from '../engine/renderer.js';
 import { createCharacterMesh } from '../player/character-mesh.js';
 import { createSky } from '../world/sky.js';
 import { createIntegratedInput, updateIntegratedInput, getActiveInputType, destroyIntegratedInput } from '../engine/input-integration.js';
@@ -11,6 +11,7 @@ import { ProgressionTracker } from './progression.js';
 import { UISystem } from '../engine/ui.js';
 import { createHubIsland, createArenaIsland, generateIslandGeometry, getIslandSurfaceHeight } from '../world/island.js';
 import { createColossus, updateColossi, getColossusSurfaces, getColossusWeakPoints, damageColossus, getColossusByType } from '../colossus/integration.js';
+import { createColossusBody, getBodyBounds } from '../colossus/base.js';
 import { setTHREE as setSentinelTHREE } from '../colossus/sentinel.js';
 import { setTHREE as setWraithTHREE } from '../colossus/wraith.js';
 import { setTHREE as setTitanTHREE } from '../colossus/titan.js';
@@ -27,6 +28,7 @@ import { createWeakPointVisuals, setTHREE as setWeakPointTHREE } from '../coloss
 import {
   createEndingState, updateEndingState, getSkyConfig, getIslandPositions,
   getCreditsAlpha, shouldShowCredits, isEndingComplete,
+  skipEnding, shouldShowSkipHint,
 } from './ending-sequence.js';
 import { createSteppingStonesPath, generatePathPoints, isOnPath } from '../world/paths.js';
 import { createDirectionIndicator, updateIndicators, isIndicatorVisible } from '../world/indicators.js';
@@ -35,6 +37,7 @@ import { createPostProcessState, updatePostProcessState, getActiveColorGrading, 
 import { createHUD } from '../engine/hud.js';
 import { applyHealthOpacity } from '../engine/health-visual.js';
 import { setTHREE as setFeedbackTHREE, createCombatFeedback } from '../engine/combat-feedback.js';
+import { LOD_THRESHOLDS, getShadowMapSize, getParticleCount } from '../engine/lod.js';
 import { createTouchOverlay } from '../engine/touch-overlay.js';
 import {
   createArenaTransitionManager, updateArenaTransition, getTransitionProgress,
@@ -68,6 +71,8 @@ const renderer = createRenderer(canvas);
 const { scene, camera } = initScene();
 const handleResize = resize(renderer, camera);
 const sky = createSky(scene);
+const shadowSize = getShadowMapSize();
+sky.sun.setShadowMapSize(shadowSize, shadowSize);
 const input = createIntegratedInput(canvas);
 const touchOverlay = createTouchOverlay();
 if (touchOverlay) {
@@ -144,6 +149,23 @@ function createNoiseBuffer(duration) {
   return buffer;
 }
 
+const activeAudioNodes = new Map();
+
+function disconnectNodes(nodes) {
+  if (!nodes) return;
+  for (const node of nodes) {
+    try { node.disconnect(); } catch {}
+    try { if (node.stop) node.stop(); } catch {}
+  }
+}
+
+function onSourceEnded(key, nodes) {
+  return () => {
+    disconnectNodes(nodes);
+    activeAudioNodes.delete(key);
+  };
+}
+
 function playProceduralSound(params) {
   if (!audioCtx || !audioState.isInitialized) return;
   const vol = getEffectiveVolume(audioState, params.gain || 1);
@@ -151,6 +173,7 @@ function playProceduralSound(params) {
 
   const t = audioCtx.currentTime;
   const duration = params.duration;
+  const soundKey = `${params.type}_${t}`;
 
   switch (params.type) {
     case 'noise_burst': {
@@ -166,6 +189,9 @@ function playProceduralSound(params) {
       src.connect(bp).connect(g).connect(audioCtx.destination);
       src.start(t);
       src.stop(t + duration);
+      const nodes = [src, bp, g];
+      src.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      activeAudioNodes.set(soundKey, nodes);
       break;
     }
     case 'filtered_click': {
@@ -181,6 +207,9 @@ function playProceduralSound(params) {
       src.connect(hp).connect(g).connect(audioCtx.destination);
       src.start(t);
       src.stop(t + duration);
+      const nodes = [src, hp, g];
+      src.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      activeAudioNodes.set(soundKey, nodes);
       break;
     }
     case 'pulse': {
@@ -194,6 +223,9 @@ function playProceduralSound(params) {
       osc.connect(g).connect(audioCtx.destination);
       osc.start(t);
       osc.stop(t + duration);
+      const nodes = [osc, g];
+      osc.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      activeAudioNodes.set(soundKey, nodes);
       break;
     }
     case 'metallic_resonance': {
@@ -211,6 +243,7 @@ function playProceduralSound(params) {
       osc.connect(bp).connect(g).connect(audioCtx.destination);
       osc.start(t);
       osc.stop(t + duration);
+      const nodes = [osc, bp, g];
       if (params.noiseMix > 0) {
         const nSrc = audioCtx.createBufferSource();
         nSrc.buffer = createNoiseBuffer(duration);
@@ -220,7 +253,11 @@ function playProceduralSound(params) {
         nSrc.connect(nG).connect(audioCtx.destination);
         nSrc.start(t);
         nSrc.stop(t + duration);
+        nodes.push(nSrc, nG);
+        nSrc.addEventListener('ended', onSourceEnded(`${soundKey}_noise`, [nSrc, nG]), { once: true });
       }
+      osc.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      activeAudioNodes.set(soundKey, nodes);
       break;
     }
     case 'low_freq_boom': {
@@ -234,6 +271,9 @@ function playProceduralSound(params) {
       osc.connect(g).connect(audioCtx.destination);
       osc.start(t);
       osc.stop(t + duration);
+      const nodes = [osc, g];
+      osc.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      activeAudioNodes.set(soundKey, nodes);
       break;
     }
     case 'resonant_ding': {
@@ -246,6 +286,7 @@ function playProceduralSound(params) {
       osc.connect(g).connect(audioCtx.destination);
       osc.start(t);
       osc.stop(t + duration);
+      const nodes = [osc, g];
       if (params.reverbMix > 0) {
         const delay = audioCtx.createDelay();
         delay.delayTime.value = 0.05;
@@ -260,7 +301,12 @@ function playProceduralSound(params) {
         rOsc.connect(delay).connect(dG).connect(rG).connect(audioCtx.destination);
         rOsc.start(t);
         rOsc.stop(t + duration);
+        const reverbNodes = [rOsc, delay, dG, rG];
+        rOsc.addEventListener('ended', onSourceEnded(`${soundKey}_reverb`, reverbNodes), { once: true });
+        activeAudioNodes.set(`${soundKey}_reverb`, reverbNodes);
       }
+      osc.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      activeAudioNodes.set(soundKey, nodes);
       break;
     }
     case 'evolving_drone': {
@@ -278,6 +324,7 @@ function playProceduralSound(params) {
       osc.connect(lp).connect(g).connect(audioCtx.destination);
       osc.start(t);
       osc.stop(t + duration);
+      const nodes = [osc, lp, g];
       if (params.noiseAmount > 0) {
         const nSrc = audioCtx.createBufferSource();
         nSrc.buffer = createNoiseBuffer(duration);
@@ -288,7 +335,11 @@ function playProceduralSound(params) {
         nSrc.connect(nG).connect(audioCtx.destination);
         nSrc.start(t);
         nSrc.stop(t + duration);
+        nodes.push(nSrc, nG);
+        nSrc.addEventListener('ended', onSourceEnded(`${soundKey}_noise`, [nSrc, nG]), { once: true });
       }
+      osc.addEventListener('ended', onSourceEnded(soundKey, nodes), { once: true });
+      activeAudioNodes.set(soundKey, nodes);
       break;
     }
     case 'filtered_noise': {
@@ -455,13 +506,14 @@ const pathDefs = arenaConfigs.map(({ center }) =>
 const pathPoints = pathDefs.map(p => generatePathPoints(p));
 const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0x888877, flatShading: true });
 const stoneGeometry = new THREE.CylinderGeometry(2, 2.2, 0.6, 8);
+const allStonePositions = [];
 for (const points of pathPoints) {
   for (const p of points) {
-    const stone = new THREE.Mesh(stoneGeometry, stoneMaterial);
-    stone.position.set(p.x, Math.max(p.y, 0), p.z);
-    scene.impl.add(stone);
+    allStonePositions.push({ x: p.x, y: Math.max(p.y, 0), z: p.z });
   }
 }
+const stoneBatch = createInstancedMesh(stoneGeometry, stoneMaterial, allStonePositions);
+scene.impl.add(stoneBatch.impl);
 
 function getStoneHeight(x, z) {
   for (const points of pathPoints) {
@@ -487,8 +539,24 @@ const respawnPoints = [
 ];
 
 const colossi = arenaConfigs.map(({ type, center }) => {
-  const c = createColossus(type, { x: center.x, y: getGroundHeight(center.x, center.z), z: center.z });
+  const pos = { x: center.x, y: getGroundHeight(center.x, center.z), z: center.z };
+  const c = createColossus(type, pos);
   c.aiState.arenaCenter = { x: center.x, z: center.z };
+  const colBody = createColossusBody(c.definition);
+  const bounds = getBodyBounds(colBody);
+  const simplifiedMesh = createSimplifiedBoxMesh(
+    bounds.max.x - bounds.min.x,
+    bounds.max.y - bounds.min.y,
+    bounds.max.z - bounds.min.z,
+  );
+  simplifiedMesh.position.set(
+    (bounds.min.x + bounds.max.x) / 2,
+    (bounds.min.y + bounds.max.y) / 2,
+    (bounds.min.z + bounds.max.z) / 2,
+  );
+  c.mesh.impl.position.set(0, 0, 0);
+  c.mesh = wrapInLOD(c.mesh, simplifiedMesh, LOD_THRESHOLDS[0], LOD_THRESHOLDS[1]);
+  c.mesh.impl.position.set(pos.x, pos.y, pos.z);
   scene.add(c.mesh);
   return c;
 });
@@ -553,7 +621,7 @@ function updateDirectionIndicators(playerPos) {
   }
 }
 
-const PARTICLE_COUNT = 200;
+const PARTICLE_COUNT = getParticleCount();
 const particleSystem = createParticleSystem(PARTICLE_COUNT, DEFAULT_BOUNDS);
 const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
 const particleGeometry = new THREE.BufferGeometry();
@@ -727,6 +795,9 @@ document.addEventListener('keydown', (e) => {
     } else if (gameState.getState() === 'paused') {
       gameState.transition('playing');
     }
+  }
+  if (endingState && shouldShowSkipHint(endingState)) {
+    endingState = skipEnding(endingState);
   }
 });
 
@@ -1195,7 +1266,19 @@ function animate(now) {
     camera.impl.position.y += shake.y;
     camera.impl.position.z += shake.z;
 
+    for (const c of colossi) {
+      c.mesh.impl.update(camera.impl);
+    }
+
+    const prevActiveIds = new Set(audioState.activeSounds.keys());
     audioState = cleanupSounds(audioState, now * 0.001);
+    const newActiveIds = new Set(audioState.activeSounds.keys());
+    for (const id of prevActiveIds) {
+      if (!newActiveIds.has(id) && activeAudioNodes.has(id)) {
+        disconnectNodes(activeAudioNodes.get(id));
+        activeAudioNodes.delete(id);
+      }
+    }
   }
 
   const currentState = gameState.getState();
@@ -1279,7 +1362,8 @@ function animate(now) {
   } else if (gameState.getState() === 'paused') {
     hud.draw({ stamina: 1, hints: [] });
   } else {
-    hud.draw({ stamina: 1, hints: [] });
+    const showSkip = endingState && shouldShowSkipHint(endingState);
+    hud.draw({ stamina: 1, hints: [], skipHint: showSkip });
   }
 
   sky.update(now * 0.001);

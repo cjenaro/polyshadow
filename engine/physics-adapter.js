@@ -11,6 +11,8 @@ export function createMockAdapter() {
         gravity: opts.gravity || { x: 0, y: -9.81, z: 0 },
         bodies: new Set(),
         collisionListeners: [],
+        friction: opts.friction !== undefined ? opts.friction : 0.6,
+        restitution: opts.restitution !== undefined ? opts.restitution : 0.1,
       };
       const handle = { impl: Symbol('world') };
       worlds.set(handle, internal);
@@ -36,6 +38,8 @@ export function createMockAdapter() {
         _rotation: opts.rotation || { x: 0, y: 0, z: 0, w: 1 },
         _angularVelocity: { x: 0, y: 0, z: 0 },
         userData: opts.userData || {},
+        friction: opts.friction !== undefined ? opts.friction : null,
+        restitution: opts.restitution !== undefined ? opts.restitution : null,
       };
       return body;
     },
@@ -97,9 +101,29 @@ export function createMockAdapter() {
           const penetration = detectAABBOverlap(dyn, stat);
           if (penetration) {
             resolvePenetration(dyn, stat, penetration);
-            if (penetration.normal.y > 0.5) {
-              if (dyn._velocity.y < 0) dyn._velocity.y = 0;
+
+            const n = penetration.normal;
+            const velDotN = dyn._velocity.x * n.x + dyn._velocity.y * n.y + dyn._velocity.z * n.z;
+
+            const friction = dyn.friction !== null && dyn.friction !== undefined ? dyn.friction : internal.friction;
+            const restitution = dyn.restitution !== null && dyn.restitution !== undefined ? dyn.restitution : internal.restitution;
+
+            if (velDotN < 0) {
+              const bounce = -(1 + restitution) * velDotN;
+              dyn._velocity.x += bounce * n.x;
+              dyn._velocity.y += bounce * n.y;
+              dyn._velocity.z += bounce * n.z;
             }
+
+            const newVelDotN = dyn._velocity.x * n.x + dyn._velocity.y * n.y + dyn._velocity.z * n.z;
+            const tanVelX = dyn._velocity.x - newVelDotN * n.x;
+            const tanVelY = dyn._velocity.y - newVelDotN * n.y;
+            const tanVelZ = dyn._velocity.z - newVelDotN * n.z;
+            const frictionFactor = Math.max(0, 1 - friction * clampedDt * 10);
+
+            dyn._velocity.x = newVelDotN * n.x + tanVelX * frictionFactor;
+            dyn._velocity.y = newVelDotN * n.y + tanVelY * frictionFactor;
+            dyn._velocity.z = newVelDotN * n.z + tanVelZ * frictionFactor;
 
             for (const listener of collisionListeners) {
               if (listener.bodyA === dyn && listener.bodyB === stat) {
@@ -216,6 +240,8 @@ export function createMockAdapter() {
         _rotation: { x: 0, y: 0, z: 0, w: 1 },
         _angularVelocity: { x: 0, y: 0, z: 0 },
         userData: opts.userData || {},
+        friction: opts.friction !== undefined ? opts.friction : null,
+        restitution: opts.restitution !== undefined ? opts.restitution : null,
       };
       const internal = getInternal(world);
       if (internal) internal.bodies.add(body);
