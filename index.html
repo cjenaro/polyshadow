@@ -269,7 +269,8 @@
   {
     "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+      "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
     }
   }
   </script>
@@ -320,5 +321,15 @@
   <div id="transition-overlay"></div>
   <div id="arena-name"></div>
   <script type="module" src="game/main.js"></script>
+  <script>
+    window.addEventListener('error', () => {
+      const el = document.getElementById('loading-screen');
+      if (el) el.remove();
+    });
+    setTimeout(() => {
+      const el = document.getElementById('loading-screen');
+      if (el) el.remove();
+    }, 15000);
+  </script>
 </body>
 </html>

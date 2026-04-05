@@ -1,4 +1,4 @@
-import * as CANNON from 'https://esm.sh/cannon-es@0.20.0';
+import * as CANNON from 'cannon-es';
 
 export function createCannonAdapter() {
   const worlds = new Map();
