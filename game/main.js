@@ -1,4 +1,5 @@
-import { createRenderer, initScene, resize, createIslandMesh, createSimplifiedBoxMesh, wrapInLOD, createInstancedMesh } from '../engine/renderer.js';
+import { createRenderer, initScene, resize, createIslandMesh, createSimplifiedBoxMesh, wrapInLOD, createInstancedMesh, createNormalMapTexture } from '../engine/renderer.js';
+import { noise2D } from '../utils/noise.js';
 import { createCharacterMesh } from '../player/character-mesh.js';
 import { createSky } from '../world/sky.js';
 import { createIntegratedInput, updateIntegratedInput, getActiveInputType, destroyIntegratedInput } from '../engine/input-integration.js';
@@ -47,6 +48,7 @@ import {
 } from './arena-transition.js';
 import { createParticleSystem, updateParticleSystem, DEFAULT_BOUNDS } from '../world/particles.js';
 import { createFogSystem, updateFogSystem, DEFAULT_LAYERS } from '../world/fog.js';
+import { createGodRaySystem } from '../world/god-rays.js';
 import {
   createWindCurrent,
   createWindCurrentSystem,
@@ -71,6 +73,10 @@ const renderer = createRenderer(canvas);
 const { scene, camera } = initScene();
 const handleResize = resize(renderer, camera);
 const sky = createSky(scene);
+const godRays = createGodRaySystem({ x: 50, y: 20, z: 30 });
+for (const ray of godRays.rays) {
+  scene.impl.add(ray);
+}
 const shadowSize = getShadowMapSize();
 sky.sun.setShadowMapSize(shadowSize, shadowSize);
 const input = createIntegratedInput(canvas);
@@ -504,7 +510,15 @@ const pathDefs = arenaConfigs.map(({ center }) =>
   createSteppingStonesPath({ x: 0, y: 0, z: 0 }, { x: center.x, y: 0, z: center.z }, 5, { stoneRadius: 2 })
 );
 const pathPoints = pathDefs.map(p => generatePathPoints(p));
-const stoneMaterial = new THREE.MeshStandardMaterial({ color: 0x888877, flatShading: true });
+const stoneNormalMap = createNormalMapTexture({ size: 128, scale: 0.12, seed: 88, strength: 1.8 });
+const stoneMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  flatShading: true,
+  roughness: 0.92,
+  metalness: 0.0,
+  normalMap: stoneNormalMap,
+  normalScale: new THREE.Vector2(0.5, 0.5),
+});
 const stoneGeometry = new THREE.CylinderGeometry(2, 2.2, 0.6, 8);
 const allStonePositions = [];
 for (const points of pathPoints) {
@@ -513,6 +527,25 @@ for (const points of pathPoints) {
   }
 }
 const stoneBatch = createInstancedMesh(stoneGeometry, stoneMaterial, allStonePositions);
+const stoneColor = new THREE.Color();
+for (let i = 0; i < allStonePositions.length; i++) {
+  const p = allStonePositions[i];
+  const moss = noise2D(p.x * 0.05, p.z * 0.05);
+  const mossFactor = Math.max(0, moss) * 0.6;
+  const baseR = 0.53 + Math.random() * 0.06;
+  const baseG = 0.52 + Math.random() * 0.06;
+  const baseB = 0.47 + Math.random() * 0.04;
+  const mossR = 0.22 + Math.random() * 0.1;
+  const mossG = 0.32 + Math.random() * 0.12;
+  const mossB = 0.15 + Math.random() * 0.06;
+  stoneColor.setRGB(
+    baseR * (1 - mossFactor) + mossR * mossFactor,
+    baseG * (1 - mossFactor) + mossG * mossFactor,
+    baseB * (1 - mossFactor) + mossB * mossFactor,
+  );
+  stoneBatch.impl.setColorAt(i, stoneColor);
+}
+stoneBatch.impl.instanceColor.needsUpdate = true;
 scene.impl.add(stoneBatch.impl);
 
 function getStoneHeight(x, z) {
@@ -624,16 +657,40 @@ function updateDirectionIndicators(playerPos) {
 const PARTICLE_COUNT = getParticleCount();
 const particleSystem = createParticleSystem(PARTICLE_COUNT, DEFAULT_BOUNDS);
 const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+const particleColors = new Float32Array(PARTICLE_COUNT * 3);
 const particleGeometry = new THREE.BufferGeometry();
 particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+particleGeometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+function createGlowTexture() {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const half = size / 2;
+  const gradient = ctx.createRadialGradient(half, half, 0, half, half, half);
+  gradient.addColorStop(0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(0.15, 'rgba(255,255,255,0.8)');
+  gradient.addColorStop(0.4, 'rgba(255,200,100,0.3)');
+  gradient.addColorStop(1, 'rgba(255,100,0,0)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
 const particleMaterial = new THREE.PointsMaterial({
-  size: 0.15,
-  color: 0xff6622,
+  size: 0.4,
+  map: createGlowTexture(),
   transparent: true,
-  opacity: 0.6,
+  opacity: 0.85,
   blending: THREE.AdditiveBlending,
   depthWrite: false,
+  vertexColors: true,
+  sizeAttenuation: true,
 });
+particleMaterial.map.needsUpdate = true;
 const particlePoints = new THREE.Points(particleGeometry, particleMaterial);
 scene.impl.add(particlePoints);
 
@@ -1224,11 +1281,14 @@ function animate(now) {
     const wind = { x: 0, z: 0, strength: 1 };
     particleSystem.particles = updateParticleSystem(particleSystem, wind, dt).particles;
     const posAttr = particleGeometry.attributes.position;
+    const colAttr = particleGeometry.attributes.color;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const p = particleSystem.particles[i];
       posAttr.setXYZ(i, p.x, p.y, p.z);
+      colAttr.setXYZ(i, p.color[0], p.color[1], p.color[2]);
     }
     posAttr.needsUpdate = true;
+    colAttr.needsUpdate = true;
 
     updateDirectionIndicators(pos);
     updateAmbientWind(0.3 + Math.sin(now * 0.0003) * 0.15);
@@ -1326,6 +1386,7 @@ function animate(now) {
 
   music.update(dt);
   Object.assign(fogSystem, updateFogSystem(fogSystem, dt));
+  godRays.update(dt);
   for (let i = 0; i < fogPlanes.length; i++) {
     fogPlanes[i].material.opacity = fogSystem.layers[i].currentDensity * 0.15;
   }

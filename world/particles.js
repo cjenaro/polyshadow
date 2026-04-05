@@ -20,8 +20,18 @@ export const DEFAULT_BOUNDS = {
   zMin: -30, zMax: 30,
 };
 
+const EMBER_COLORS = [
+  [1.0, 0.4, 0.1],
+  [1.0, 0.55, 0.15],
+  [1.0, 0.3, 0.05],
+  [1.0, 0.65, 0.2],
+  [0.9, 0.25, 0.05],
+  [1.0, 0.75, 0.3],
+];
+
 export function createParticle(bounds = DEFAULT_BOUNDS) {
   const lifetime = randomRange(PARTICLE_DEFAULTS.minLifetime, PARTICLE_DEFAULTS.maxLifetime);
+  const color = EMBER_COLORS[Math.floor(Math.random() * EMBER_COLORS.length)];
   return {
     x: randomRange(bounds.xMin, bounds.xMax),
     y: randomRange(bounds.yMin, bounds.yMax),
@@ -32,6 +42,7 @@ export function createParticle(bounds = DEFAULT_BOUNDS) {
     lifetime,
     maxLifetime: lifetime,
     size: randomRange(PARTICLE_DEFAULTS.minSize, PARTICLE_DEFAULTS.maxSize),
+    color,
   };
 }
 
@@ -81,6 +92,7 @@ export function updateParticleSystem(system, wind, dt) {
       lifetime: current.lifetime - dt,
       maxLifetime: current.maxLifetime,
       size: current.size,
+      color: current.color,
     };
   });
 
