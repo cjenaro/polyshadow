@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "game-3d-assets": {
+      "source": "opusgamelabs/game-creator",
+      "sourceType": "github",
+      "computedHash": "8f41076a32d4d52bed7ec2a23d267e97c763fbbd9fbef2f06973c29ed3a50a33"
+    },
+    "game-engine": {
+      "source": "github/awesome-copilot",
+      "sourceType": "github",
+      "computedHash": "20057f62cf7a8b2d9f940b3de0b18e5426e8f4bb50e236d36b1033aa0d42c4d8"
+    },
+    "threejs-game": {
+      "source": "opusgamelabs/game-creator",
+      "sourceType": "github",
+      "computedHash": "3b541b7f11038235ef0ebe36d318faedc4d264dc94bd31d2ba99cfd80dcf8bd8"
+    }
+  }
+}
