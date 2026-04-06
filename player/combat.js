@@ -1,5 +1,6 @@
 import { distance3D, clamp } from "../utils/math.js";
 import { drainStamina } from "./stamina.js";
+import { RUNTIME_CONFIG } from "../game/config.js";
 
 export const COMBAT_CONFIG = {
   SLASH_RANGE: 5,
@@ -13,6 +14,16 @@ export const COMBAT_CONFIG = {
   SHAKE_OFF_DURATION: 2.0,
   WEAK_POINT_HIT_RADIUS: 3,
 };
+
+export function syncCombatConfig() {
+  const cfg = RUNTIME_CONFIG.combat;
+  COMBAT_CONFIG.SLASH_RANGE = cfg.slashRange;
+  COMBAT_CONFIG.SLASH_DAMAGE = cfg.slashDamage;
+  COMBAT_CONFIG.SLASH_COOLDOWN = cfg.slashCooldown;
+  COMBAT_CONFIG.STAB_CHARGE_TIME = cfg.stabChargeTime;
+  COMBAT_CONFIG.STAB_DAMAGE = cfg.stabDamage;
+  COMBAT_CONFIG.STAB_RANGE = cfg.stabRange;
+}
 
 export function createCombatState(overrides = {}) {
   return {

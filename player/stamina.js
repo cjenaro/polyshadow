@@ -1,3 +1,5 @@
+import { RUNTIME_CONFIG } from "../game/config.js";
+
 export const STAMINA_CONSTANTS = {
   MAX: 100,
   SPRINT_DRAIN_RATE: 15,
@@ -8,6 +10,13 @@ export const STAMINA_CONSTANTS = {
   LOW_THRESHOLD: 25,
   DEPLETED_COOLDOWN: 1.5,
 };
+
+export function syncStaminaConfig() {
+  const cfg = RUNTIME_CONFIG.stamina;
+  STAMINA_CONSTANTS.MAX = cfg.maxStamina;
+  STAMINA_CONSTANTS.SPRINT_DRAIN_RATE = cfg.drainRate;
+  STAMINA_CONSTANTS.REGEN_RATE = cfg.regenRate;
+}
 
 export function createStaminaState(overrides = {}) {
   return {

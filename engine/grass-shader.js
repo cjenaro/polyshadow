@@ -39,8 +39,6 @@ export function createGrassShaderMaterial(island) {
     varying float vHeight;
     varying vec3 vWorldPos;
     
-    attribute vec3 color;
-    
     void main() {
       vUv = uv;
       vColor = color;

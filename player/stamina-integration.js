@@ -5,6 +5,7 @@ import {
   isStaminaDepleted,
   isStaminaLow,
   STAMINA_CONSTANTS,
+  syncStaminaConfig,
 } from "./stamina.js";
 
 export function createIntegratedStamina(overrides = {}) {

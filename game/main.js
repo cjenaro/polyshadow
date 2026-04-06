@@ -54,11 +54,13 @@ import {
   createIntegratedStamina,
   updateIntegratedStamina,
   getStaminaForUI,
+  syncStaminaConfig,
 } from "../player/stamina-integration.js";
 import {
   createIntegratedCombat,
   updateIntegratedCombat,
   handleShakeOff,
+  syncCombatConfig,
 } from "../player/combat-integration.js";
 import {
   createDodgeState,
@@ -176,6 +178,16 @@ let preFallCameraDistance = null;
 let wasFalling = false;
 
 const player = new PlayerCharacter();
+
+function applyRuntimeConfig() {
+  const cfg = RUNTIME_CONFIG.player;
+  player.WALK_SPEED = cfg.moveSpeed;
+  player.RUN_SPEED = cfg.moveSpeed * cfg.sprintMultiplier;
+  player.JUMP_FORCE = cfg.jumpForce;
+  syncCombatConfig();
+  syncStaminaConfig();
+}
+
 const playerMesh = createCharacterMesh();
 scene.add(playerMesh);
 
@@ -214,26 +226,26 @@ createDebugOverlay();
 
 const gui = new dat.GUI({ width: 280 });
 const playerFolder = gui.addFolder("Player");
-playerFolder.add(RUNTIME_CONFIG.player, "moveSpeed", 1, 20).name("Move Speed");
-playerFolder.add(RUNTIME_CONFIG.player, "sprintMultiplier", 1, 3).name("Sprint Multiplier");
-playerFolder.add(RUNTIME_CONFIG.player, "jumpForce", 5, 25).name("Jump Force");
-playerFolder.add(RUNTIME_CONFIG.player, "climbSpeed", 1, 10).name("Climb Speed");
+playerFolder.add(RUNTIME_CONFIG.player, "moveSpeed", 1, 20).name("Move Speed").onChange(applyRuntimeConfig);
+playerFolder.add(RUNTIME_CONFIG.player, "sprintMultiplier", 1, 3).name("Sprint Multiplier").onChange(applyRuntimeConfig);
+playerFolder.add(RUNTIME_CONFIG.player, "jumpForce", 5, 25).name("Jump Force").onChange(applyRuntimeConfig);
+playerFolder.add(RUNTIME_CONFIG.player, "climbSpeed", 1, 10).name("Climb Speed").onChange(applyRuntimeConfig);
 playerFolder.open();
 const cameraFolder = gui.addFolder("Camera");
-cameraFolder.add(RUNTIME_CONFIG.camera, "distance", 5, 50).name("Distance");
-cameraFolder.add(RUNTIME_CONFIG.camera, "lerpSpeed", 1, 20).name("Lerp Speed");
+cameraFolder.add(RUNTIME_CONFIG.camera, "distance", 5, 50).name("Distance").onChange((v) => orbit.setDistance(v));
+cameraFolder.add(RUNTIME_CONFIG.camera, "lerpSpeed", 1, 20).name("Lerp Speed").onChange((v) => orbit.lerpSpeed = v);
 cameraFolder.open();
 const combatFolder = gui.addFolder("Combat");
-combatFolder.add(RUNTIME_CONFIG.combat, "slashRange", 1, 15).name("Slash Range");
-combatFolder.add(RUNTIME_CONFIG.combat, "slashDamage", 1, 50).name("Slash Damage");
-combatFolder.add(RUNTIME_CONFIG.combat, "slashCooldown", 0.1, 3).name("Slash Cooldown");
-combatFolder.add(RUNTIME_CONFIG.combat, "stabChargeTime", 0.5, 3).name("Stab Charge");
-combatFolder.add(RUNTIME_CONFIG.combat, "stabDamage", 10, 100).name("Stab Damage");
+combatFolder.add(RUNTIME_CONFIG.combat, "slashRange", 1, 15).name("Slash Range").onChange(syncCombatConfig);
+combatFolder.add(RUNTIME_CONFIG.combat, "slashDamage", 1, 50).name("Slash Damage").onChange(syncCombatConfig);
+combatFolder.add(RUNTIME_CONFIG.combat, "slashCooldown", 0.1, 3).name("Slash Cooldown").onChange(syncCombatConfig);
+combatFolder.add(RUNTIME_CONFIG.combat, "stabChargeTime", 0.5, 3).name("Stab Charge").onChange(syncCombatConfig);
+combatFolder.add(RUNTIME_CONFIG.combat, "stabDamage", 10, 100).name("Stab Damage").onChange(syncCombatConfig);
 combatFolder.open();
 const staminaFolder = gui.addFolder("Stamina");
-staminaFolder.add(RUNTIME_CONFIG.stamina, "maxStamina", 50, 200).name("Max Stamina");
-staminaFolder.add(RUNTIME_CONFIG.stamina, "drainRate", 5, 50).name("Drain Rate");
-staminaFolder.add(RUNTIME_CONFIG.stamina, "regenRate", 5, 50).name("Regen Rate");
+staminaFolder.add(RUNTIME_CONFIG.stamina, "maxStamina", 50, 200).name("Max Stamina").onChange(syncStaminaConfig);
+staminaFolder.add(RUNTIME_CONFIG.stamina, "drainRate", 5, 50).name("Drain Rate").onChange(syncStaminaConfig);
+staminaFolder.add(RUNTIME_CONFIG.stamina, "regenRate", 5, 50).name("Regen Rate").onChange(syncStaminaConfig);
 staminaFolder.open();
 const debugFolder = gui.addFolder("Debug");
 debugFolder.add(RUNTIME_CONFIG.debug, "showFPS").name("Show FPS");
