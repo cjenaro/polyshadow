@@ -7,11 +7,14 @@ import {
   tryStab,
   cancelStabCharge,
   applyShakeOff,
+  syncCombatConfig,
 } from "./combat.js";
 
 export function createIntegratedCombat(overrides = {}) {
   return createCombatState(overrides);
 }
+
+export { syncCombatConfig };
 
 export function updateIntegratedCombat(
   combatState,
