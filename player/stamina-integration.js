@@ -33,3 +33,5 @@ export function getStaminaForUI(staminaState) {
 export function applyCombatDrain(staminaState, amount) {
   return drainStamina(staminaState, amount);
 }
+
+export { syncStaminaConfig };
